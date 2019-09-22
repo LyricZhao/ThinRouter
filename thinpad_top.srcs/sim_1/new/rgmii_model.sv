@@ -78,14 +78,14 @@ module rgmii_model (
     genvar i;
     for (i = 0;i < 4;i++) begin
         ODDR #(
-            .DDR_CLK_EDGE("SAME_EDGE")
+            .DDR_CLK_EDGE("SAME_EDGE") // OPPOSITE_EDGE or SAME_EDGE
         ) oddr_inst (
-            .D1(data1[i]),
-            .D2(data2[i]),
-            .C(clk_125M),
-            .CE(1'b1),
-            .Q(rgmii_rd[i]),
-            .R(1'b0)
+            .D1(data1[i]),      // 1-bit data input (posedge)
+            .D2(data2[i]),      // 1-bit data input (negedge)
+            .C(clk_125M),       // 1-bit clock
+            .CE(1'b1),          // 1-bit clock enable
+            .Q(rgmii_rd[i]),    // 1-bit ddr output
+            .R(1'b0)            // 1-bit reset
         );
     end
 
@@ -96,9 +96,9 @@ module rgmii_model (
         .D2(trans),
         .C(clk_125M),
         .CE(1'b1),
-        .Q(rgmii_rx_ctl),
+        .Q(rgmii_rx_ctl), // ctl = dv ^ er
         .R(1'b0)
     );
 
-    assign rgmii_rxc = clk_125M_90deg;
+    assign rgmii_rxc = clk_125M_90deg; // clock
 endmodule
