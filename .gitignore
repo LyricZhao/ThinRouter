@@ -1,0 +1,10 @@
+*.runs/
+*.cache/
+*.ip_user_files/
+*.hw/
+*.sdk/.*/
+!*.sdk/*/src
+*.sdk/*_bsp/
+.Xil/
+*.sim/
+refs
