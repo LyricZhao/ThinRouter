@@ -244,37 +244,42 @@ wire eth_rx_mac_aclk;
 wire eth_tx_mac_aclk;
 
 eth_mac eth_mac_inst (
-    .gtx_clk(clk_125M),
-    .refclk(clk_200M),
+    .gtx_clk(clk_125M),                             // Global 125MHz, 312.5 MHz for 2.5 Gb/s
+    .refclk(clk_200M),                              // Required for idelayctrl
 
-    .glbl_rstn(eth_rst_n),
-    .rx_axi_rstn(eth_rst_n),
-    .tx_axi_rstn(eth_rst_n),
+    .glbl_rstn(eth_rst_n),                          // Active-Low asynchronous reset for entire core
+    .rx_axi_rstn(eth_rst_n),                        // Active-Low RX domain reset
+    .tx_axi_rstn(eth_rst_n),                        // Active-Low TX domain reset
 
-    .rx_mac_aclk(eth_rx_mac_aclk),
-    .rx_axis_mac_tdata(eth_rx_axis_mac_tdata),
-    .rx_axis_mac_tvalid(eth_rx_axis_mac_tvalid),
-    .rx_axis_mac_tlast(eth_rx_axis_mac_tlast),
-    .rx_axis_mac_tuser(eth_rx_axis_mac_tuser),
+    // eth_mac core to user
+    .rx_mac_aclk(eth_rx_mac_aclk),                  // RX clock domain
+    .rx_axis_mac_tdata(eth_rx_axis_mac_tdata),      // Frame data received
+    .rx_axis_mac_tvalid(eth_rx_axis_mac_tvalid),    // Data is valid
+    .rx_axis_mac_tlast(eth_rx_axis_mac_tlast),      // The final byte in the frame
+    .rx_axis_mac_tuser(eth_rx_axis_mac_tuser),      // The frame had an error
+    
+    // user to eth_mac core
+    .tx_ifg_delay(8'b0),                            // Control signal for configurable interframe gap
+    .tx_mac_aclk(eth_tx_mac_aclk),                  // TX clock domain
+    .tx_axis_mac_tdata(eth_tx_axis_mac_tdata),      // Frame data to be transmitted
+    .tx_axis_mac_tvalid(eth_tx_axis_mac_tvalid),    // Data is valid
+    .tx_axis_mac_tlast(eth_tx_axis_mac_tlast),      // The final transfer in a frame
+    .tx_axis_mac_tuser(eth_tx_axis_mac_tuser),      // Error condition
+    .tx_axis_mac_tready(eth_tx_axis_mac_tready),    // Handshaking, asserted tdata is accepted and valid
 
-    .tx_ifg_delay(8'b0),
-    .tx_mac_aclk(eth_tx_mac_aclk),
-    .tx_axis_mac_tdata(eth_tx_axis_mac_tdata),
-    .tx_axis_mac_tvalid(eth_tx_axis_mac_tvalid),
-    .tx_axis_mac_tlast(eth_tx_axis_mac_tlast),
-    .tx_axis_mac_tuser(eth_tx_axis_mac_tuser),
-    .tx_axis_mac_tready(eth_tx_axis_mac_tready),
+    // TODO: Flow control
+    .pause_req(1'b0),                               // Pause request
+    .pause_val(16'b0),                              // Pause value
 
-    .pause_req(1'b0),
-    .pause_val(16'b0),
+    // RGMII
+    .rgmii_txd(eth_rgmii_td),                       // Transmit data to PHY
+    .rgmii_tx_ctl(eth_rgmii_tx_ctl),                // Control signal to PHY
+    .rgmii_txc(eth_rgmii_txc),                      // Clock to PHY
+    .rgmii_rxd(eth_rgmii_rd),                       // Received data from PHY
+    .rgmii_rx_ctl(eth_rgmii_rx_ctl),                // Control signal from PHY
+    .rgmii_rxc(eth_rgmii_rxc),                      // Clock from PHY
 
-    .rgmii_txd(eth_rgmii_td),
-    .rgmii_tx_ctl(eth_rgmii_tx_ctl),
-    .rgmii_txc(eth_rgmii_txc),
-    .rgmii_rxd(eth_rgmii_rd),
-    .rgmii_rx_ctl(eth_rgmii_rx_ctl),
-    .rgmii_rxc(eth_rgmii_rxc),
-
+    // Alternative to Optional Management Interface - Configuration vector
     // receive 1Gb/s | promiscuous | flow control | fcs | vlan | enable
     .rx_configuration_vector(80'b10100000101110),
     // transmit 1Gb/s | vlan | enable
