@@ -231,21 +231,17 @@ vga #(12, 800, 856, 976, 1040, 600, 637, 643, 666, 1, 1) vga800x600at75 (
 
 // eth_mac ip core
 
-wire fifo_clock = clk_125M;
+wire gtx_resetn;
 
 wire [7:0] f_tx_axis_fifo_tdata;
 wire f_tx_axis_fifo_tvalid, f_tx_axis_fifo_tlast, f_tx_axis_fifo_tready;
-
 wire [7:0] f_rx_axis_fifo_tdata;
 wire f_rx_axis_fifo_tvalid, f_rx_axis_fifo_tlast, f_rx_axis_fifo_tready;
 
-reg gtx_pre_resetn = 0, gtx_resetn = 0;
-
-always @(posedge clk_125M)
-begin
-    gtx_pre_resetn  <= 1;
-    gtx_resetn      <= gtx_pre_resetn;
-end
+gtx_reset gtx_reset_inst(
+    .clk(clk_125M),
+    .gtx_resetn(gtx_resetn)
+);
 
 eth_mac_fifo_block trimac_fifo_block (
     .gtx_clk                      (clk_125M),
@@ -266,7 +262,7 @@ eth_mac_fifo_block trimac_fifo_block (
 
     // Receiver (AXI-S) Interface
     //----------------------------------------
-    .rx_fifo_clock                (fifo_clock),
+    .rx_fifo_clock                (clk_125M),
     .rx_fifo_resetn               (gtx_resetn),
     .rx_axis_fifo_tdata           (f_rx_axis_fifo_tdata),
     .rx_axis_fifo_tvalid          (f_rx_axis_fifo_tvalid),
@@ -283,7 +279,7 @@ eth_mac_fifo_block trimac_fifo_block (
 
     // Transmitter (AXI-S) Interface
     //-------------------------------------------
-    .tx_fifo_clock                (fifo_clock),
+    .tx_fifo_clock                (clk_125M),
     .tx_fifo_resetn               (gtx_resetn),
     .tx_axis_fifo_tdata           (f_tx_axis_fifo_tdata),
     .tx_axis_fifo_tvalid          (f_tx_axis_fifo_tvalid),
@@ -319,7 +315,7 @@ eth_mac_fifo_block trimac_fifo_block (
 );
 
 eth_mac_address_swap eth_mac_addr_inst(
-    .axi_tclk(fifo_clock),
+    .axi_tclk(clk_125M),
     .axi_tresetn(gtx_resetn),
     
     // address swap control

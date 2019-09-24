@@ -31,7 +31,7 @@
     <Option Name="EnableBDX" Val="FALSE"/>
     <Option Name="DSAVendor" Val="xilinx"/>
     <Option Name="DSANumComputeUnits" Val="16"/>
-    <Option Name="WTXSimLaunchSim" Val="229"/>
+    <Option Name="WTXSimLaunchSim" Val="231"/>
     <Option Name="WTModelSimLaunchSim" Val="0"/>
     <Option Name="WTQuestaLaunchSim" Val="0"/>
     <Option Name="WTIesLaunchSim" Val="0"/>
@@ -122,15 +122,6 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/imports/eth_mac_sync_block.v">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_sync_block.v"/>
-          <Attr Name="ImportTime" Val="1569245972"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
       <File Path="$PSRCDIR/sources_1/imports/imports/eth_mac_ten_100_1g_eth_fifo.v">
         <FileInfo>
           <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_ten_100_1g_eth_fifo.v"/>
@@ -144,6 +135,13 @@
         <FileInfo>
           <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_tx_client_fifo.v"/>
           <Attr Name="ImportTime" Val="1569245972"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/new/gtx_reset.v">
+        <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
