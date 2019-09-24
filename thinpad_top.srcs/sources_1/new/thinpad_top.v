@@ -229,63 +229,9 @@ vga #(12, 800, 856, 976, 1040, 600, 637, 643, 666, 1, 1) vga800x600at75 (
     .data_enable(video_de)
 );
 
-// 以太网 MAC 配置演示
-wire [7:0] eth_rx_axis_mac_tdata;
-wire eth_rx_axis_mac_tvalid;
-wire eth_rx_axis_mac_tlast;
-wire eth_rx_axis_mac_tuser;
-wire [7:0] eth_tx_axis_mac_tdata = 0;
-wire eth_tx_axis_mac_tvalid = 0;
-wire eth_tx_axis_mac_tlast = 0;
-wire eth_tx_axis_mac_tuser = 0;
-wire eth_tx_axis_mac_tready;
+// eth_mac ip core
 
-wire eth_rx_mac_aclk;
-wire eth_tx_mac_aclk;
-
-eth_mac eth_mac_inst (
-    .gtx_clk(clk_125M),                             // Global 125MHz, 312.5 MHz for 2.5 Gb/s
-    .refclk(clk_200M),                              // Required for idelayctrl
-
-    .glbl_rstn(eth_rst_n),                          // Active-Low asynchronous reset for entire core
-    .rx_axi_rstn(eth_rst_n),                        // Active-Low RX domain reset
-    .tx_axi_rstn(eth_rst_n),                        // Active-Low TX domain reset
-
-    // eth_mac core to user
-    .rx_mac_aclk(eth_rx_mac_aclk),                  // RX clock domain
-    .rx_axis_mac_tdata(eth_rx_axis_mac_tdata),      // Frame data received
-    .rx_axis_mac_tvalid(eth_rx_axis_mac_tvalid),    // Data is valid
-    .rx_axis_mac_tlast(eth_rx_axis_mac_tlast),      // The final byte in the frame
-    .rx_axis_mac_tuser(eth_rx_axis_mac_tuser),      // The frame had an error
-    
-    // user to eth_mac core
-    .tx_ifg_delay(8'b0),                            // Control signal for configurable interframe gap
-    .tx_mac_aclk(eth_tx_mac_aclk),                  // TX clock domain
-    .tx_axis_mac_tdata(eth_tx_axis_mac_tdata),      // Frame data to be transmitted
-    .tx_axis_mac_tvalid(eth_tx_axis_mac_tvalid),    // Data is valid
-    .tx_axis_mac_tlast(eth_tx_axis_mac_tlast),      // The final transfer in a frame
-    .tx_axis_mac_tuser(eth_tx_axis_mac_tuser),      // Error condition
-    .tx_axis_mac_tready(eth_tx_axis_mac_tready),    // Handshaking, asserted tdata is accepted and valid
-
-    // TODO: Flow control
-    .pause_req(1'b0),                               // Pause request
-    .pause_val(16'b0),                              // Pause value
-
-    // RGMII
-    .rgmii_txd(eth_rgmii_td),                       // Transmit data to PHY
-    .rgmii_tx_ctl(eth_rgmii_tx_ctl),                // Control signal to PHY
-    .rgmii_txc(eth_rgmii_txc),                      // Clock to PHY
-    .rgmii_rxd(eth_rgmii_rd),                       // Received data from PHY
-    .rgmii_rx_ctl(eth_rgmii_rx_ctl),                // Control signal from PHY
-    .rgmii_rxc(eth_rgmii_rxc),                      // Clock from PHY
-
-    // Alternative to Optional Management Interface - Configuration vector
-    // receive 1Gb/s | promiscuous | flow control | fcs | vlan | enable
-    .rx_configuration_vector(80'b10100000101110),
-    // transmit 1Gb/s | vlan | enable
-    .tx_configuration_vector(80'b10000000000110)
-);
-/* =========== Demo code end =========== */
+wire fifo_clock = clk_125M;
 
 wire [7:0] f_tx_axis_fifo_tdata;
 wire f_tx_axis_fifo_tvalid, f_tx_axis_fifo_tlast, f_tx_axis_fifo_tready;
@@ -293,51 +239,122 @@ wire f_tx_axis_fifo_tvalid, f_tx_axis_fifo_tlast, f_tx_axis_fifo_tready;
 wire [7:0] f_rx_axis_fifo_tdata;
 wire f_rx_axis_fifo_tvalid, f_rx_axis_fifo_tlast, f_rx_axis_fifo_tready;
 
-eth_mac_ten_100_1g_eth_fifo #
-   (
-      .FULL_DUPLEX_ONLY     (1)
-   )
+eth_mac_fifo_block trimac_fifo_block (
+    .gtx_clk                      (clk_125M),
+    
+    .glbl_rstn                    (eth_rst_n),
+    .rx_axi_rstn                  (eth_rst_n),
+    .tx_axi_rstn                  (eth_rst_n),
+
+    // Reference clock for IDELAYCTRL's
+    .refclk                       (clk_200M),
+
+    // Receiver Statistics Interface
+    //---------------------------------------
+    // .rx_mac_aclk                  (eth_rx_mac_aclk),
+    // .rx_reset                     (rx_reset),
+    // .rx_statistics_vector         (rx_statistics_vector),
+    // .rx_statistics_valid          (rx_statistics_valid),
+
+    // Receiver (AXI-S) Interface
+    //----------------------------------------
+    .rx_fifo_clock                (fifo_clock),
+    .rx_fifo_resetn               (1'b1),
+    .rx_axis_fifo_tdata           (f_rx_axis_fifo_tdata),
+    .rx_axis_fifo_tvalid          (f_rx_axis_fifo_tvalid),
+    .rx_axis_fifo_tready          (f_rx_axis_fifo_tready),
+    .rx_axis_fifo_tlast           (f_rx_axis_fifo_tlast),
+    
+    // Transmitter Statistics Interface
+    //------------------------------------------
+    // .tx_mac_aclk                  (tx_mac_aclk),
+    // .tx_reset                     (tx_reset),
+    // .tx_ifg_delay                 (tx_ifg_delay),
+    // .tx_statistics_vector         (tx_statistics_vector),
+    // .tx_statistics_valid          (tx_statistics_valid),
+
+    // Transmitter (AXI-S) Interface
+    //-------------------------------------------
+    .tx_fifo_clock                (fifo_clock),
+    .tx_fifo_resetn               (1'b1),
+    .tx_axis_fifo_tdata           (f_tx_axis_fifo_tdata),
+    .tx_axis_fifo_tvalid          (f_tx_axis_fifo_tvalid),
+    .tx_axis_fifo_tready          (f_tx_axis_fifo_tready),
+    .tx_axis_fifo_tlast           (f_tx_axis_fifo_tlast),
+    
+
+
+    // MAC Control Interface
+    //------------------------
+    .pause_req                    (1'b0),
+    .pause_val                    (16'b0),
+
+    // RGMII Interface
+    //------------------
+    .rgmii_txd                    (eth_rgmii_td),
+    .rgmii_tx_ctl                 (eth_rgmii_tx_ctl),
+    .rgmii_txc                    (eth_rgmii_txc),
+    .rgmii_rxd                    (eth_rgmii_rd),
+    .rgmii_rx_ctl                 (eth_rgmii_rx_ctl),
+    .rgmii_rxc                    (eth_rgmii_rxc),
+
+    // RGMII Inband Status Registers
+    //--------------------------------
+    // .inband_link_status           (inband_link_status),
+    // .inband_clock_speed           (inband_clock_speed),
+    // .inband_duplex_status         (inband_duplex_status),
+
+    // Configuration Vectors
+    //-----------------------
+    .rx_configuration_vector      (80'b10100000101110),
+    .tx_configuration_vector      (80'b10000000000110)
+);
+
+// eth_mac_ten_100_1g_eth_fifo #
+//    (
+//       .FULL_DUPLEX_ONLY     (1)
+//    )
    
-   user_side_FIFO
-   (
-      // Transmit FIFO MAC TX Interface
-      .tx_fifo_aclk           (eth_tx_mac_aclk),
-      .tx_fifo_resetn         (1'b1),
-      .tx_axis_fifo_tdata     (f_tx_axis_fifo_tdata),
-      .tx_axis_fifo_tvalid    (f_tx_axis_fifo_tvalid),
-      .tx_axis_fifo_tlast     (f_tx_axis_fifo_tlast),
-      .tx_axis_fifo_tready    (f_tx_axis_fifo_tready),
+//    user_side_FIFO
+//    (
+//       // Transmit FIFO MAC TX Interface
+//       .tx_fifo_aclk           (eth_tx_mac_aclk),
+//       .tx_fifo_resetn         (1'b1),
+//       .tx_axis_fifo_tdata     (f_tx_axis_fifo_tdata),
+//       .tx_axis_fifo_tvalid    (f_tx_axis_fifo_tvalid),
+//       .tx_axis_fifo_tlast     (f_tx_axis_fifo_tlast),
+//       .tx_axis_fifo_tready    (f_tx_axis_fifo_tready),
       
 
-      .tx_mac_aclk            (eth_tx_mac_aclk),
-      .tx_mac_resetn          (1'b1),
-      .tx_axis_mac_tdata      (eth_tx_axis_mac_tdata),
-      .tx_axis_mac_tvalid     (eth_tx_axis_mac_tvalid),
-      .tx_axis_mac_tlast      (eth_tx_axis_mac_tlast),
-      .tx_axis_mac_tready     (eth_tx_axis_mac_tready),
-      .tx_axis_mac_tuser      (eth_tx_axis_mac_tuser),
+//       .tx_mac_aclk            (eth_tx_mac_aclk),
+//       .tx_mac_resetn          (1'b1),
+//       .tx_axis_mac_tdata      (eth_tx_axis_mac_tdata),
+//       .tx_axis_mac_tvalid     (eth_tx_axis_mac_tvalid),
+//       .tx_axis_mac_tlast      (eth_tx_axis_mac_tlast),
+//       .tx_axis_mac_tready     (eth_tx_axis_mac_tready),
+//       .tx_axis_mac_tuser      (eth_tx_axis_mac_tuser),
 
-      .tx_fifo_overflow       (),
-      .tx_fifo_status         (),
-      .tx_collision           (1'b0),
-      .tx_retransmit          (1'b0),
+//       .tx_fifo_overflow       (),
+//       .tx_fifo_status         (),
+//       .tx_collision           (1'b0),
+//       .tx_retransmit          (1'b0),
 
-      .rx_fifo_aclk           (eth_rx_mac_aclk),
-      .rx_fifo_resetn         (1'b1),
-      .rx_axis_fifo_tdata     (f_rx_axis_fifo_tdata),
-      .rx_axis_fifo_tvalid    (f_rx_axis_fifo_tvalid),
-      .rx_axis_fifo_tlast     (f_rx_axis_fifo_tlast),
-      .rx_axis_fifo_tready    (f_rx_axis_fifo_tready),
-      .rx_mac_aclk            (eth_rx_mac_aclk),
-      .rx_mac_resetn          (1'b1),
-      .rx_axis_mac_tdata      (eth_rx_axis_mac_tdata),
-      .rx_axis_mac_tvalid     (eth_rx_axis_mac_tvalid),
-      .rx_axis_mac_tlast      (eth_rx_axis_mac_tlast),
-      .rx_axis_mac_tuser      (eth_rx_axis_mac_tuser),
+//       .rx_fifo_aclk           (eth_rx_mac_aclk),
+//       .rx_fifo_resetn         (1'b1),
+//       .rx_axis_fifo_tdata     (f_rx_axis_fifo_tdata),
+//       .rx_axis_fifo_tvalid    (f_rx_axis_fifo_tvalid),
+//       .rx_axis_fifo_tlast     (f_rx_axis_fifo_tlast),
+//       .rx_axis_fifo_tready    (f_rx_axis_fifo_tready),
+//       .rx_mac_aclk            (eth_rx_mac_aclk),
+//       .rx_mac_resetn          (1'b1),
+//       .rx_axis_mac_tdata      (eth_rx_axis_mac_tdata),
+//       .rx_axis_mac_tvalid     (eth_rx_axis_mac_tvalid),
+//       .rx_axis_mac_tlast      (eth_rx_axis_mac_tlast),
+//       .rx_axis_mac_tuser      (eth_rx_axis_mac_tuser),
 
-      .rx_fifo_status         (),
-      .rx_fifo_overflow       ()
-  );
+//       .rx_fifo_status         (),
+//       .rx_fifo_overflow       ()
+//   );
 
 eth_mac_address_swap eth_mac_addr_inst(
     .axi_tclk(eth_rx_mac_aclk),

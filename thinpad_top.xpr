@@ -95,6 +95,24 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
+      <File Path="$PSRCDIR/sources_1/imports/imports/eth_mac_fifo_block.v">
+        <FileInfo>
+          <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_fifo_block.v"/>
+          <Attr Name="ImportTime" Val="1569245972"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/imports/imports/eth_mac_reset_sync.v">
+        <FileInfo>
+          <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_reset_sync.v"/>
+          <Attr Name="ImportTime" Val="1569245972"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
       <File Path="$PSRCDIR/sources_1/imports/imports/eth_mac_rx_client_fifo.v">
         <FileInfo>
           <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_rx_client_fifo.v"/>
@@ -140,16 +158,6 @@
       </File>
       <File Path="$PSRCDIR/sources_1/new/thinpad_top.v">
         <FileInfo>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sources_1/imports/imports/eth_mac_reset_sync.v">
-        <FileInfo>
-          <Attr Name="AutoDisabled" Val="1"/>
-          <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_reset_sync.v"/>
-          <Attr Name="ImportTime" Val="1569245972"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
@@ -250,16 +258,6 @@
           <Attr Name="AutoDisabled" Val="1"/>
           <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_example_design_resets.v"/>
           <Attr Name="ImportTime" Val="1569245971"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sources_1/imports/imports/eth_mac_fifo_block.v">
-        <FileInfo>
-          <Attr Name="AutoDisabled" Val="1"/>
-          <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_fifo_block.v"/>
-          <Attr Name="ImportTime" Val="1569245972"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
