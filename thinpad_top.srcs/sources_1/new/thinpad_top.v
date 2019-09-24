@@ -239,6 +239,14 @@ wire f_tx_axis_fifo_tvalid, f_tx_axis_fifo_tlast, f_tx_axis_fifo_tready;
 wire [7:0] f_rx_axis_fifo_tdata;
 wire f_rx_axis_fifo_tvalid, f_rx_axis_fifo_tlast, f_rx_axis_fifo_tready;
 
+reg gtx_pre_resetn = 0, gtx_resetn = 0;
+
+always @(posedge clk_125M)
+begin
+    gtx_pre_resetn  <= 1;
+    gtx_resetn      <= gtx_pre_resetn;
+end
+
 eth_mac_fifo_block trimac_fifo_block (
     .gtx_clk                      (clk_125M),
     
@@ -251,7 +259,7 @@ eth_mac_fifo_block trimac_fifo_block (
 
     // Receiver Statistics Interface
     //---------------------------------------
-    // .rx_mac_aclk                  (eth_rx_mac_aclk),
+    // .rx_mac_aclk                  (fifo_clock),
     // .rx_reset                     (rx_reset),
     // .rx_statistics_vector         (rx_statistics_vector),
     // .rx_statistics_valid          (rx_statistics_valid),
@@ -259,7 +267,7 @@ eth_mac_fifo_block trimac_fifo_block (
     // Receiver (AXI-S) Interface
     //----------------------------------------
     .rx_fifo_clock                (fifo_clock),
-    .rx_fifo_resetn               (1'b1),
+    .rx_fifo_resetn               (gtx_resetn),
     .rx_axis_fifo_tdata           (f_rx_axis_fifo_tdata),
     .rx_axis_fifo_tvalid          (f_rx_axis_fifo_tvalid),
     .rx_axis_fifo_tready          (f_rx_axis_fifo_tready),
@@ -269,14 +277,14 @@ eth_mac_fifo_block trimac_fifo_block (
     //------------------------------------------
     // .tx_mac_aclk                  (tx_mac_aclk),
     // .tx_reset                     (tx_reset),
-    // .tx_ifg_delay                 (tx_ifg_delay),
+    .tx_ifg_delay                 (8'b0),
     // .tx_statistics_vector         (tx_statistics_vector),
     // .tx_statistics_valid          (tx_statistics_valid),
 
     // Transmitter (AXI-S) Interface
     //-------------------------------------------
     .tx_fifo_clock                (fifo_clock),
-    .tx_fifo_resetn               (1'b1),
+    .tx_fifo_resetn               (gtx_resetn),
     .tx_axis_fifo_tdata           (f_tx_axis_fifo_tdata),
     .tx_axis_fifo_tvalid          (f_tx_axis_fifo_tvalid),
     .tx_axis_fifo_tready          (f_tx_axis_fifo_tready),
@@ -310,55 +318,9 @@ eth_mac_fifo_block trimac_fifo_block (
     .tx_configuration_vector      (80'b10000000000110)
 );
 
-// eth_mac_ten_100_1g_eth_fifo #
-//    (
-//       .FULL_DUPLEX_ONLY     (1)
-//    )
-   
-//    user_side_FIFO
-//    (
-//       // Transmit FIFO MAC TX Interface
-//       .tx_fifo_aclk           (eth_tx_mac_aclk),
-//       .tx_fifo_resetn         (1'b1),
-//       .tx_axis_fifo_tdata     (f_tx_axis_fifo_tdata),
-//       .tx_axis_fifo_tvalid    (f_tx_axis_fifo_tvalid),
-//       .tx_axis_fifo_tlast     (f_tx_axis_fifo_tlast),
-//       .tx_axis_fifo_tready    (f_tx_axis_fifo_tready),
-      
-
-//       .tx_mac_aclk            (eth_tx_mac_aclk),
-//       .tx_mac_resetn          (1'b1),
-//       .tx_axis_mac_tdata      (eth_tx_axis_mac_tdata),
-//       .tx_axis_mac_tvalid     (eth_tx_axis_mac_tvalid),
-//       .tx_axis_mac_tlast      (eth_tx_axis_mac_tlast),
-//       .tx_axis_mac_tready     (eth_tx_axis_mac_tready),
-//       .tx_axis_mac_tuser      (eth_tx_axis_mac_tuser),
-
-//       .tx_fifo_overflow       (),
-//       .tx_fifo_status         (),
-//       .tx_collision           (1'b0),
-//       .tx_retransmit          (1'b0),
-
-//       .rx_fifo_aclk           (eth_rx_mac_aclk),
-//       .rx_fifo_resetn         (1'b1),
-//       .rx_axis_fifo_tdata     (f_rx_axis_fifo_tdata),
-//       .rx_axis_fifo_tvalid    (f_rx_axis_fifo_tvalid),
-//       .rx_axis_fifo_tlast     (f_rx_axis_fifo_tlast),
-//       .rx_axis_fifo_tready    (f_rx_axis_fifo_tready),
-//       .rx_mac_aclk            (eth_rx_mac_aclk),
-//       .rx_mac_resetn          (1'b1),
-//       .rx_axis_mac_tdata      (eth_rx_axis_mac_tdata),
-//       .rx_axis_mac_tvalid     (eth_rx_axis_mac_tvalid),
-//       .rx_axis_mac_tlast      (eth_rx_axis_mac_tlast),
-//       .rx_axis_mac_tuser      (eth_rx_axis_mac_tuser),
-
-//       .rx_fifo_status         (),
-//       .rx_fifo_overflow       ()
-//   );
-
 eth_mac_address_swap eth_mac_addr_inst(
-    .axi_tclk(eth_rx_mac_aclk),
-    .axi_tresetn(1'b1),
+    .axi_tclk(fifo_clock),
+    .axi_tresetn(gtx_resetn),
     
     // address swap control
     .enable_address_swap(1'b1),

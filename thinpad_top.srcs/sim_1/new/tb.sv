@@ -118,7 +118,10 @@ thinpad_top dut(
     .flash_we_n(flash_we_n),
     .eth_rgmii_rd(eth_rgmii_rd),
     .eth_rgmii_rx_ctl(eth_rgmii_rx_ctl),
-    .eth_rgmii_rxc(eth_rgmii_rxc)
+    .eth_rgmii_rxc(eth_rgmii_rxc),
+    .eth_rgmii_td(eth_rgmii_td),
+    .eth_rgmii_tx_ctl(eth_rgmii_tx_ctl),
+    .eth_rgmii_txc(eth_rgmii_txc)
 );
 // 时钟源
 clock osc(
