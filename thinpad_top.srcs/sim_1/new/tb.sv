@@ -45,9 +45,15 @@ wire uart_dataready;     //串口数据准备好
 wire uart_tbre;          //发送数据标志
 wire uart_tsre;          //数据发送完毕标志
 
+// W2: Loopback of eth_rgmii_rd/eth_rgmii_td
+
 wire [3:0] eth_rgmii_rd; //RGMII RX 数据
 wire eth_rgmii_rx_ctl;   //RGMII RX 控制
 wire eth_rgmii_rxc;      //RGMII RX 时钟
+
+wire [3:0] eth_rgmii_td;
+wire eth_rgmii_tx_ctl;
+wire eth_rgmii_txc;
 
 //Windows需要注意路径分隔符的转义，例如"D:\\foo\\bar.bin"
 parameter BASE_RAM_INIT_FILE = "/tmp/main.bin"; //BaseRAM初始化文件，请修改为实际的绝对路径

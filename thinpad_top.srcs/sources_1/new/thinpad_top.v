@@ -287,4 +287,76 @@ eth_mac eth_mac_inst (
 );
 /* =========== Demo code end =========== */
 
+wire [7:0] f_tx_axis_fifo_tdata;
+wire f_tx_axis_fifo_tvalid, f_tx_axis_fifo_tlast, f_tx_axis_fifo_tready;
+
+wire [7:0] f_rx_axis_fifo_tdata;
+wire f_rx_axis_fifo_tvalid, f_rx_axis_fifo_tlast, f_rx_axis_fifo_tready;
+
+eth_mac_ten_100_1g_eth_fifo #
+   (
+      .FULL_DUPLEX_ONLY     (1)
+   )
+   
+   user_side_FIFO
+   (
+      // Transmit FIFO MAC TX Interface
+      .tx_fifo_aclk           (eth_tx_mac_aclk),
+      .tx_fifo_resetn         (1'b1),
+      .tx_axis_fifo_tdata     (f_tx_axis_fifo_tdata),
+      .tx_axis_fifo_tvalid    (f_tx_axis_fifo_tvalid),
+      .tx_axis_fifo_tlast     (f_tx_axis_fifo_tlast),
+      .tx_axis_fifo_tready    (f_tx_axis_fifo_tready),
+      
+
+      .tx_mac_aclk            (eth_tx_mac_aclk),
+      .tx_mac_resetn          (1'b1),
+      .tx_axis_mac_tdata      (eth_tx_axis_mac_tdata),
+      .tx_axis_mac_tvalid     (eth_tx_axis_mac_tvalid),
+      .tx_axis_mac_tlast      (eth_tx_axis_mac_tlast),
+      .tx_axis_mac_tready     (eth_tx_axis_mac_tready),
+      .tx_axis_mac_tuser      (eth_tx_axis_mac_tuser),
+
+      .tx_fifo_overflow       (),
+      .tx_fifo_status         (),
+      .tx_collision           (1'b0),
+      .tx_retransmit          (1'b0),
+
+      .rx_fifo_aclk           (eth_rx_mac_aclk),
+      .rx_fifo_resetn         (1'b1),
+      .rx_axis_fifo_tdata     (f_rx_axis_fifo_tdata),
+      .rx_axis_fifo_tvalid    (f_rx_axis_fifo_tvalid),
+      .rx_axis_fifo_tlast     (f_rx_axis_fifo_tlast),
+      .rx_axis_fifo_tready    (f_rx_axis_fifo_tready),
+      .rx_mac_aclk            (eth_rx_mac_aclk),
+      .rx_mac_resetn          (1'b1),
+      .rx_axis_mac_tdata      (eth_rx_axis_mac_tdata),
+      .rx_axis_mac_tvalid     (eth_rx_axis_mac_tvalid),
+      .rx_axis_mac_tlast      (eth_rx_axis_mac_tlast),
+      .rx_axis_mac_tuser      (eth_rx_axis_mac_tuser),
+
+      .rx_fifo_status         (),
+      .rx_fifo_overflow       ()
+  );
+
+eth_mac_address_swap eth_mac_addr_inst(
+    .axi_tclk(eth_rx_mac_aclk),
+    .axi_tresetn(1'b1),
+    
+    // address swap control
+    .enable_address_swap(1'b1),
+    
+    // data from the RX FIFO
+    .rx_axis_fifo_tdata(f_rx_axis_fifo_tdata),
+    .rx_axis_fifo_tvalid(f_rx_axis_fifo_tvalid),
+    .rx_axis_fifo_tlast(f_rx_axis_fifo_tlast),
+    .rx_axis_fifo_tready(f_rx_axis_fifo_tready),
+    // data TO the tx fifo
+    .tx_axis_fifo_tdata(f_tx_axis_fifo_tdata),
+    .tx_axis_fifo_tvalid(f_tx_axis_fifo_tvalid),
+    .tx_axis_fifo_tlast(f_tx_axis_fifo_tlast),
+    .tx_axis_fifo_tready(f_tx_axis_fifo_tready)
+);
+
+
 endmodule
