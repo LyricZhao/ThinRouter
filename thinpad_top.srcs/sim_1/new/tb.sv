@@ -253,4 +253,60 @@ rgmii_model rgmii(
 
 // 输出RGMII-TX端数据
 
+integer rgmii_test_output_file_id, n_frames = 0;
+
+initial begin
+    rgmii_test_output_file_id = $fopen("tx_test_frame.mem", "w");
+end
+
+logic [7:0] rgmii_tx_transmit_data;
+logic [3:0] rgmii_tx_transmit_data_q1_pre;
+logic rgmii_dv, rgmii_dv_pre, rgmii_dv_xor_er, rgmii_dv_reg = 0;
+
+genvar i;
+for (i = 0; i < 4; i ++) begin
+    IDDR #(
+        .DDR_CLK_EDGE("SAME_EDGE") // OPPOSITE_EDGE or SAME_EDGE
+    ) iddr_inst (
+        .Q1(rgmii_tx_transmit_data_q1_pre[i]),
+        .Q2(rgmii_tx_transmit_data[i + 4]),
+        .C(eth_rgmii_txc),
+        .CE(1'b1),
+        .D(eth_rgmii_td[i]),
+        .R(1'b0)
+    );
+end
+
+IDDR #(
+    .DDR_CLK_EDGE("SAME_EDGE")
+) iddr_inst_ctl (
+    .Q1(rgmii_dv_pre),
+    .Q2(rgmii_dv_xor_er),
+    .C(eth_rgmii_txc),
+    .CE(1'b1),
+    .D(eth_rgmii_tx_ctl),
+    .R(1'b0)
+);
+
+always @(posedge eth_rgmii_txc)
+begin
+    if (rgmii_dv_reg == 1'b1 && rgmii_dv == 1'b0) begin
+        n_frames = n_frames + 1;
+        if (n_frames == 1)
+            $fwrite(rgmii_test_output_file_id, "\n");
+        else if (n_frames == 2)
+            $fclose(rgmii_test_output_file_id);
+    end
+    if (rgmii_dv && n_frames < 2) begin
+        $display("%02h", rgmii_tx_transmit_data);
+        $fwrite(rgmii_test_output_file_id, "%02h ", rgmii_tx_transmit_data);
+    end
+    rgmii_dv <= rgmii_dv_pre;
+    rgmii_tx_transmit_data[0] <= rgmii_tx_transmit_data_q1_pre[0];
+    rgmii_tx_transmit_data[1] <= rgmii_tx_transmit_data_q1_pre[1];
+    rgmii_tx_transmit_data[2] <= rgmii_tx_transmit_data_q1_pre[2];
+    rgmii_tx_transmit_data[3] <= rgmii_tx_transmit_data_q1_pre[3];
+    rgmii_dv_reg <= rgmii_dv;
+end
+
 endmodule
