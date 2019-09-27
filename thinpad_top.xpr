@@ -77,73 +77,57 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/imports/eth_mac_address_swap.v">
+      <File Path="$PSRCDIR/sources_1/imports/eth_mac_address_swap.v">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_address_swap.v"/>
-          <Attr Name="ImportTime" Val="1569245971"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/imports/eth_mac_bram_tdp.v">
+      <File Path="$PSRCDIR/sources_1/imports/eth_mac_bram_tdp.v">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_bram_tdp.v"/>
-          <Attr Name="ImportTime" Val="1569245972"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/imports/eth_mac_fifo_block.v">
+      <File Path="$PSRCDIR/sources_1/imports/eth_mac_fifo_block.v">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_fifo_block.v"/>
-          <Attr Name="ImportTime" Val="1569245972"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/imports/eth_mac_reset_sync.v">
+      <File Path="$PSRCDIR/sources_1/imports/eth_mac_reset_sync.v">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_reset_sync.v"/>
-          <Attr Name="ImportTime" Val="1569245972"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/imports/eth_mac_rx_client_fifo.v">
+      <File Path="$PSRCDIR/sources_1/imports/eth_mac_rx_client_fifo.v">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_rx_client_fifo.v"/>
-          <Attr Name="ImportTime" Val="1569245972"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/imports/eth_mac_sync_block.v">
+      <File Path="$PSRCDIR/sources_1/imports/eth_mac_sync_block.v">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_sync_block.v"/>
-          <Attr Name="ImportTime" Val="1569572955"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/imports/eth_mac_ten_100_1g_eth_fifo.v">
+      <File Path="$PSRCDIR/sources_1/imports/eth_mac_ten_100_1g_eth_fifo.v">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_ten_100_1g_eth_fifo.v"/>
-          <Attr Name="ImportTime" Val="1569245972"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/imports/eth_mac_tx_client_fifo.v">
+      <File Path="$PSRCDIR/sources_1/imports/eth_mac_tx_client_fifo.v">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../eth_mac_ex/imports/eth_mac_tx_client_fifo.v"/>
-          <Attr Name="ImportTime" Val="1569245972"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
