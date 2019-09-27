@@ -1,10 +1,10 @@
 // Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
 // --------------------------------------------------------------------------------
 // Tool Version: Vivado v.2018.3 (lin64) Build 2405991 Thu Dec  6 23:36:41 MST 2018
-// Date        : Sat Sep 21 11:41:22 2019
+// Date        : Fri Sep 27 16:27:44 2019
 // Host        : parallels-Parallels-Virtual-Platform running 64-bit Ubuntu 18.04.1 LTS
-// Command     : write_verilog -force -mode funcsim -rename_top pll_example -prefix
-//               pll_example_ pll_example_sim_netlist.v
+// Command     : write_verilog -force -mode funcsim
+//               /media/psf/Home/Desktop/cod19grp4/thinpad_top.srcs/sources_1/ip/pll_example/pll_example_sim_netlist.v
 // Design      : pll_example
 // Purpose     : This verilog netlist is a functional simulation representation of the design and should not be modified
 //               or synthesized. This netlist cannot be used for SDF annotated simulation.
@@ -47,6 +47,7 @@ module pll_example
         .reset(reset));
 endmodule
 
+(* ORIG_REF_NAME = "pll_example_clk_wiz" *) 
 module pll_example_pll_example_clk_wiz
    (clk_out1,
     clk_out2,

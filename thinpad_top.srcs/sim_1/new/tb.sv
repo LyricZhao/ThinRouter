@@ -242,7 +242,6 @@ initial begin
 end
 
 // RGMII 仿真模型
-
 rgmii_model rgmii(
     .clk_125M(clk_125M),
     .clk_125M_90deg(clk_125M_90deg),
@@ -251,4 +250,7 @@ rgmii_model rgmii(
     .rgmii_rxc(eth_rgmii_rxc),
     .rgmii_rx_ctl(eth_rgmii_rx_ctl)
 );
+
+// 输出RGMII-TX端数据
+
 endmodule
