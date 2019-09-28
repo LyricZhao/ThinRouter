@@ -19,8 +19,47 @@ logic [1:0] state = INPUT_DA;
 shortint data_a, data_b;
 reg [15:0] flags;
 
+enum Op_Type { ADD, SUB, AND, OR, XOR, NOT, SLL, SRL, SRA, ROL } ;
+
 function shortint alu_result();
-    
+    case(op_code)
+        ADD: begin
+            return data_a + data_b;
+        end
+
+        SUB: begin
+            return data_a - data_b;
+        end
+
+        AND: begin
+            return data_a & data_b;
+        end
+
+        OR: begin
+            return data_a | data_b;
+        end
+
+        XOR: begin
+            return data_a ^ data_b;
+        end
+
+        NOT: begin
+            return ~ data_a;
+        end
+
+        SLL: begin
+            return
+        end
+
+        SRL: begin
+        end
+
+        SRA: begin
+        end
+
+        ROL: begin
+        end
+    endcase
 endfunction
 
 always @(posedge rst) begin
