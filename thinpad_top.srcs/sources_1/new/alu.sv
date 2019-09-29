@@ -21,43 +21,53 @@ logic [15:0] flags = 16'h0;
 function shortint alu_result();
     case(op_code)
         ADD: begin
+            flags[0] <= ((data_a + data_b) < data_a);
             return data_a + data_b;
         end
 
         SUB: begin
+            flags[0] <= ((data_a - data_b) > data_a);
             return data_a - data_b;
         end
 
         AND: begin
+            flags[0] <= 1'b0;
             return data_a & data_b;
         end
 
         OR: begin
+            flags[0] <= 1'b0;
             return data_a | data_b;
         end
 
         XOR: begin
+            flags[0] <= 1'b0;
             return data_a ^ data_b;
         end
 
         NOT: begin
+            flags[0] <= 1'b0;
             return ~ data_a;
         end
 
         SLL: begin
+            flags[0] <= 1'b0;
             return data_a << data_b;
         end
 
         SRL: begin
+            flags[0] <= 1'b0;
             return data_a >> data_b;
         end
 
         SRA: begin
+            flags[0] <= 1'b0;
             return data_a >>> data_b;
         end
 
         /* note: 0 <= data_b <= 32 */
         ROL: begin
+            flags[0] <= 1'b0;
             return (data_a << data_b) | (data_a >> (32 - data_b));
         end
     endcase
@@ -67,6 +77,7 @@ always @(posedge clk or posedge rst) begin
     if (rst) begin
         state <= INPUT_DA;
         leds <= 16'h0;
+        flags <= 16'h0;
     end
     else begin
         case(state)

@@ -88,7 +88,7 @@ module thinpad_top(
 alu alu_inst(
     .clk(clock_btn),
     .rst(reset_btn),
-    .data(dip_sw),
+    .data(dip_sw[15:0]),
     .leds(leds)
 );
 
