@@ -1,25 +1,22 @@
 `timescale 1ns / 1ps
 
 module alu(
-    input clk,
-    input rst,
-    input wire [3:0] op_code,
+    input wire clk,
+    input wire rst,
     input wire [15:0] data,
 
-    output wire [15:0] leds
+    output logic [15:0] leds
 );
 
-localparam  INPUT_DA = 2'b00,
-            INPUT_DB = 2'b01,
-            INPUT_OP = 2'b10,
-            OUTPUT_S = 2'b11;
+enum logic [2:0] { INPUT_DA, INPUT_DB, INPUT_OP, OUTPUT_S } StateType;
+enum logic [3:0] { ADD, SUB, AND, OR, XOR, NOT, SLL, SRL, SRA, ROL } OpType;
+
+wire [3:0] op_code;
+assign op_code = data[3:0];
 
 logic [1:0] state = INPUT_DA;
-
 shortint data_a, data_b;
-reg [15:0] flags;
-
-enum Op_Type { ADD, SUB, AND, OR, XOR, NOT, SLL, SRL, SRA, ROL } ;
+logic [15:0] flags = 16'h0;
 
 function shortint alu_result();
     case(op_code)
@@ -48,46 +45,53 @@ function shortint alu_result();
         end
 
         SLL: begin
-            return
+            return data_a << data_b;
         end
 
         SRL: begin
+            return data_a >> data_b;
         end
 
         SRA: begin
+            return data_a >>> data_b;
         end
 
+        /* note: 0 <= data_b <= 32 */
         ROL: begin
+            return (data_a << data_b) | (data_a >> (32 - data_b));
         end
     endcase
 endfunction
 
-always @(posedge rst) begin
-    state <= INPUT_DA;
-    leds <= 16'b0;
+always @(posedge clk or posedge rst) begin
+    if (rst) begin
+        state <= INPUT_DA;
+        leds <= 16'h0;
+    end
+    else begin
+        case(state)
+            /* Input data A */
+            INPUT_DA: begin
+                data_a <= data;
+            end
+
+            /* Input data B */
+            INPUT_DB: begin
+                data_b <= data;
+            end
+
+            /* Input OP code */
+            INPUT_OP: begin
+                leds <= alu_result();
+            end
+
+            /* Output flags */
+            OUTPUT_S: begin
+                leds <= flags;
+            end
+        endcase
+        state <= state + 1;
+    end
 end
 
-always @(posedge clk) begin
-    case(state)
-        /* Input data A */
-        INPUT_DA: begin
-            data_a <= data;
-        end
-
-        /* Input data B */
-        INPUT_DB: begin
-            data_b <= data;
-        end
-
-        /* Input OP code */
-        INPUT_OP: begin
-            leds <= alu_result();
-        end
-
-        /*  */
-        OUTPUT_S: begin
-            leds <= flags;
-        end
-    endcase
-    state <= state + 1;
-end
+endmodule
