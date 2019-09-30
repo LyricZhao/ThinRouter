@@ -85,65 +85,12 @@ module thinpad_top(
 
 /* =========== Demo code begin =========== */
 
-// alu alu_inst(
-//     .clk(clock_btn),
-//     .rst(reset_btn),
-//     .data(dip_sw[15:0]),
-//     .leds(leds)
-// );
-
-reg [1:0] input_state = 0;
-reg [15:0] A, B, led_bits;
-
-assign leds = led_bits;
-
-always @(posedge clock_btn or posedge reset_btn) begin
-    if (reset_btn) begin
-        input_state <= 0;
-    end else if (clock_btn) begin
-        case (input_state)
-            0: begin
-                A <= dip_sw[15:0];
-            end
-            1: begin
-                B <= dip_sw[15:0];
-            end
-            default: begin end
-        endcase
-        input_state <= input_state + 1;
-    end
-end
-
-wire [3:0] op_code;
-assign op_code = dip_sw[3:0];
-
-always @(reset_btn, input_state, dip_sw) begin
-    if (reset_btn) begin
-        led_bits <= 16'b0;
-    end else begin
-        case (input_state)
-            2: begin
-                case (op_code)
-                     1: begin led_bits <= A + B;   end
-                     2: begin led_bits <= A - B;   end
-                     3: begin led_bits <= A & B;   end
-                     4: begin led_bits <= A | B;   end
-                     5: begin led_bits <= A ^ B;   end
-                     6: begin led_bits <=   ~ A;   end
-                     7: begin led_bits <= A << B;  end
-                     8: begin led_bits <= A >> B;  end
-                     9: begin led_bits <= A >>> B; end
-                    10: begin led_bits <= (A << B) | (A >> (32 - B)); end
-                    default: begin end
-                endcase
-            end
-            3: begin
-                led_bits <= 16'b0;
-            end
-            default: begin end
-        endcase
-    end
-end
+alu alu_inst(
+    .clock_btn(clock_btn),
+    .reset_btn(reset_btn),
+    .dip_sw(dip_sw[15:0]),
+    .led_bits(leds)
+);
 
 // PLL分频示例
 wire locked, clk_10M, clk_20M, clk_125M, clk_200M;

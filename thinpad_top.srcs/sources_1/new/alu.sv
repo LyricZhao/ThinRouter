@@ -1,121 +1,64 @@
 `timescale 1ns / 1ps
 
 module alu(
-    input wire clk,
-    input wire rst,
-    input wire [15:0] data,
+    input wire clock_btn,
+    input wire reset_btn,
+    input wire [15:0] dip_sw,
 
-    output logic [15:0] leds
+    output logic [15:0] led_bits
 );
 
-enum logic [1:0] { INPUT_DA, INPUT_DB, INPUT_OP, OUTPUT_S } StateType;
+enum logic [1:0] { INPUT_DA, INPUT_DB, OUTPUT_S } StateType;
 enum logic [3:0] { NOP, ADD, SUB, AND, OR, XOR, NOT, SLL, SRL, SRA, ROL } OpType;
 
-wire [3:0] op_code;
-assign op_code = data[3:0];
+logic [1:0] input_state = 0;
+logic [15:0] A, B;
 
-logic [1:0] state = INPUT_DA;
-shortint data_a, data_b;
-logic [15:0] flags = 16'h0;
-
-function shortint alu_result();
-    case(op_code)
-        ADD: begin
-            // TODO: test flags[0] <= ((data_a + data_b) < data_a);
-            shortint add_result = data_a + data_b;
-            if ((data_a > 0) && (data_b > 0) && (add_result < 0) ||
-                (data_a < 0) && (data_b < 0) && (add_result > 0)) begin
-                flags[0] <= 1'b1;
-            end else begin
-                flags[0] <= 1'b0;
-            end
-            return add_result;
-        end
-
-        SUB: begin
-            // TODO: flags[0] <= ((data_a - data_b) > data_a);
-            shortint sub_result = data_a - data_b;
-            if ((data_a < 0) && (data_b > 0) && (sub_result > 0) ||
-                (data_a > 0) && (data_b < 0) && (sub_result < 0)) begin
-                flags[0] <= 1'b1;
-            end else begin
-                flags[0] <= 1'b0;
-            end
-            return sub_result;
-        end
-
-        AND: begin
-            flags[0] <= 1'b0;
-            return data_a & data_b;
-        end
-
-        OR: begin
-            flags[0] <= 1'b0;
-            return data_a | data_b;
-        end
-
-        XOR: begin
-            flags[0] <= 1'b0;
-            return data_a ^ data_b;
-        end
-
-        NOT: begin
-            flags[0] <= 1'b0;
-            return ~ data_a;
-        end
-
-        SLL: begin
-            flags[0] <= 1'b0;
-            return data_a << data_b;
-        end
-
-        SRL: begin
-            flags[0] <= 1'b0;
-            return data_a >> data_b;
-        end
-
-        SRA: begin
-            flags[0] <= 1'b0;
-            return data_a >>> data_b;
-        end
-
-        /* note: 0 <= data_b <= 32 */
-        ROL: begin
-            flags[0] <= 1'b0;
-            return (data_a << data_b) | (data_a >> (32 - data_b));
-        end
-    endcase
-endfunction
-
-always @(posedge clk or posedge rst) begin
-    if (rst) begin
-        state <= INPUT_DA;
-        leds <= 16'h0;
-        flags <= 16'h0;
-    end
-    else begin
-        case(state)
-            /* Input data A */
+always @(posedge clock_btn or posedge reset_btn) begin
+    if (reset_btn) begin
+        input_state <= 0;
+    end else if (clock_btn) begin
+        case (input_state)
             INPUT_DA: begin
-                data_a <= data;
+                A <= dip_sw[15:0];
             end
-
-            /* Input data B */
             INPUT_DB: begin
-                data_b <= data;
+                B <= dip_sw[15:0];
             end
-
-            /* Input OP code */
-            INPUT_OP: begin
-                leds <= alu_result();
-            end
-
-            /* Output flags */
-            OUTPUT_S: begin
-                leds <= flags;
-            end
+            default: begin end
         endcase
-        state <= state + 1;
+        input_state <= input_state + 1;
+    end
+end
+
+wire [3:0] op_code;
+assign op_code = dip_sw[3:0];
+
+always @(reset_btn, input_state, dip_sw) begin
+    if (reset_btn) begin
+        led_bits <= 16'b0;
+    end else begin
+        case (input_state)
+            2: begin
+                case (op_code)
+                    ADD: begin led_bits <= A + B;   end
+                    SUB: begin led_bits <= A - B;   end
+                    AND: begin led_bits <= A & B;   end
+                    OR:  begin led_bits <= A | B;   end
+                    XOR: begin led_bits <= A ^ B;   end
+                    NOT: begin led_bits <=   ~ A;   end
+                    SLL: begin led_bits <= A << B;  end
+                    SRL: begin led_bits <= A >> B;  end
+                    SRA: begin led_bits <= A >>> B; end
+                    ROL: begin led_bits <= (A << B) | (A >> (16 - B)); end
+                    default: begin end
+                endcase
+            end
+            3: begin
+                led_bits <= 16'b0;
+            end
+            default: begin end
+        endcase
     end
 end
 
