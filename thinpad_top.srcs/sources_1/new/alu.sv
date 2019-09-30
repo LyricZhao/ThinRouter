@@ -13,7 +13,10 @@ enum logic [3:0] { NOP, ADD, SUB, AND, OR, XOR, NOT, SLL, SRL, SRA, ROL } OpType
 
 logic overflow_flag = 0;
 logic [1:0] input_state = 0;
-logic [15:0] A, B;
+shortint A, B, add_result, sub_result;
+
+assign add_result = A + B;
+assign sub_result = A - B;
 
 always @(posedge clock_btn or posedge reset_btn) begin
     if (reset_btn) begin
@@ -43,10 +46,12 @@ always @(reset_btn, input_state, dip_sw) begin
             2: begin
                 case (op_code)
                     ADD: begin
-                        {overflow_flag, led_bits} <= A + B;
+                        led_bits <= add_result;
+                        overflow_flag <= ((A > 0) && (B > 0) && (add_result < 0)) || ((A < 0) && (B < 0) && (add_result > 0));
                     end
                     SUB: begin
-                        {overflow_flag, led_bits} <= A - B;
+                        led_bits <= sub_result;
+                        overflow_flag <= ((A < 0) && (B > 0) && (sub_result > 0)) || ((A > 0) && (B < 0) && (sub_result < 0));
                     end
                     AND: begin led_bits <= A & B; overflow_flag <= 0;  end
                     OR:  begin led_bits <= A | B; overflow_flag <= 0;  end
@@ -54,7 +59,7 @@ always @(reset_btn, input_state, dip_sw) begin
                     NOT: begin led_bits <=   ~ A; overflow_flag <= 0;  end
                     SLL: begin led_bits <= A << B; overflow_flag <= 0; end
                     SRL: begin led_bits <= A >> B; overflow_flag <= 0; end
-                    SRA: begin led_bits <= ($signed(A)) >>> B; overflow_flag <= 0; end
+                    SRA: begin led_bits <= A >>> B; overflow_flag <= 0; end
                     ROL: begin led_bits <= (A << B) | (A >> (16 - B)); overflow_flag <= 0; end
                     default: begin end
                 endcase

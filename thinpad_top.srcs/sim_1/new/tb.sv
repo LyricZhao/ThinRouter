@@ -85,12 +85,12 @@ initial begin
     #100
     reset_btn = 0;
 
-    dip_sw = 32'h0000aa67;
+    dip_sw = 32'h000041e4;
     # 100
     clock_btn = 1;
     # 100
     clock_btn = 0;
-    dip_sw = 32'h00002165;
+    dip_sw = 32'h00007b91;
     # 100
     clock_btn = 1;
     # 100
