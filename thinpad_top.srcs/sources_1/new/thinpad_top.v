@@ -114,13 +114,28 @@ always @(posedge clock_btn or posedge reset_btn) begin
     end
 end
 
-always @(reset_btn, input_state) begin
+wire [3:0] op_code;
+assign op_code = dip_sw[3:0];
+
+always @(reset_btn, input_state, dip_sw) begin
     if (reset_btn) begin
         led_bits <= 16'b0;
     end else begin
         case (input_state)
             2: begin
-                led_bits <= A + B;
+                case (op_code)
+                     1: begin led_bits <= A + B;   end
+                     2: begin led_bits <= A - B;   end
+                     3: begin led_bits <= A & B;   end
+                     4: begin led_bits <= A | B;   end
+                     5: begin led_bits <= A ^ B;   end
+                     6: begin led_bits <=   ~ A;   end
+                     7: begin led_bits <= A << B;  end
+                     8: begin led_bits <= A >> B;  end
+                     9: begin led_bits <= A >>> B; end
+                    10: begin led_bits <= (A << B) | (A >> (32 - B)); end
+                    default: begin end
+                endcase
             end
             3: begin
                 led_bits <= 16'b0;
