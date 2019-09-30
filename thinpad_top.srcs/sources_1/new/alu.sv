@@ -21,13 +21,27 @@ logic [15:0] flags = 16'h0;
 function shortint alu_result();
     case(op_code)
         ADD: begin
-            flags[0] <= ((data_a + data_b) < data_a);
-            return data_a + data_b;
+            // TODO: test flags[0] <= ((data_a + data_b) < data_a);
+            shortint add_result = data_a + data_b;
+            if ((data_a > 0) && (data_b > 0) && (add_result < 0) ||
+                (data_a < 0) && (data_b < 0) && (add_result > 0)) begin
+                flags[0] <= 1'b1;
+            end else begin
+                flags[0] <= 1'b0;
+            end
+            return add_result;
         end
 
         SUB: begin
-            flags[0] <= ((data_a - data_b) > data_a);
-            return data_a - data_b;
+            // TODO: flags[0] <= ((data_a - data_b) > data_a);
+            shortint sub_result = data_a - data_b;
+            if ((data_a < 0) && (data_b > 0) && (sub_result > 0) ||
+                (data_a > 0) && (data_b < 0) && (sub_result < 0)) begin
+                flags[0] <= 1'b1;
+            end else begin
+                flags[0] <= 1'b0;
+            end
+            return sub_result;
         end
 
         AND: begin
