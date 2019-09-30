@@ -8,7 +8,7 @@ module alu(
     output logic [15:0] leds
 );
 
-enum logic [2:0] { INPUT_DA, INPUT_DB, INPUT_OP, OUTPUT_S } StateType;
+enum logic [1:0] { INPUT_DA, INPUT_DB, INPUT_OP, OUTPUT_S } StateType;
 enum logic [3:0] { NOP, ADD, SUB, AND, OR, XOR, NOT, SLL, SRL, SRA, ROL } OpType;
 
 wire [3:0] op_code;
