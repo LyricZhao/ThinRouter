@@ -43,21 +43,19 @@ always @(reset_btn, input_state, dip_sw) begin
             2: begin
                 case (op_code)
                     ADD: begin
-                        led_bits <= A + B;
-                        overflow_flag <= ((A > 0) == (B > 0)) ^ (A + B > 0);
+                        {overflow_flag, led_bits} <= A + B;
                     end
                     SUB: begin
-                        led_bits <= A - B;
-                        overflow_flag <= ((A > 0) ^ (B > 0)) & ((A + B > 0) == (B > 0));
+                        {overflow_flag, led_bits} <= A - B;
                     end
-                    AND: begin led_bits <= A & B;   end
-                    OR:  begin led_bits <= A | B;   end
-                    XOR: begin led_bits <= A ^ B;   end
-                    NOT: begin led_bits <=   ~ A;   end
-                    SLL: begin led_bits <= A << B;  end
-                    SRL: begin led_bits <= A >> B;  end
-                    SRA: begin led_bits <= ($signed(A)) >>> B; end
-                    ROL: begin led_bits <= (A << B) | (A >> (16 - B)); end
+                    AND: begin led_bits <= A & B; overflow_flag <= 0;  end
+                    OR:  begin led_bits <= A | B; overflow_flag <= 0;  end
+                    XOR: begin led_bits <= A ^ B; overflow_flag <= 0;  end
+                    NOT: begin led_bits <=   ~ A; overflow_flag <= 0;  end
+                    SLL: begin led_bits <= A << B; overflow_flag <= 0; end
+                    SRL: begin led_bits <= A >> B; overflow_flag <= 0; end
+                    SRA: begin led_bits <= ($signed(A)) >>> B; overflow_flag <= 0; end
+                    ROL: begin led_bits <= (A << B) | (A >> (16 - B)); overflow_flag <= 0; end
                     default: begin end
                 endcase
             end
