@@ -56,7 +56,7 @@ always @(reset_btn, input_state, dip_sw) begin
                     NOT: begin led_bits <=   ~ A;   end
                     SLL: begin led_bits <= A << B;  end
                     SRL: begin led_bits <= A >> B;  end
-                    SRA: begin led_bits <= A >>> B; end
+                    SRA: begin led_bits <= ($signed(A)) >>> B; end
                     ROL: begin led_bits <= (A << B) | (A >> (16 - B)); end
                     default: begin end
                 endcase
