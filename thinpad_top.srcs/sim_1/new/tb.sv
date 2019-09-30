@@ -62,9 +62,10 @@ parameter FLASH_INIT_FILE = "/tmp/kernel.elf";    //Flash初始化文件，请�
 
 assign rxd = 1'b1; //idle state
 
+/*
 initial begin 
     //在这里可以自定义测试输入序列，例如：
-    dip_sw = 32'h2;
+    dip_sw = 32'h0000aa67;
     touch_btn = 0;
     for (integer i = 0; i < 20; i = i+1) begin
         #100; //等待100ns
@@ -76,6 +77,29 @@ initial begin
     cpld.pc_send_byte(8'h32);
     #10000;
     cpld.pc_send_byte(8'h33);
+end*/
+
+initial begin
+    #100
+    reset_btn = 1;
+    #100
+    reset_btn = 0;
+
+    dip_sw = 32'h0000aa67;
+    # 100
+    clock_btn = 1;
+    # 100
+    clock_btn = 0;
+    dip_sw = 32'h00002165;
+    # 100
+    clock_btn = 1;
+    # 100
+    clock_btn = 0;
+    dip_sw = 32'h00000001;
+    # 100
+    clock_btn = 1;
+    # 100
+    clock_btn = 0;
 end
 
 // 待测试用户设计
