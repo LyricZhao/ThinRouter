@@ -8,7 +8,7 @@ module alu(
     output logic [15:0] led_bits
 );
 
-enum logic [1:0] { INPUT_DA, INPUT_DB, OUTPUT_S } StateType;
+enum logic [1:0] { INPUT_DA, INPUT_DB, OUTPUT_S, FINISH } StateType;
 enum logic [3:0] { NOP, ADD, SUB, AND, OR, XOR, NOT, SLL, SRL, SRA, ROL } OpType;
 
 logic overflow_flag = 0;
@@ -43,7 +43,7 @@ always @(reset_btn, input_state, dip_sw) begin
         led_bits <= 16'b0;
     end else begin
         case (input_state)
-            INPUT_DB: begin
+            OUTPUT_S: begin
                 case (op_code)
                     ADD: begin
                         led_bits <= add_result;
@@ -64,7 +64,7 @@ always @(reset_btn, input_state, dip_sw) begin
                     default: begin end
                 endcase
             end
-            OUTPUT_S: begin
+            FINISH: begin
                 led_bits <= overflow_flag;
             end
             default: begin end
