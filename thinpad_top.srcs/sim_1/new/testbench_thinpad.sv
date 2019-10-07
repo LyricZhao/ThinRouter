@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-module tb;
+module testbench_thinpad();
 
 wire clk_50M, clk_11M0592, clk_125M, clk_125M_90deg;
 

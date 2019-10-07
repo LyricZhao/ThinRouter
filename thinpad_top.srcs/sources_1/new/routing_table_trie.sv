@@ -34,8 +34,8 @@ logic [`IPV4_WIDTH-1:0] addr_saved, insert_nexthop_saved;
 logic [`MASK_WIDTH-1:0] shift_pos;
 
 wire current_bit, node_valid;
-wire [INDEX_WIDTH-1:0] node_left_index, node_right_index;
-wire [IPV4_WIDTH-1:0] node_nexthop;
+wire [`INDEX_WIDTH-1:0] node_left_index, node_right_index;
+wire [`IPV4_WIDTH-1:0] node_nexthop;
 assign current_bit = addr_saved[31];
 assign node_valid = entry_data[`INDEX_WIDTH+`INDEX_WIDTH+`IPV4_WIDTH:`INDEX_WIDTH+`INDEX_WIDTH+`IPV4_WIDTH];
 assign node_left_index = entry_data[`INDEX_WIDTH-1:0], node_right_index = entry_data[`INDEX_WIDTH+`INDEX_WIDTH-1:`INDEX_WIDTH];
@@ -47,7 +47,7 @@ xpm_memory_spram #(
     .BYTE_WRITE_WIDTH_A(`BYTE_WIDTH),
     .READ_DATA_WIDTH_A(`ENTRY_WIDTH),
     .READ_LATENCY_A(0),
-    .MEMORY_SIZE(`ENTRY_COUNT * `ENTRY_WIDTH),
+    .MEMORY_SIZE(`ENTRY_COUNT * `ENTRY_WIDTH)
 ) xpm_memory_spram_data (
     .addra(index),
     .wea(en_write),
@@ -107,8 +107,8 @@ always_ff @(posedge clk) begin
 
             SET_VALID: begin
                 en_write <= 0;
-                insert_valid <= 1;
-                insert_error <= 0;
+                insert_output_valid <= 1;
+                insert_output_error <= 0;
                 lookup_insert_ready <= 1;
                 state <= READY;
             end
@@ -116,8 +116,8 @@ always_ff @(posedge clk) begin
             PROC_INSERT: begin
                 if (shift_pos == 0) begin
                     if (node_valid) begin
-                        insert_error <= 1;
-                        insert_valid <= 0;
+                        insert_output_error <= 1;
+                        insert_output_valid <= 0;
                         lookup_insert_ready <= 1;
                         state <= READY;
                     end else begin
@@ -153,7 +153,7 @@ always_ff @(posedge clk) begin
             PROC_LOOKUP: begin
                 if (shift_pos == 0 || index == 0) begin
                     state <= READY;
-                    lookup_valid <= 1;
+                    lookup_output_valid <= 1;
                 end else begin
                     if (current_bit == 0) begin
                         index <= node_left_index;
