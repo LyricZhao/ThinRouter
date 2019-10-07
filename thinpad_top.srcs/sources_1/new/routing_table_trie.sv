@@ -142,10 +142,28 @@ always_ff @(posedge clk) begin
             end
 
             NEW_LOOKUP: begin
-
+                addr_saved <= lookup_insert_addr;
+                shift_pos <= 32;
+                state <= PROC_LOOKUP;
+                lookup_nexthop <= 0;
             end
 
             PROC_LOOKUP: begin
+                if (shift_pos == 0 || index == 0) begin
+                    state <= READY;
+                    lookup_valid <= 1;
+                end else begin
+                    if (current_bit == 0) begin
+                        index <= node_left_index;
+                    end else begin
+                        index <= node_right_index;
+                    end
+                    if (node_valid) begin
+                        lookup_nexthop <= node_nexthop;
+                    end
+                    shift_pos <= shift_pos - 1;
+                    addr_saved <= addr_saved << 1;
+                end
             end
 
             default: begin
