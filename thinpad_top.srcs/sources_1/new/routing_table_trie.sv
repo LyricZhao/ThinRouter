@@ -47,7 +47,7 @@ xpm_memory_spram #(
     .BYTE_WRITE_WIDTH_A(`BYTE_WIDTH),
     .READ_DATA_WIDTH_A(`ENTRY_WIDTH),
     .READ_LATENCY_A(0),
-    .MEMORY_SIZE(`ENTRY_COUNT * `ENTRY_WIDTH)
+    .MEMORY_SIZE(`NODES_COUNT * `ENTRY_WIDTH)
 ) xpm_memory_spram_data (
     .addra(index),
     .wea(en_write),
@@ -89,6 +89,7 @@ always_ff @(posedge clk) begin
                     shift_pos <= 32;
                     state <= PROC_LOOKUP;
                     lookup_nexthop <= 0;
+                    state <= PROC_LOOKUP;
                 end
                 index <= 0;
                 insert_output_valid <= 0;
@@ -122,14 +123,14 @@ always_ff @(posedge clk) begin
                         state <= READY;
                     end else begin
                         en_write <= 1;
-                        write_data <= {64'h0x1, insert_nexthop_saved, node_right_index, node_left_index};
+                        write_data <= {32'h0, 32'h1, insert_nexthop_saved, node_right_index, node_left_index};
                         state <= SET_VALID;
                     end
                 end else begin
                     if (current_bit == 0) begin
                         if (node_left_index == 0) begin
                             en_write <= 1;
-                            write_data <= node_count + 1;
+                            write_data <= {64'b0, 32'b0, 16'b0, node_count + 1};
                             state <= NEW_NODE;
                         end else begin
                             index <= node_left_index;
@@ -139,7 +140,7 @@ always_ff @(posedge clk) begin
                     end else begin
                         if (node_right_index == 0) begin
                             en_write <= 1;
-                            write_data <= node_count + 1;
+                            write_data <= {64'b0, 32'b0, node_count + 1, 16'b0};
                             state <= NEW_NODE;
                         end else begin
                             index <= node_right_index;
@@ -151,7 +152,7 @@ always_ff @(posedge clk) begin
             end
 
             PROC_LOOKUP: begin
-                if (shift_pos == 0 || index == 0) begin
+                if (shift_pos == 0 || (index == 0 && shift_pos != 32)) begin
                     state <= READY;
                     lookup_output_valid <= 1;
                 end else begin
