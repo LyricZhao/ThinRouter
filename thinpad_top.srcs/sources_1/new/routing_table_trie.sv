@@ -5,7 +5,13 @@
 `define BYTE_WIDTH 8
 `define INDEX_WIDTH 16
 `define ENTRY_WIDTH 128 // `INDEX_WIDTH*2+IPV4_WIDTH+1 rounded up to 2's pow
-`define ENTRY_COUNT 1024
+`define ENTRY_COUNT 32
+
+/*
+ * Routing Table Entry:
+ *     63     1    32      16    16  
+ * [--------][v][nexthop][left][right]
+ */
 
 module routing_table_trie(
     input wire clk,
@@ -19,14 +25,13 @@ module routing_table_trie(
     input wire insert_valid,
 
     output logic lookup_insert_ready,
-    output logic insert_valid,
-    output logic insert_error,
-    output logic lookup_valid,
-    // TODO: output logic lookup_not_found 
+    output logic insert_output_valid,
+    output logic insert_output_error,
+    output logic lookup_output_valid,
     output logic [`IPV4_WIDTH-1:0] lookup_nexthop
 );
 
-logic proc_state, en_write;
+logic en_write;
 logic [`INDEX_WIDTH-1:0] index, node_count;
 logic [`ENTRY_WIDTH-1:0] write_data;
 logic [`ENTRY_WIDTH-1:0] entry_data;
@@ -59,41 +64,50 @@ xpm_memory_spram #(
 );
 
 logic [2:0] state;
-enum logic [2:0] {READY, NEW_INSERT, NEW_LOOKUP, PROC_INSERT, PROC_LOOKUP, NEW_NODE, SET_VALID} StateType;
+enum logic [2:0] {READY, PROC_INSERT, PROC_LOOKUP, NEW_NODE, SET_VALID} StateType;
 
 always_ff @(posedge clk) begin
     if (rst) begin
         lookup_insert_ready <= 1;
-        insert_valid <= 0;
-        insert_error <= 0;
-        lookup_valid <= 0;
-        lookup_not_found <= 0;
+        insert_output_valid <= 0;
+        insert_output_error <= 0;
+        lookup_output_valid <= 0;
         lookup_nexthop <= 0;
-        index <= 0;
-        proc_state <= 0;
         en_write <= 0;
+        index <= 0;
         node_count <= 0;
         state <= READY;
     end else begin
         case (state)
             READY: begin
-                /* TODO: Clean up */
-            end
-
-            NEW_INSERT: begin
-                lookup_insert_ready <= 0;
-                addr_saved <= lookup_insert_addr;
-                insert_nexthop_saved <= insert_nexthop;
-                shift_pos <= insert_mask_len;
-                proc_state <= 0;
+                if (insert_valid) begin
+                    /* New insertion */
+                    lookup_insert_ready <= 0;
+                    addr_saved <= lookup_insert_addr;
+                    insert_nexthop_saved <= insert_nexthop;
+                    shift_pos <= insert_mask_len;
+                    state <= PROC_INSERT;
+                end else if (lookup_valid) begin
+                    /* New lookup */
+                    lookup_insert_ready <= 0;
+                    addr_saved <= lookup_insert_addr;
+                    shift_pos <= 32;
+                    state <= PROC_LOOKUP;
+                    lookup_nexthop <= 0;
+                end
+                index <= 0;
+                insert_output_valid <= 0;
+                insert_output_error <= 0;
+                lookup_output_valid <= 0;
             end
 
             NEW_NODE: begin
                 en_write <= 0;
-                index <= node_count;
-                state <= PROC_INSERT;
+                index <= node_count + 1;
+                node_count <= node_count + 1;
                 shift_pos <= shift_pos - 1;
                 addr_saved <= addr_saved << 1;
+                state <= PROC_INSERT;
             end
 
             SET_VALID: begin
@@ -110,15 +124,16 @@ always_ff @(posedge clk) begin
                         insert_error <= 1;
                         insert_valid <= 0;
                         lookup_insert_ready <= 1;
+                        state <= READY;
                     end else begin
                         en_write <= 1;
-                        write_data <= {64'h0x1, insert_nexthop_saved, node_left_index, node_right_index};
+                        write_data <= {64'h0x1, insert_nexthop_saved, node_right_index, node_left_index};
+                        state <= SET_VALID;
                     end
                 end else begin
                     if (current_bit == 0) begin
                         if (node_left_index == 0) begin
                             en_write <= 1;
-                            node_count <= node_count + 1;
                             write_data <= node_count + 1;
                             state <= NEW_NODE;
                         end else begin
@@ -129,7 +144,6 @@ always_ff @(posedge clk) begin
                     end else begin
                         if (node_right_index == 0) begin
                             en_write <= 1;
-                            node_count <= node_count + 1;
                             write_data <= node_count + 1;
                             state <= NEW_NODE;
                         end else begin
@@ -139,13 +153,6 @@ always_ff @(posedge clk) begin
                         end
                     end
                 end
-            end
-
-            NEW_LOOKUP: begin
-                addr_saved <= lookup_insert_addr;
-                shift_pos <= 32;
-                state <= PROC_LOOKUP;
-                lookup_nexthop <= 0;
             end
 
             PROC_LOOKUP: begin
