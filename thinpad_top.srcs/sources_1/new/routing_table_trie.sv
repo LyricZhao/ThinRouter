@@ -1,11 +1,6 @@
 `timescale 1ns / 1ps
 
-`define IPV4_WIDTH 32
-`define MASK_WIDTH 5
-`define BYTE_WIDTH 8
-`define INDEX_WIDTH 16
-`define ENTRY_WIDTH 128 // `INDEX_WIDTH*2+IPV4_WIDTH+1 rounded up to 2's pow
-`define ENTRY_COUNT 32
+`include "constants.vh"
 
 /*
  * Routing Table Entry:
@@ -18,12 +13,12 @@ module routing_table_trie(
     input wire rst,
 
     input wire [`IPV4_WIDTH-1:0] lookup_insert_addr,
-    input wire [`IPV4_WIDTH-1:0] insert_nexthop;
     input wire lookup_valid,
 
-    input wire [`MASK_WIDTH-1:0] insert_mask_len,
     input wire insert_valid,
-
+    input wire [`IPV4_WIDTH-1:0] insert_nexthop,
+    input wire [`MASK_WIDTH-1:0] insert_mask_len,
+    
     output logic lookup_insert_ready,
     output logic insert_output_valid,
     output logic insert_output_error,
