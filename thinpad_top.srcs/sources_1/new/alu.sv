@@ -43,7 +43,7 @@ always @(reset_btn, input_state, dip_sw) begin
         led_bits <= 16'b0;
     end else begin
         case (input_state)
-            2: begin
+            INPUT_DB: begin
                 case (op_code)
                     ADD: begin
                         led_bits <= add_result;
@@ -64,7 +64,7 @@ always @(reset_btn, input_state, dip_sw) begin
                     default: begin end
                 endcase
             end
-            3: begin
+            OUTPUT_S: begin
                 led_bits <= overflow_flag;
             end
             default: begin end
