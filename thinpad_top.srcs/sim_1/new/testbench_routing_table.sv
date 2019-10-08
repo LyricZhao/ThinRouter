@@ -33,46 +33,46 @@ initial begin
     /* Insert 10.0.0.1/16, n=1.1.1.1 */
     repeat (2) @ (posedge clk);
     insert_valid <= 1;
-    lookup_insert_addr <= 32'haa000001;
+    lookup_insert_addr <= 32'h0a000001;
     insert_nexthop <= 32'h01010101;
-    insert_mask_len <= 5'h10;
+    insert_mask_len <= 16;
     repeat (1) @ (posedge clk);
     insert_valid <= 0;
     repeat (70) @ (posedge clk);
 
     /* Insert 10.0.0.1/32, n=2.2.2.2 */
-    // repeat (2) @ (posedge clk);
-    // insert_valid <= 1;
-    // lookup_insert_addr <= 32'h0x0a000001;
-    // insert_nexthop <= 32'h0x02020202;
-    // insert_mask_len <= 5'h0x20;
-    // repeat (1) @ (posedge clk);
-    // insert_valid <= 0;
-    // repeat (70) @ (posedge clk);
+    repeat (2) @ (posedge clk);
+    insert_valid <= 1;
+    lookup_insert_addr <= 32'h0a000001;
+    insert_nexthop <= 32'h02020202;
+    insert_mask_len <= 32;
+    repeat (1) @ (posedge clk);
+    insert_valid <= 0;
+    repeat (70) @ (posedge clk);
 
     /* Lookup 10.0.1.1 */
     repeat (2) @ (posedge clk);
     lookup_valid <= 1;
-    lookup_insert_addr <= 32'haa000101;
+    lookup_insert_addr <= 32'h0a000101;
     repeat (1) @ (posedge clk);
     lookup_valid <= 0;
     repeat (40) @ (posedge clk);
 
     /* Lookup 10.0.0.1 */
-    // repeat (2) @ (posedge clk);
-    // lookup_valid <= 1;
-    // lookup_insert_addr <= 32'h0a000001;
-    // repeat (1) @ (posedge clk);
-    // lookup_valid <= 0;
-    // repeat (40) @ (posedge clk);
+    repeat (2) @ (posedge clk);
+    lookup_valid <= 1;
+    lookup_insert_addr <= 32'h0a000001;
+    repeat (1) @ (posedge clk);
+    lookup_valid <= 0;
+    repeat (40) @ (posedge clk);
 
     /* Lookup 17.2.1.1 */
-    // repeat (2) @ (posedge clk);
-    // lookup_valid <= 1;
-    // lookup_insert_addr <= 32'h11020101;
-    // repeat (1) @ (posedge clk);
-    // lookup_valid <= 0;
-    // repeat (40) @ (posedge clk);
+    repeat (2) @ (posedge clk);
+    lookup_valid <= 1;
+    lookup_insert_addr <= 32'h11020101;
+    repeat (1) @ (posedge clk);
+    lookup_valid <= 0;
+    repeat (40) @ (posedge clk);
 
 end
 
