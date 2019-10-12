@@ -1,6 +1,7 @@
 `timescale 1ns / 1ps
 
 `include "constants.vh"
+`include "path.vh"
 
 module testbench_routing_table();
 
@@ -18,6 +19,15 @@ wire insert_output_valid;
 wire insert_output_error;
 wire lookup_output_valid;
 wire [`IPV4_WIDTH-1:0] lookup_nexthop;
+
+function automatic integer open_test_file(); begin
+    `ifdef RUNTIME_PATH
+    open_test_file = $fopen({`RUNTIME_PATH, "/routing_test.data"}, "r");
+    `else
+    Please_refer_to___thinpad_top_srcs__sim_1__new___TESTBENCH_README_md___to_specify_runtime_path error;
+    `endif
+end
+endfunction
 
 initial begin
     clk = 0;
