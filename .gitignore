@@ -9,3 +9,5 @@
 *.sim/
 refs
 .DS_Store
+vivado.jou
+vivado.log
