@@ -183,6 +183,16 @@ module eth_mac_fifo_block (
   wire       tx_axis_mac_tlast;
   wire       tx_axis_mac_tuser;
 
+  ila_0 axis_mac_debug(
+      .clk(rx_mac_aclk_int), // Same clock with tx
+      .probe0(rx_axis_mac_tdata),
+      .probe1(rx_axis_mac_tvalid),
+      .probe2(rx_axis_mac_tlast),
+      .probe3(tx_axis_mac_tdata),
+      .probe4(tx_axis_mac_tvalid),
+      .probe5(tx_axis_mac_tlast)
+  );
+
   //----------------------------------------------------------------------------
   // Connect the output clock signals
   //----------------------------------------------------------------------------

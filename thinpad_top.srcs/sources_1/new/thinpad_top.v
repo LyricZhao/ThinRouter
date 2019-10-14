@@ -314,6 +314,20 @@ eth_mac_fifo_block trimac_fifo_block (
     .tx_configuration_vector      (80'b10000000000110)
 );
 
+(*KEEP="TRUE"*)  wire [3:0] debug_eth_rgmii_td;
+(*KEEP="TRUE"*)  wire [0:0] debug_eth_rgmii_tx_ctl;
+(*KEEP="TRUE"*)  wire [0:0] debug_eth_rgmii_txc;
+(*KEEP="TRUE"*)  wire [3:0] debug_eth_rgmii_rd;
+(*KEEP="TRUE"*)  wire [0:0] debug_eth_rgmii_rx_ctl;
+(*KEEP="TRUE"*)  wire [0:0] debug_eth_rgmii_rxc;
+
+assign debug_eth_rgmii_td = eth_rgmii_td;
+assign debug_eth_rgmii_tx_ctl = eth_rgmii_tx_ctl;
+assign debug_eth_rgmii_txc = eth_rgmii_txc;
+assign debug_eth_rgmii_rd = eth_rgmii_rd;
+assign debug_eth_rgmii_rx_ctl = eth_rgmii_rx_ctl;
+assign debug_eth_rgmii_rxc = eth_rgmii_rxc;
+
 eth_mac_address_swap eth_mac_addr_inst(
     .axi_tclk(clk_125M),
     .axi_tresetn(gtx_resetn),
