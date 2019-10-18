@@ -14,7 +14,7 @@ query:
     [8:11]  00 00 00 01 表示查询到了一条记录
             00 00 00 00 表示没有查到任何记录
     [12:15] 0a 00 00 01 表示查询到 nexthop 地址 10.0.0.1
-terminate:
+eof:
     [0:3]   ff ff ff ff 表示结束
     [4:15]              忽略
 """
@@ -301,5 +301,8 @@ if __name__ == '__main__':
             output += Entry.insert()
         else:
             output += Entry.query()
+
+    print('\033[31mEOF\033[0m')
+    output += b'\xff\xff\xff\xff' + bytearray(12)
 
     open(os.path.join(Config.path, 'routing_test.data'), 'wb').write(output)
