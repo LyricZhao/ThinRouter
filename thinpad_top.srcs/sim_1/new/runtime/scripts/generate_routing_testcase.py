@@ -1,22 +1,14 @@
 """
 生成 routing table 的测试用例
 
-输出会存储到 ../routing_test.data
-格式: 16 字节一条记录
-insert:
-    [0:3]   00 00 00 00 表示 insert
-    [4:7]   80 00 00 01 表示插入地址 128.0.0.1
-    [8:11]  00 00 00 10 表示 mask 长度为 16
-    [12:15] 0a 00 00 01 表示 nexthop 地址 10.0.0.1
-query:
-    [0:3]   00 00 00 01 表示 query
-    [4:7]   80 00 00 01 表示查询地址 128.0.0.1
-    [8:11]  00 00 00 01 表示查询到了一条记录
-            00 00 00 00 表示没有查到任何记录
-    [12:15] 0a 00 00 01 表示查询到 nexthop 地址 10.0.0.1
-eof:
-    [0:3]   ff ff ff ff 表示结束
-    [4:15]              忽略
+输出会存储到 ../routing_test.mem
+插入:   地址 -> nexthop
+    insert  128.0.0.0/12 -> 34.54.12.32
+查询:   地址 -> nexthop / 地址 -x
+    query   128.4.123.32 -> 34.54.12.32
+    query   130.43.23.43 -x
+结束:   end
+    end
 """
 from __future__ import annotations
 from typing import *
@@ -104,14 +96,9 @@ class IPAddress:
     def __str__(self):
         raw = self.raw
         if self.mask == 32:
-            s = '%d.%d.%d.%d' % (raw[0], raw[1], raw[2], raw[3])
-            pad = ' ' * (15 - len(s))
+            return '%d.%d.%d.%d' % (raw[0], raw[1], raw[2], raw[3])
         else:
-            s = '%d.%d.%d.%d/%d' % (raw[0], raw[1], raw[2], raw[3], self.mask)
-            pad = ' ' * (18 - len(s))
-        if self.nexthop is not None:
-            s += ' -> ' + str(self.nexthop)
-        return s + pad
+            return '%d.%d.%d.%d/%d' % (raw[0], raw[1], raw[2], raw[3], self.mask)
 
 
 class Entry:
@@ -180,7 +167,7 @@ class Entry:
         return best
 
     @staticmethod
-    def insert() -> bytearray:
+    def insert() -> str:
         """
         生成一条插入的数据
         """
@@ -191,16 +178,10 @@ class Entry:
         new_addr.nexthop = nexthop
         Entry._save(new_addr)
         Entry.counter += 1
-        print('%d.\t\033[32minsert' % Entry.counter, new_addr, '\033[0m')
-        return (
-            b'\0\0\0\0' +
-            new_addr.raw +
-            b'\0\0\0' + struct.pack('B', new_addr.mask) +
-            nexthop.raw
-        )
+        return 'insert  %s -> %s\n' % (new_addr, nexthop)
 
     @staticmethod
-    def query() -> bytearray:
+    def query() -> str:
         if random.random() < Config.miss_rate or len(Entry.inserted) == 0:
             addr = IPAddress.get_random_addr()
         else:
@@ -208,22 +189,10 @@ class Entry:
                 random.choice(Entry.inserted_list))
         match = Entry._match(addr)
         Entry.counter += 1
-        print('%d.\t\033[33mquery ' % Entry.counter, addr, '\033[0m')
-        print('\t\033[34mexpect', match, '\033[0m')
         if match is not None:
-            return (
-                b'\0\0\0\1' +
-                addr.raw +
-                b'\0\0\0\1' +
-                match.nexthop.raw
-            )
+            return 'query   %s -> %s\n' % (addr, match.nexthop)
         else:
-            return (
-                b'\0\0\0\1' +
-                addr.raw +
-                b'\0\0\0\0' +
-                b'\0\0\0\0'
-            )
+            return 'query   %s -x\n' % addr
 
 
 def wrong_usage_exit():
@@ -295,14 +264,16 @@ if __name__ == '__main__':
     if not Config.order:
         random.shuffle(operations)
 
-    output = b''
+    output = ''
     for op in operations:
         if op == 'i':
             output += Entry.insert()
         else:
             output += Entry.query()
 
-    print('\033[31mEOF\033[0m')
-    output += b'\xff\xff\xff\xff' + bytearray(12)
+    output += 'end\n'
 
-    open(os.path.join(Config.path, 'routing_test.data'), 'wb').write(output)
+    print('已生成测试样例，共 %d 条插入，%d 条查询' %
+          (Config.insertion_count, Config.query_count))
+
+    open(os.path.join(Config.path, 'routing_test.mem'), 'w').write(output)

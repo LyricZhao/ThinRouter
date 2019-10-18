@@ -1,7 +1,6 @@
 `timescale 1ns / 1ps
 
 `include "constants.vh"
-`include "path.vh"
 
 module testbench_routing_table();
 
@@ -20,16 +19,58 @@ wire insert_output_error;
 wire lookup_output_valid;
 wire [`IPV4_WIDTH-1:0] lookup_nexthop;
 
-function automatic integer open_test_file(); begin
-    `ifdef RUNTIME_PATH
-    open_test_file = $fopen({`RUNTIME_PATH, "/routing_test.data"}, "r");
-    `else
-    Please_refer_to___thinpad_top_srcs__sim_1__new___TESTBENCH_README_md___to_specify_runtime_path error;
-    `endif
+// 用于读取测例数据
+integer file_descriptor;
+byte unsigned buffer[15:0];
+
+// 根据输入数据进行插入/查询
+function automatic void run_test_entry;
+    bit finished;
+    integer count;
+begin
+    finished = 0;
+    count = 0;
+    file_descriptor = $fopen("routing_test.mem", "r");
+    while (!finished) begin
+        $fscanf(file_descriptor, "%s", buffer);
+        unique casez (buffer[5:0])
+            "insert": begin
+                // insert
+                count += 1;
+                $fscanf(file_descriptor, "%d.%d.%d.%d/%d -> %d.%d.%d.%d",
+                    buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8]);
+                $display("%d.insert  %d.%d.%d.%d/%d -> %d.%d.%d.%d", count,
+                    buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8]);
+                // todo
+            end
+            {8'h??, "query"}: begin
+                // query
+                count += 1;
+                $fscanf(file_descriptor, "%d.%d.%d.%d", 
+                    buffer[0], buffer[1], buffer[2], buffer[3]);
+                $fscanf(file_descriptor, "%s", buffer[5:4]);
+                if (buffer[5:4] == "->") begin
+                    // 预计有 nexthop
+                    $fscanf(file_descriptor, "%d.%d.%d.%d", 
+                        buffer[4], buffer[5], buffer[6], buffer[7]);
+                    $display("%d.query   %d.%d.%d.%d -> %d.%d.%d.%d", count,
+                        buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7]);
+                end else begin
+                    $display("%d.query   %d.%d.%d.%d -X", count,
+                        buffer[0], buffer[1], buffer[2], buffer[3]);
+                end
+            end
+            {24'h??????, "end"}: begin
+                finished = 1;
+                $display("end");
+            end
+        endcase
+    end
 end
 endfunction
 
 initial begin
+    run_test_entry();
     clk = 0;
     rst = 1;
     lookup_valid = 0;

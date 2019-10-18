@@ -9,8 +9,6 @@
 *.sim/
 refs
 .DS_Store
-vivado.jou
-vivado.log
-thinpad_top.srcs/sim_1/new/include/path.vh
+vivado*
 thinpad_top.srcs/sim_1/new/runtime_path/*
 !thinpad_top.srcs/sim_1/new/runtime_path/scripts
