@@ -5,3 +5,7 @@
 `define ENTRY_WIDTH 128 // `INDEX_WIDTH*2+IPV4_WIDTH+1 rounded up to 2's pow
 `define NODES_COUNT 1024
 `define ENTRY_BYTES 16 // ENTRY_WIDTH / BYTE_WIDTH
+`define MAC_WIDTH 48
+`define ARP_ITEM_NUM_WIDTH 3
+`define ARP_ITEM_NUM 8
+`define PORT_WIDTH 2
