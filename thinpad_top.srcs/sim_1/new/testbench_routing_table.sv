@@ -19,6 +19,113 @@ wire insert_output_error;
 wire lookup_output_valid;
 wire [`IPV4_WIDTH-1:0] lookup_nexthop;
 
+// 用于读取测例数据
+int file_descriptor;
+bit[127:0] buffer;
+
+// 等待 lookup_insert_ready 变回 1
+task wait_till_ready;
+begin
+    do
+        repeat (1) @ (posedge clk);
+    while (!lookup_insert_ready);
+end
+endtask
+
+task wait_for_lookup_output;
+begin
+    do
+        repeat (1) @ (posedge clk);
+    while (!lookup_output_valid);
+end
+endtask
+
+// 在路由表中插入一条。测例保证不会有地址、掩码一样的条目
+task insert;
+    input bit[31:0] addr;       // 插入地址
+    input bit[7:0] mask_len;    // 掩码长度
+    input bit[31:0] nexthop;    // 下一跳地址
+begin
+    $display("insert %0d.%0d.%0d.%0d/%0d -> %0d.%0d.%0d.%0d",
+        addr[31:24], addr[23:16], addr[15:8], addr[7:0], mask_len,
+        nexthop[31:24], nexthop[23:16], nexthop[15:8], nexthop[7:0]);
+    // 拷贝的之前代码
+    repeat (2) @ (posedge clk);
+    insert_valid = 1;
+    lookup_insert_addr = addr;
+    insert_nexthop = nexthop;
+    insert_mask_len = mask_len;
+    repeat (1) @ (posedge clk);
+    insert_valid = 0;
+    wait_till_ready();
+    $display("insert done");
+end
+endtask
+
+// 在路由表中进行查询，如果结果和预期结果不同会报错
+task query;
+    input bit[31:0] addr;           // 查询地址
+    input bit[31:0] expect_nexthop; // 预期匹配的 nexthop，没有匹配则为 0
+begin
+    $display("query  %0d.%0d.%0d.%0d",
+        addr[31:24], addr[23:16], addr[15:8], addr[7:0]);
+    // 拷贝的之前代码
+    repeat (2) @ (posedge clk);
+    lookup_valid <= 1;
+    lookup_insert_addr <= addr;
+    repeat (1) @ (posedge clk);
+    lookup_valid <= 0;
+    wait_for_lookup_output();
+    $display("get    %0d.%0d.%0d.%0d",
+        lookup_nexthop[31:24], lookup_nexthop[23:16], lookup_nexthop[15:8], lookup_nexthop[7:0]);
+    if (lookup_nexthop == expect_nexthop)
+        $display("correct");
+    else
+        $display("WRONG! Expecting %0d.%0d.%0d.%0d", 
+            expect_nexthop[31:24], expect_nexthop[23:16], expect_nexthop[15:8], expect_nexthop[7:0]);
+    wait_till_ready();
+end
+endtask
+
+// 根据输入数据进行插入/查询
+task run_test_entry;
+    bit finished;
+    integer count;
+begin
+    finished = 0;
+    count = 0;
+    file_descriptor = $fopen("routing_test.mem", "r");
+    while (!finished) begin
+        $fscanf(file_descriptor, "%s", buffer);
+        unique casez (buffer[47:0])
+            "insert": begin
+                // insert
+                count += 1;
+                $display("%0d.", count);
+                $fscanf(file_descriptor, "%d.%d.%d.%d/%d -> %d.%d.%d.%d",
+                    buffer[31:24], buffer[23:16], buffer[15:8], buffer[7:0], 
+                    buffer[39:32], 
+                    buffer[71:64], buffer[63:56], buffer[55:48], buffer[47:40]);
+                insert(buffer[31:0], buffer[39:32], buffer[71:40]);
+            end
+            {8'h??, "query"}: begin
+                // query
+                count += 1;
+                $display("%0d.", count);
+                $fscanf(file_descriptor, "%d.%d.%d.%d -> %d.%d.%d.%d", 
+                    buffer[31:24], buffer[23:16], buffer[15:8], buffer[7:0],
+                    buffer[71:64], buffer[63:56], buffer[55:48], buffer[47:40]);
+                query(buffer[31:0], buffer[71:40]);
+            end
+            {24'h??????, "end"}: begin
+                finished = 1;
+                $display("end");
+            end
+        endcase
+    end
+end
+endtask
+
 initial begin
     clk = 0;
     rst = 1;
@@ -30,50 +137,7 @@ initial begin
     #100
     rst = 0;
 
-    /* Insert 10.0.0.1/16, n=1.1.1.1 */
-    repeat (2) @ (posedge clk);
-    insert_valid <= 1;
-    lookup_insert_addr <= 32'h0a000001;
-    insert_nexthop <= 32'h01010101;
-    insert_mask_len <= 16;
-    repeat (1) @ (posedge clk);
-    insert_valid <= 0;
-    repeat (70) @ (posedge clk);
-
-    /* Insert 10.0.0.1/32, n=2.2.2.2 */
-    repeat (2) @ (posedge clk);
-    insert_valid <= 1;
-    lookup_insert_addr <= 32'h0a000001;
-    insert_nexthop <= 32'h02020202;
-    insert_mask_len <= 32;
-    repeat (1) @ (posedge clk);
-    insert_valid <= 0;
-    repeat (70) @ (posedge clk);
-
-    /* Lookup 10.0.1.1 */
-    repeat (2) @ (posedge clk);
-    lookup_valid <= 1;
-    lookup_insert_addr <= 32'h0a000101;
-    repeat (1) @ (posedge clk);
-    lookup_valid <= 0;
-    repeat (40) @ (posedge clk);
-
-    /* Lookup 10.0.0.1 */
-    repeat (2) @ (posedge clk);
-    lookup_valid <= 1;
-    lookup_insert_addr <= 32'h0a000001;
-    repeat (1) @ (posedge clk);
-    lookup_valid <= 0;
-    repeat (40) @ (posedge clk);
-
-    /* Lookup 17.2.1.1 */
-    repeat (2) @ (posedge clk);
-    lookup_valid <= 1;
-    lookup_insert_addr <= 32'h11020101;
-    repeat (1) @ (posedge clk);
-    lookup_valid <= 0;
-    repeat (40) @ (posedge clk);
-
+    run_test_entry();
 end
 
 always clk = #10 ~clk;
