@@ -32,6 +32,14 @@ begin
 end
 endtask
 
+task wait_for_lookup_output;
+begin
+    do
+        repeat (1) @ (posedge clk);
+    while (!lookup_output_valid);
+end
+endtask
+
 // 在路由表中插入一条。测例保证不会有地址、掩码一样的条目
 task insert;
     input bit[31:0] addr;       // 插入地址
@@ -57,8 +65,7 @@ endtask
 // 在路由表中进行查询，如果结果和预期结果不同会报错
 task query;
     input bit[31:0] addr;           // 查询地址
-    input bit expect_result;        // 是否预期能够找到匹配
-    input bit[31:0] expect_nexthop; // 预期匹配的 nexthop
+    input bit[31:0] expect_nexthop; // 预期匹配的 nexthop，没有匹配则为 0
 begin
     $display("query  %0d.%0d.%0d.%0d",
         addr[31:24], addr[23:16], addr[15:8], addr[7:0]);
@@ -68,8 +75,15 @@ begin
     lookup_insert_addr <= addr;
     repeat (1) @ (posedge clk);
     lookup_valid <= 0;
+    wait_for_lookup_output();
+    $display("get    %0d.%0d.%0d.%0d",
+        lookup_nexthop[31:24], lookup_nexthop[23:16], lookup_nexthop[15:8], lookup_nexthop[7:0]);
+    if (lookup_nexthop == expect_nexthop)
+        $display("correct");
+    else
+        $display("WRONG! Expecting %0d.%0d.%0d.%0d", 
+            expect_nexthop[31:24], expect_nexthop[23:16], expect_nexthop[15:8], expect_nexthop[7:0]);
     wait_till_ready();
-    // todo: 检验结果
 end
 endtask
 
@@ -98,17 +112,10 @@ begin
                 // query
                 count += 1;
                 $display("%0d.", count);
-                $fscanf(file_descriptor, "%d.%d.%d.%d", 
-                    buffer[31:24], buffer[23:16], buffer[15:8], buffer[7:0]);
-                $fscanf(file_descriptor, "%s", buffer[47:32]);
-                if (buffer[47:32] == "->") begin
-                    // 预计有 nexthop
-                    $fscanf(file_descriptor, "%d.%d.%d.%d", 
-                        buffer[71:64], buffer[63:56], buffer[55:48], buffer[47:40]);
-                    query(buffer[31:0], 1'b1, buffer[71:40]);
-                end else begin
-                    query(buffer[31:0], 1'b0, buffer[31:0]);
-                end
+                $fscanf(file_descriptor, "%d.%d.%d.%d -> %d.%d.%d.%d", 
+                    buffer[31:24], buffer[23:16], buffer[15:8], buffer[7:0],
+                    buffer[71:64], buffer[63:56], buffer[55:48], buffer[47:40]);
+                query(buffer[31:0], buffer[71:40]);
             end
             {24'h??????, "end"}: begin
                 finished = 1;

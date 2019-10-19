@@ -10,5 +10,5 @@
 refs
 .DS_Store
 vivado*
-thinpad_top.srcs/sim_1/new/runtime_path/*
-!thinpad_top.srcs/sim_1/new/runtime_path/scripts
+thinpad_top.srcs/sim_1/new/runtime/*
+!thinpad_top.srcs/sim_1/new/runtime/scripts

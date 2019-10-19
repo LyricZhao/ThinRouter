@@ -4,11 +4,12 @@
 输出会存储到 ../routing_test.mem
 插入:   地址 -> nexthop
     insert  128.0.0.0/12 -> 34.54.12.32
-查询:   地址 -> nexthop / 地址 -x
+查询:   地址 -> nexthop （nexthop = 0.0.0.0 表示无法匹配任一表项）
     query   128.4.123.32 -> 34.54.12.32
-    query   130.43.23.43 -x
 结束:   end
     end
+
+生成的地址不会为 0.0.0.0
 """
 from __future__ import annotations
 from typing import *
@@ -42,13 +43,15 @@ class IPAddress:
         随机生成一个带有 mask 的地址
         如果在 -p 模式下，生成的地址会集中在一个比较小的范围
         """
-        if Config.pressure:
-            value = int(random.normalvariate(
-                IPAddress.center, 0x800000)) & 0xffffffff
-        else:
-            value = random.randint(0, 0xffffffff)
-        mask = random.randint(12, 28)
-        value &= 0xffffffff << (32 - mask)
+        value = 0
+        while value == 0:
+            if Config.pressure:
+                value = int(random.normalvariate(
+                    IPAddress.center, 0x800000)) & 0xffffffff
+            else:
+                value = random.randint(0, 0xffffffff)
+            mask = random.randint(12, 28)
+            value &= 0xffffffff << (32 - mask)
         return IPAddress(value, mask)
 
     @staticmethod
@@ -56,8 +59,10 @@ class IPAddress:
         """
         随机生成一个匹配目标地址的地址
         """
-        value = target.value ^ (
-            random.randint(0, 0xffffffff) & (0xffffffff >> target.mask))
+        value = 0
+        while value == 0:
+            value = target.value ^ (
+                random.randint(0, 0xffffffff) & (0xffffffff >> target.mask))
         return IPAddress(value, 32)
 
     @staticmethod
@@ -65,7 +70,7 @@ class IPAddress:
         """
         随机生成一个地址
         """
-        return IPAddress(random.randint(0, 0xffffffff), 32)
+        return IPAddress(random.randint(1, 0xffffffff), 32)
 
     def __init__(self, value: int, mask: int):
         self.value = value
@@ -192,7 +197,7 @@ class Entry:
         if match is not None:
             return 'query   %s -> %s\n' % (addr, match.nexthop)
         else:
-            return 'query   %s -x\n' % addr
+            return 'query   %s -> 0.0.0.0\n' % addr
 
 
 def wrong_usage_exit():
