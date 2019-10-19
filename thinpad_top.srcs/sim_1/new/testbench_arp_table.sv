@@ -69,12 +69,12 @@ module testbench_arp_table();
             addr[31:24], addr[23:16], addr[15:8], addr[7:0],
             mac[47:40], mac[39:32], mac[31:24], mac[23:16], mac[15:8], mac[7:0],
             port);
-        insert_ip = addr;
-        insert_mac = mac;
-        insert_port = port;
-        insert_valid = 1;
+        insert_ip <= addr;
+        insert_mac <= mac;
+        insert_port <= port;
+        insert_valid <= 1;
         repeat (1) @ (posedge clk);
-        insert_valid = 0;
+        insert_valid <= 0;
         wait_till_insert_ready();
         $display("insert done");
     end
@@ -87,10 +87,10 @@ module testbench_arp_table();
     begin
         $display("query  %0d.%0d.%0d.%0d",
             addr[31:24], addr[23:16], addr[15:8], addr[7:0]);
-        lookup_ip = addr;
-        lookup_ip_valid = 1;
+        lookup_ip <= addr;
+        lookup_ip_valid <= 1;
         repeat (1) @ (posedge clk);
-        lookup_ip_valid = 0;
+        lookup_ip_valid <= 0;
         wait_for_result();
 
         if (lookup_mac_not_found) begin
