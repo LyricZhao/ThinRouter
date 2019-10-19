@@ -2,10 +2,10 @@
 生成 arp 的测试用例
 
 输出会存储到 ../arp_test.mem
-插入:   ip -> mac
-    insert  128.0.0.1 -> 48:aa:bb:cc:ee:ff
-查询:   ip -> mac （nexthop = 00:00:00:00:00:00 表示无法匹配任一表项）
-    query   128.0.0.1 -> 48:aa:bb:cc:ee:ff
+插入:   ip -> mac@port （port 为接口 0123）
+    insert  128.0.0.1 -> 48:aa:bb:cc:ee:ff/3
+查询:   ip -> mac@port （mac = 00:00:00:00:00:00@0 表示无法匹配任一表项）
+    query   128.0.0.1 -> 48:aa:bb:cc:ee:ff/3
 结束:   end
     end
 
@@ -31,7 +31,7 @@ class Config:
 
 
 def MAC():
-    return '%02x:%02x:%02x:%02x:%02x:%02x' % (*list(os.urandom(6)),)
+    return '%02x:%02x:%02x:%02x:%02x:%02x@%d' % (*list(os.urandom(6)), random.randint(0, 3))
 
 
 class IPAddress:
@@ -124,7 +124,7 @@ class Entry:
         if addr.mac is not None:
             return 'query   %s -> %s\n' % (addr, addr.mac)
         else:
-            return 'query   %s -> 00:00:00:00:00:00\n' % addr
+            return 'query   %s -> 00:00:00:00:00:00@0\n' % addr
 
 
 def wrong_usage_exit():
