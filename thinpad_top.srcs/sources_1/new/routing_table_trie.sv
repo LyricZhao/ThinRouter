@@ -88,9 +88,10 @@ always_ff @(posedge clk) begin
                     shift_pos <= 32;
                     lookup_nexthop <= 0;
                     state <= PROC_LOOKUP;
+                end else begin
+                    lookup_insert_ready <= 1;
                 end
                 index <= 0;
-                lookup_insert_ready <= 1;
                 insert_output_valid <= 0;
                 insert_output_error <= 0;
                 lookup_output_valid <= 0;
