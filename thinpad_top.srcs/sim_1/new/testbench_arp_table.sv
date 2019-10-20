@@ -55,8 +55,9 @@ module testbench_arp_table();
     // 等待查询结果
     task wait_for_result;
     begin
-        // 目前 ARP 没有这个信号！
-        repeat (12) @ (posedge clk);
+        do
+            repeat (1) @ (posedge clk);
+        while (!lookup_mac_valid && !lookup_mac_not_found);
     end
     endtask
 
