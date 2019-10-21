@@ -20,71 +20,51 @@ module routing_table_trie(
     output logic [`IPV4_WIDTH-1:0] lookup_output_nexthop
 );
 
-/* Memory control logic */
-logic [`INDEX_WIDTH-1:0] index, child_index, num_nodes;
-
-logic trie_en_write;
-logic [`TRIE_ENTRY_WIDTH-1:0] trie_write_data, trie_entry_data;
-
-xpm_memory_spram #(
-    // .MEMORY_PRIMITIVE("auto"),
-    .ADDR_WIDTH_A(`NODE_INDEX_WIDTH),
-    .WRITE_DATA_WIDTH_A(`NODE_ENTRY_WIDTH), // Controlled by one enwrite
-    .BYTE_WRITE_WIDTH_A(`NODE_ENTRY_WIDTH),
-    .READ_DATA_WIDTH_A(`NODE_ENTRY_WIDTH),
-    .READ_LATENCY_A(0),
-    .MEMORY_SIZE(`NUM_NODES * `TRIE_ENTRY_WIDTH)
-) trie_memory (
-    .addra(child_mem_index),
-    .wea(trie_en_write),
-    .dina(trie_write_data),
-    .douta(trie_entry_data),
-    .clka(clk),
-    .rsta(rst),
-    .ena(1'b1)
-);
-
-logic [`INFO_ENTRY_BYTES-1:0] info_en_write;
-logic [`INFO_ENTRY_WIDTH-1:0] info_write_data, info_entry_data;
-
-xpm_memory_spram #(
-    // .MEMORY_PRIMITIVE("auto"),
-    .ADDR_WIDTH_A(`INFO_INDEX_WIDTH),
-    .WRITE_DATA_WIDTH_A(`INFO_ENTRY_WIDTH), // Controlled by one enwrite
-    .BYTE_WRITE_WIDTH_A(`INFO_ENTRY_WIDTH),
-    .READ_DATA_WIDTH_A(`INFO_ENTRY_WIDTH),
-    .READ_LATENCY_A(0),
-    .MEMORY_SIZE(`NUM_NODES * `INFO_ENTRY_WIDTH)
-) info_memory (
-    .addra(index),
-    .wea(info_en_write),
-    .dina(info_write_data),
-    .douta(info_entry_data),
-    .clka(clk),
-    .rsta(rst),
-    .ena(1'b1)
-);
-
 /* States */
 logic [2:0] state;
-enum logic [2:0] {READY, LOOKUP} StateType;
+enum logic [2:0] {READY, LOOKUP, INSERT} StateType;
 
 /* Variables */
-logic [`IPV4_WIDTH-1:0] addr_saved;
+logic [`NODE_INDEX_WIDTH-1:0] index, num_nodes;
+logic [`IPV4_WIDTH-1:0] addr_saved, nexthop_saved;
 logic [`MASK_WIDTH-1:0] shift;
+logic [`LOG_BITS_PER_STEP-1:0] bits_left;
+
+/* Memory control */
+logic en_write;
+logic [`BLCK_ENTRY_WIDTH-1:0] write_data, entry_data;
 
 /* Assign */
 wire [`BITS_PER_STEP-1:0] current_bits;
-wire [`IPV4_WIDTH-1:0] node_nexthop;
-wire [`NODE_INDEX_WIDTH-1:0] child_mem_index;
-wire [`TRIE_INDEX_WIDTH-1:0] child_index;
-wire [`TRIE_COVER_WIDTH-1:0] child_cover;
+wire [`BLCK_INDEX_WIDTH-1:0] entry_index;
+wire [`BLCK_COVER_WIDTH-1:0] entry_cover;
+wire [`IPV4_WIDTH-1:0] entry_index_nexthop;
+wire entry_state;
 
 assign current_bits = addr_saved[`IPV4_WIDTH-1:`IPV4_WIDTH-`BITS_PER_STEP];
-assign node_nexthop = info_entry_data[`IPV4_WIDTH-1:0];
-assign child_mem_index = index * `TRIE_ENTRY_WIDTH + `TRIE_SINGLE_ENTRY_WIDTH * current_bits;
-assign child_index = trie_entry_data[`NODE_ENTRY_WIDTH-1:`NODE_ENTRY_WIDTH-TRIE_INDEX_WIDTH];
-assign child_cover = trie_entry_data[`TRIE_COVER_WIDTH-1:0];
+assign entry_index = index * `NODE_ENTRY_WIDTH + `BLCK_ENTRY_WIDTH * current_bits;
+assign entry_cover = entry_data[`BLCK_ENTRY_WIDTH-1:`BLCK_ENTRY_WIDTH-`BLCK_COVER_WIDTH];
+assign entry_index_nexthop = entry_data[`IPV4_WIDTH-1:0];
+assign entry_state = entry_data[`IPV4_WIDTH];
+
+/* XPM Ram */
+xpm_memory_spram #(
+    // .MEMORY_PRIMITIVE("auto"),
+    .ADDR_WIDTH_A(`BLCK_INDEX_WIDTH),
+    .WRITE_DATA_WIDTH_A(`BLCK_ENTRY_WIDTH), // Controlled by one enwrite
+    .BYTE_WRITE_WIDTH_A(`BLCK_ENTRY_WIDTH),
+    .READ_DATA_WIDTH_A(`BLCK_ENTRY_WIDTH),
+    .READ_LATENCY_A(0),
+    .MEMORY_SIZE(`NUM_NODES * `NODE_ENTRY_WIDTH)
+) trie_memory (
+    .addra(entry_index),
+    .wea(en_write),
+    .dina(write_data),
+    .douta(entry_data),
+    .clka(clk),
+    .rsta(rst),
+    .ena(1'b1)
+);
 
 always_ff @(posedge clk) begin
     if (rst) begin
@@ -101,20 +81,23 @@ always_ff @(posedge clk) begin
         /* Control */
         index <= 0;
         num_nodes <= 0;
-        trie_en_write <= 0;
-        info_en_write <= 0;
+        en_write <= 0;
     end else begin
         case (state)
             READY: begin
                 if (insert_valid) begin
-                    /* New insertion */
+                    /* New insertion, TODO */
                     lookup_insert_ready <= 0;
+                    addr_saved <= lookup_insert_addr;
+                    nexthop_saved <= insert_nexthop;
+                    shift <= (insert_mask_len + `BITS_PER_STEP - 1) >> `LOG_BITS_PER_STEP;
+                    bits_left <= `BITS_PER_STEP - (insert_mask_len & (`BITS_PER_STEP - 1));
+                    state <= INSERT;
                 end else if (lookup_valid) begin
                     /* New lookup */
                     addr_saved <= lookup_insert_addr;
                     lookup_insert_ready <= 0;
                     lookup_output_nexthop <= 0;
-                    shift <= `MAX_STEPS;
                     state <= LOOKUP;
                 end
                 index <= 0;
@@ -124,16 +107,19 @@ always_ff @(posedge clk) begin
             end
 
             LOOKUP: begin
-                lookup_output_nexthop <= node_nexthop;
-                if (shift == 0 || (shift == 0 && shift != `MAX_STEPS)) begin
+                if (entry_state) begin
+                    lookup_output_nexthop <= entry_index_nexthop;
                     state <= READY;
                     lookup_output_valid <= 1;
                     lookup_insert_ready <= 1;
                 end else begin
-                    index <= child_index;
-                    shift <= shift - 1;
+                    index <= entry_index_nexthop;
                     addr_saved <= addr_saved << BITS_PER_STEP;
                 end
+            end
+
+            INSERT: begin
+
             end
 
             default: begin
