@@ -16,7 +16,6 @@ module rgmii_manager(
     output  wire    eth_rst_n
 );
 
-// 这是干嘛的？
 wire gtx_resetn;
 
 wire [7:0] axis_rx_data;
@@ -28,7 +27,7 @@ wire axis_tx_valid;
 wire axis_tx_last;
 wire axis_tx_ready;
 
-// 这是干嘛的？
+// 在第一个时钟上升沿，将 resetn 从 0 变为 1
 gtx_reset gtx_reset_inst(
     .clk(clk_125M),
     .gtx_resetn(gtx_resetn)
@@ -44,7 +43,8 @@ io_manager io_manager_inst (
     .tx_data(axis_tx_data),
     .tx_valid(axis_tx_valid),
     .tx_ready(axis_tx_ready),
-    .tx_last(axis_tx_last)
+    .tx_last(axis_tx_last),
+    .gtx_resetn(gtx_resetn)
 );
 
 eth_mac_fifo_block trimac_fifo_block (
