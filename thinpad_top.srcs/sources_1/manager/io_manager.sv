@@ -1,15 +1,15 @@
 /*
 涂轶翔：
-通过自动机实现数据的处理
-TODO 1: loopback，打印输入输出
+通过自动机实现数据的处理，负责所有数据的输入输出，IO 使用 AXI-S 接口
+针对数据包是 IP 还是 ARP 会分别交给 ip_packet_manager 和 arp_packet_manager 来处理
 */
 
-module data_handler(
+module io_manager (
     // 由父模块提供各种时钟
     input   wire    clk_io,             // IO 时钟
     input   wire    clk_internal,       // 内部处理逻辑用的时钟
 
-    // 接上 eth_mac_fifo_block
+    // 目前先接上 eth_mac_fifo_block
     input   wire    [7:0] rx_data,      // 数据入口
     input   wire    rx_valid,           // 数据入口正在传输
     output  wire    rx_ready,           // 是否允许数据进入
