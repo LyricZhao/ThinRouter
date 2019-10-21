@@ -328,23 +328,16 @@ assign debug_eth_rgmii_rd = eth_rgmii_rd;
 assign debug_eth_rgmii_rx_ctl = eth_rgmii_rx_ctl;
 assign debug_eth_rgmii_rxc = eth_rgmii_rxc;
 
-eth_mac_address_swap eth_mac_addr_inst(
-    .axi_tclk(clk_125M),
-    .axi_tresetn(gtx_resetn),
-    
-    // address swap control
-    .enable_address_swap(1'b1),
-    
-    // data from the RX FIFO
-    .rx_axis_fifo_tdata(f_rx_axis_fifo_tdata),
-    .rx_axis_fifo_tvalid(f_rx_axis_fifo_tvalid),
-    .rx_axis_fifo_tlast(f_rx_axis_fifo_tlast),
-    .rx_axis_fifo_tready(f_rx_axis_fifo_tready),
-    // data TO the tx fifo
-    .tx_axis_fifo_tdata(f_tx_axis_fifo_tdata),
-    .tx_axis_fifo_tvalid(f_tx_axis_fifo_tvalid),
-    .tx_axis_fifo_tlast(f_tx_axis_fifo_tlast),
-    .tx_axis_fifo_tready(f_tx_axis_fifo_tready)
+data_handler data_handler_inst(
+    .clk_io(clk_125M),
+    .rx_data(f_rx_axis_fifo_tdata),
+    .rx_valid(f_rx_axis_fifo_tvalid),
+    .rx_ready(f_rx_axis_fifo_tready),
+    .rx_last(f_rx_axis_fifo_tlast),
+    .tx_data(f_tx_axis_fifo_tdata),
+    .tx_valid(f_tx_axis_fifo_tvalid),
+    .tx_ready(f_tx_axis_fifo_tready),
+    .tx_last(f_tx_axis_fifo_tlast)
 );
 
 

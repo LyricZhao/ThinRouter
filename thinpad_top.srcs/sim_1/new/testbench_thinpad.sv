@@ -297,10 +297,10 @@ begin
         else if (n_frames == 2)
             $fclose(rgmii_test_output_file_id);
     end
-    if (rgmii_dv && n_frames < 2) begin
-        $display("%02h", rgmii_tx_transmit_data);
-        $fwrite(rgmii_test_output_file_id, "%02h ", rgmii_tx_transmit_data);
-    end
+    // if (rgmii_dv && n_frames < 2) begin
+    //     $display("%02h", rgmii_tx_transmit_data);
+    //     $fwrite(rgmii_test_output_file_id, "%02h ", rgmii_tx_transmit_data);
+    // end
     rgmii_dv <= rgmii_dv_pre;
     rgmii_tx_transmit_data[0] <= rgmii_tx_transmit_data_q1_pre[0];
     rgmii_tx_transmit_data[1] <= rgmii_tx_transmit_data_q1_pre[1];
