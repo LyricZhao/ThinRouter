@@ -13,6 +13,8 @@
 `define BITS_PER_STEP 4         // Must be 2's pows
 `define LOG_BITS_PER_STEP 2     // log(BITS_PER_STEP)
 `define MAX_STEPS 8
+`define ADDR_JUMP 32'h10000000  // Assign to IPv4 and BITS_PER_STEP
+`define ZERO_FILL 28'b0
 
 /* ARP */
 `define MAC_WIDTH 48

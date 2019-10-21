@@ -15,7 +15,7 @@ logic [`MASK_WIDTH-1:0] insert_mask_len;
 
 wire lookup_insert_ready;
 wire lookup_output_valid;
-wire [`IPV4_WIDTH-1:0] lookup_nexthop;
+wire [`IPV4_WIDTH-1:0] lookup_output_nexthop;
 
 // 用于读取测例数据
 int file_descriptor;
@@ -75,8 +75,8 @@ begin
     lookup_valid <= 0;
     wait_for_lookup_output();
     $display("get    %0d.%0d.%0d.%0d",
-        lookup_nexthop[31:24], lookup_nexthop[23:16], lookup_nexthop[15:8], lookup_nexthop[7:0]);
-    if (lookup_nexthop == expect_nexthop)
+        lookup_output_nexthop[31:24], lookup_output_nexthop[23:16], lookup_output_nexthop[15:8], lookup_output_nexthop[7:0]);
+    if (lookup_output_nexthop == expect_nexthop)
         $display("correct");
     else
         $display("WRONG! Expecting %0d.%0d.%0d.%0d", 
@@ -153,7 +153,7 @@ routing_table routing_table_inst(
 
     .lookup_insert_ready(lookup_insert_ready),
     .lookup_output_valid(lookup_output_valid),
-    .lookup_nexthop(lookup_nexthop)
+    .lookup_output_nexthop(lookup_output_nexthop)
 );
 
 endmodule
