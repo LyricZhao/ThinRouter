@@ -14,8 +14,6 @@ logic [`IPV4_WIDTH-1:0] insert_nexthop;
 logic [`MASK_WIDTH-1:0] insert_mask_len;
 
 wire lookup_insert_ready;
-wire insert_output_valid;
-wire insert_output_error;
 wire lookup_output_valid;
 wire [`IPV4_WIDTH-1:0] lookup_nexthop;
 
@@ -142,7 +140,7 @@ end
 
 always clk = #10 ~clk;
 
-routing_table_trie routing_table_inst(
+routing_table routing_table_inst(
     .clk(clk),
     .rst(rst),
 
@@ -154,8 +152,6 @@ routing_table_trie routing_table_inst(
     .insert_mask_len(insert_mask_len),
 
     .lookup_insert_ready(lookup_insert_ready),
-    .insert_output_valid(insert_output_valid),
-    .insert_output_error(insert_output_error),
     .lookup_output_valid(lookup_output_valid),
     .lookup_nexthop(lookup_nexthop)
 );
