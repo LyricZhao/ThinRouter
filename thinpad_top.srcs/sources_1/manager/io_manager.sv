@@ -144,13 +144,15 @@ initial begin
 end
 
 function void handle_arp();
-    $display("Processing ARP packet...");
     // todo
+    $display("Processing ARP packet...");
 endfunction
 
 function void handle_ip();
-    $display("Processing IP packet...");
+    $write("IP Data:\n\t");
+    `DISPLAY_DATA(ip_data, ip_total_size - 4 * ip_header_size);
     // todo
+    $display("Processing IP packet...");
 endfunction
 
 always_ff @ (posedge clk_io or posedge reset) begin
@@ -169,7 +171,7 @@ always_ff @ (posedge clk_io or posedge reset) begin
         //$display("%0t: %x", $realtime, rx_data);
 
         if (rx_last) begin
-            $display("LAST");
+            $display("(last)");
             case(decode_next)
                 ArpComplete: begin
                     // todo: CRC checksum
@@ -198,7 +200,8 @@ always_ff @ (posedge clk_io or posedge reset) begin
                     if (read_offset == 40) begin
                         read_offset <= 0;
                         decode_next <= SrcMac;
-                        `DISPLAY_MAC("Destination MAC:", dst_mac);
+                        $write("Destination MAC:\n\t");
+                        `DISPLAY_MAC(dst_mac);
                     end else begin
                         read_offset <= read_offset + 8;
                     end
@@ -208,7 +211,8 @@ always_ff @ (posedge clk_io or posedge reset) begin
                     if (read_offset == 40) begin
                         read_offset <= 0;
                         decode_next <= VlanJunk;
-                        `DISPLAY_MAC("Source MAC:", src_mac);
+                        $write("Source MAC:\n\t");
+                        `DISPLAY_MAC(src_mac);
                     end else begin
                         read_offset <= read_offset + 8;
                     end
@@ -218,7 +222,7 @@ always_ff @ (posedge clk_io or posedge reset) begin
                         vlan_id = rx_data[1:0];
                         read_offset <= 0;
                         decode_next <= Protocol;
-                        $display("VLAN ID: %x", vlan_id);
+                        $display("VLAN ID:\n\t%x", vlan_id);
                     end else begin
                         read_offset <= read_offset + 8;
                     end
@@ -228,7 +232,7 @@ always_ff @ (posedge clk_io or posedge reset) begin
                         read_offset <= read_offset + 8;
                         // IP 和 ARP 的协议前八位都是 0x08，如果不是则丢包
                         if (rx_data != 8'h08) begin
-                            $display("Invalid Protocol: [7:0]=%x", rx_data);
+                            $display("Invalid Protocol:\n\t[7:0]=%x", rx_data);
                             decode_next <= Discard;
                         end
                     end else begin
@@ -245,7 +249,7 @@ always_ff @ (posedge clk_io or posedge reset) begin
                             end
                             default: begin
                                 decode_next <= Discard;
-                                $display("Invalid Protocol: [15:8]=%x", rx_data);
+                                $display("Invalid Protocol:\n\t[15:8]=%x", rx_data);
                             end
                         endcase
                     end
@@ -263,7 +267,8 @@ always_ff @ (posedge clk_io or posedge reset) begin
                     if (read_offset == 40) begin
                         read_offset <= 0;
                         decode_next <= ArpSenderIp;
-                        `DISPLAY_MAC("Sender MAC:", arp_sender_mac);
+                        $write("Sender MAC:\n\t");
+                        `DISPLAY_MAC(arp_sender_mac);
                     end else begin
                         read_offset <= read_offset + 8;
                     end
@@ -273,7 +278,8 @@ always_ff @ (posedge clk_io or posedge reset) begin
                     if (read_offset == 24) begin
                         read_offset <= 0;
                         decode_next <= ArpTargetMac;
-                        `DISPLAY_IP("Sender IP:", arp_sender_ip);
+                        $write("Sender IP:\n\t");
+                        `DISPLAY_IP(arp_sender_ip);
                     end else begin
                         read_offset <= read_offset + 8;
                     end
@@ -287,7 +293,7 @@ always_ff @ (posedge clk_io or posedge reset) begin
                             read_offset <= read_offset + 8;
                         end
                     end else begin
-                        $display("Invalid Target MAC with value %x at %0d", rx_data, read_offset);
+                        $display("Invalid Target MAC:\n\t%x at %0d", rx_data, read_offset);
                         decode_next <= Discard;
                     end
                 end
@@ -295,7 +301,8 @@ always_ff @ (posedge clk_io or posedge reset) begin
                     arp_target_ip[31 - read_offset -: 8] = rx_data;
                     if (read_offset == 24) begin
                         read_offset <= 0;
-                        `DISPLAY_IP("Target IP:", arp_target_ip);
+                        $write("Target IP:\n\t");
+                        `DISPLAY_IP(arp_target_ip);
                         decode_next <= ArpComplete;
                     end else begin
                         read_offset <= read_offset + 8;
@@ -310,14 +317,14 @@ always_ff @ (posedge clk_io or posedge reset) begin
                         ip_header_size = rx_data[3:0];
                         if (rx_data[3:0] < 5) begin
                             // IP 头大小必须大于等于 5
-                            $display("Invalid IP Header Size: %0dB", rx_data[3:0] * 4);
+                            $display("Invalid IP Header Size:\n\t%0dB", rx_data[3:0] * 4);
                             decode_next <= Discard;
                         end else begin
-                            $display("IP Header Size: %0dB", ip_header_size * 4);
+                            $display("IP Header Size:\n\t%0dB", ip_header_size * 4);
                             decode_next <= IpJunk2;
                         end
                     end else begin
-                        $display("Invalid IP version: %0d", rx_data[3:0]);
+                        $display("Invalid IP version:\n\t%0d", rx_data[3:0]);
                         decode_next <= Discard;
                     end
                 end
@@ -330,7 +337,7 @@ always_ff @ (posedge clk_io or posedge reset) begin
                     if (read_offset == 8) begin
                         read_offset <= 0;
                         decode_next <= IpJunk3;
-                        $display("IP Total Size: %0dB", ip_total_size);
+                        $display("IP Total Size:\n\t%0dB", ip_total_size);
                     end else begin
                         read_offset <= read_offset + 8;
                     end
@@ -349,17 +356,17 @@ always_ff @ (posedge clk_io or posedge reset) begin
                         $display("TTL = 0, Discard");
                         decode_next <= Discard;
                     end else begin
-                        $display("IP TTL: %0d", rx_data);
+                        $display("IP TTL:\n\t%0d", rx_data);
                         decode_next <= IpProtocol;
                     end
                 end
                 IpProtocol: begin
                     ip_protocol = rx_data;
                     case(rx_data)
-                        1 : $display("IP Protocol: ICMP (1)");
-                        6 : $display("IP Protocol: TCP (6)");
-                        17: $display("IP Protocol: UDP (17)");
-                        default: $display("Unknown IP Protocol: %0d", rx_data);
+                        1 : $display("IP Protocol:\n\tICMP (1)");
+                        6 : $display("IP Protocol:\n\tTCP (6)");
+                        17: $display("IP Protocol:\n\tUDP (17)");
+                        default: $display("IP Protocol:\n\tUnknown (%0d)", rx_data);
                     endcase
                     decode_next <= IpJunk4;
                 end
@@ -376,7 +383,8 @@ always_ff @ (posedge clk_io or posedge reset) begin
                     if (read_offset == 24) begin
                         read_offset <= 0;
                         decode_next <= IpDstIp;
-                        `DISPLAY_IP("Source IP:", ip_src_ip);
+                        $write("Source IP:\n\t");
+                        `DISPLAY_IP(ip_src_ip);
                     end else begin
                         read_offset <= read_offset + 8;
                     end
@@ -384,18 +392,16 @@ always_ff @ (posedge clk_io or posedge reset) begin
                 IpDstIp: begin
                     ip_dst_ip[31 - read_offset -: 8] = rx_data;
                     if (read_offset == 24) begin
-                        `DISPLAY_IP("Destination IP:", ip_dst_ip);
+                        read_offset <= 0;
+                        $write("Destination IP:\n\t");
+                        `DISPLAY_IP(ip_dst_ip);
 
                         if (ip_header_size > 5) begin
                             // 如果 IP 头长度大于默认值，说明存在 Options
                             decode_next <= IpOptions;
-                            // read_offset 从这个值减到 0
-                            read_offset <= ip_header_size * 4 - 21;
                         end else if (ip_total_size > 20) begin
                             // 如果 IP 还有长度放 Data
                             decode_next <= IpData;
-                            // read_offset 从这个值减到 0
-                            read_offset <= ip_total_size - 21;
                         end else begin
                             // 只有一个头，结束了
                             decode_next <= IpComplete;
@@ -405,14 +411,13 @@ always_ff @ (posedge clk_io or posedge reset) begin
                     end
                 end
                 IpOptions: begin
-                    if (read_offset != 0)
-                        read_offset <= read_offset - 1;
+                    if (read_offset < ip_header_size * 4 - 21)
+                        read_offset <= read_offset + 1;
                     else begin
                         if (ip_total_size > ip_header_size * 4) begin
                             // 还有 Data 部分
                             decode_next <= IpData;
-                            // read_offset 从这个值减到 0
-                            read_offset <= ip_total_size - ip_header_size * 4 - 1;
+                            read_offset <= 0;
                         end else begin
                             // 没有了
                             decode_next <= IpComplete;
@@ -421,10 +426,10 @@ always_ff @ (posedge clk_io or posedge reset) begin
                     end
                 end
                 IpData: begin
-                    if (read_offset != 0) begin
-                        ip_data[read_offset] = rx_data;
-                        read_offset <= read_offset - 1;
-                    end else begin
+                    ip_data[read_offset] = rx_data;
+                    if (read_offset < ip_total_size - 21)
+                        read_offset <= read_offset + 1;
+                    else begin
                         read_offset <= 0;
                         decode_next <= IpComplete;
                     end
