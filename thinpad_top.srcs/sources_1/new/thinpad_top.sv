@@ -13,7 +13,7 @@ module thinpad_top(
 
     // CPLD串口控制器信号
     output logic uart_rdn,           // 读串口信号，低有效
-    output logic uart_wrn,       // 写串口信号，低有效
+    output logic uart_wrn,           // 写串口信号，低有效
     input logic uart_dataready,      // 串口数据准备好
     input logic uart_tbre,           // 发送数据标志
     input logic uart_tsre,           // 数据发送完毕标志
@@ -70,6 +70,7 @@ module thinpad_top(
 assign ext_ram_ce_n = 1'b1;
 assign ext_ram_oe_n = 1'b1;
 assign ext_ram_we_n = 1'b1;
+assign base_ram_be_n = 4'b0;
 
 /* States */
 enum logic [2:0] { RECEIVE, RECOVER, TRANSMIT, IDLE, WAIT_TBRE, WAIT_TSRE, WAIT_READ, PULL_WRN} state;
@@ -92,7 +93,6 @@ always @(posedge clk_11M0592) begin
         base_ram_ce_n <= 1;
         base_ram_oe_n <= 1;
         base_ram_we_n <= 1;
-        base_ram_be_n = 4'b0;
         uart_rdn <= 0;
         uart_wrn <= 1;
         is_writing <= 0;
@@ -144,7 +144,6 @@ always @(posedge clk_11M0592) begin
                     end else begin
                         base_ram_oe_n <= 0;
                         base_ram_ce_n <= 0;
-                        base_ram_be_n = 4'b0;
                         base_ram_addr <= base_ram_addr + 1;
                         state <= WAIT_READ;
                     end
@@ -162,7 +161,6 @@ always @(posedge clk_11M0592) begin
             end
 
             TRANSMIT: begin
-                base_ram_be_n = 4'b1111;
                 bus_data_to_write <= {24'b0, uart_data};
                 base_ram_oe_n <= 1;
                 base_ram_ce_n <= 1;
@@ -172,7 +170,12 @@ always @(posedge clk_11M0592) begin
             end
 
             default: begin
-                /* IDLE */
+                base_ram_ce_n <= 1;
+                base_ram_oe_n <= 1;
+                base_ram_we_n <= 1;
+                uart_rdn <= 0;
+                uart_wrn <= 1;
+                is_writing <= 0;
             end
         endcase
     end
