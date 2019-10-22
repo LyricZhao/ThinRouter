@@ -13,7 +13,7 @@ module thinpad_top(
 
     // CPLD串口控制器信号
     output logic uart_rdn,           // 读串口信号，低有效
-    output logic uart_wrn = 1,       // 写串口信号，低有效
+    output logic uart_wrn,       // 写串口信号，低有效
     input logic uart_dataready,      // 串口数据准备好
     input logic uart_tbre,           // 发送数据标志
     input logic uart_tsre,           // 数据发送完毕标志
@@ -78,11 +78,12 @@ enum logic [2:0] { RECEIVE, RECOVER, TRANSMIT, IDLE, WAIT_TBRE, WAIT_TSRE, PULL_
 wire [7:0] uart_data;
 
 /* Variables */
+logic is_writing;
 logic [19:0] base_ram_addr_end;
 logic [31:0] bus_data_to_write;
 
 /* Assigns */
-assign base_ram_data = (base_ram_we_n & uart_wrn) ? 32'bz : bus_data_to_write;
+assign base_ram_data = is_writing ? bus_data_to_write : 32'bz;
 assign uart_data = base_ram_data[7:0];
 assign base_ram_be_n = 4'b0;
 
@@ -94,6 +95,7 @@ always @(posedge clk_11M0592) begin
         base_ram_we_n <= 1;
         uart_rdn <= 0;
         uart_wrn <= 1;
+        is_writing <= 0;
         base_ram_addr <= dip_sw[19:0];
         base_ram_addr_end <= dip_sw[19:0] + 9;
     end else begin
@@ -104,6 +106,7 @@ always @(posedge clk_11M0592) begin
                     base_ram_oe_n <= 0;
                     base_ram_we_n <= 0;
                     base_ram_ce_n <= 0;
+                    is_writing <= 1;
                     uart_rdn <= 1;
                     state <= RECOVER;
                 end
@@ -115,12 +118,14 @@ always @(posedge clk_11M0592) begin
                     base_ram_oe_n <= 0;
                     base_ram_we_n <= 1;
                     base_ram_ce_n <= 0;
+                    is_writing <= 0;
                     state <= TRANSMIT;
                 end else begin
                     base_ram_addr <= base_ram_addr + 1;
                     base_ram_oe_n <= 1;
                     base_ram_we_n <= 1;
                     base_ram_ce_n <= 1;
+                    is_writing <= 0;
                     uart_rdn <= 0;
                     state <= RECEIVE;
                 end
@@ -142,12 +147,12 @@ always @(posedge clk_11M0592) begin
                         base_ram_addr <= base_ram_addr + 1;
                         state <= TRANSMIT;
                     end
-                    uart_wrn <= 1;
                 end
             end
 
             PULL_WRN: begin
                 uart_wrn <= 1;
+                is_writing <= 0;
                 state <= WAIT_TBRE;
             end
 
@@ -156,6 +161,7 @@ always @(posedge clk_11M0592) begin
                 base_ram_oe_n <= 1;
                 base_ram_ce_n <= 1;
                 uart_wrn <= 0;
+                is_writing <= 1;
                 state <= PULL_WRN;
             end
 
