@@ -181,6 +181,12 @@ initial begin
     $stop;
 end
 
+initial begin
+    reset_btn = 1;
+    # 100
+    reset_btn = 0;
+end
+
 // 从文件加载 BaseRAM
 initial begin 
     reg [31:0] tmp_array[0:1048575];
