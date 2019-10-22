@@ -54,6 +54,15 @@ enum {
     IP, ARP
 } protocol;                 // 协议
 
+
+/*
+ * 域的说明
+ * 【除了 IP 数据部分】 其他部分读取后都是大端序
+ * 即数据按字节接收，在对应的域中从 大下标 到 小下标 存储
+ * Data Stream:     0F    49    2C    48   A3
+ * Variable Index:  39:32 31:24 23:16 15:8 7:0
+ */
+
 /******************************************************************
  * ARP 包
  * ref: https://en.wikipedia.org/wiki/Address_Resolution_Protocol
@@ -85,17 +94,18 @@ bit [3:0]   ip_header_size; // IPv4 头长度（单位为 4 字节）
 // - DSCP:              0x00    ignored
 // IpTotalSize  16b
 bit [15:0]  ip_total_size;  // IPv4 总长度（包括 IPv4 头和数据）
-// IpJunk3      32b
+// IpFragment   32b
 // - ip_identification: 16'     TODO (maybe)
 // - reserved flag:     1'0     ignored
 // - don't fragment:    1'      TODO (maybe)
 // - more fragments:    1'      TODO (maybe)
 // - fragment offset:   13'     TODO (maybe)
+bit [31:0]  ip_fragment;    // 和分包相关的数据，直接转发
 // IpTtl         8b
 bit [7:0]   ip_ttl;         // 剩余转发次数
 // IpProtocol    8b
 bit [7:0]   ip_protocol;    // IP 协议
-// IpJunk4      16b
+// IpJunk3      16b
 // - header checksum:   16'     TODO (maybe)
 // IpSrcIp      32b
 bit [31:0]  ip_src_ip;      // 来源 IP 地址
@@ -124,10 +134,10 @@ enum {
     // IpHeadSize,  //  4b
     IpJunk2,        //  8b
     IpTotalSize,    // 16b
-    IpJunk3,        // 32b
+    IpFragment,     // 32b
     IpTtl,          //  8b
     IpProtocol,     //  8b
-    IpJunk4,        // 16b
+    IpJunk3,        // 16b
     IpSrcIp,        // 32b
     IpDstIp,        // 32b
     IpOptions,      // (ip_header_size - 5) * 4 bytes
@@ -336,16 +346,19 @@ always_ff @ (posedge clk_io or posedge reset) begin
                     ip_total_size[15 - read_offset -: 8] = rx_data;
                     if (read_offset == 8) begin
                         read_offset <= 0;
-                        decode_next <= IpJunk3;
+                        decode_next <= IpFragment;
                         $display("IP Total Size:\n\t%0dB", ip_total_size);
                     end else begin
                         read_offset <= read_offset + 8;
                     end
                 end
-                IpJunk3: begin
+                IpFragment: begin
+                    ip_fragment[31 - read_offset -: 8] = rx_data;
                     if (read_offset == 24) begin
                         read_offset <= 0;
                         decode_next <= IpTtl;
+                        $display("IP Fragment Info:\n\tIdentification: 0x%4x\n\tDF: %d\n\tMF: %d\n\tOffset: %0dB", 
+                            ip_fragment >> 16, ip_fragment[14], ip_fragment[13], (ip_fragment & 16'h1fff) * 8);
                     end else begin
                         read_offset <= read_offset + 8;
                     end
@@ -368,9 +381,9 @@ always_ff @ (posedge clk_io or posedge reset) begin
                         17: $display("IP Protocol:\n\tUDP (17)");
                         default: $display("IP Protocol:\n\tUnknown (%0d)", rx_data);
                     endcase
-                    decode_next <= IpJunk4;
+                    decode_next <= IpJunk3;
                 end
-                IpJunk4: begin
+                IpJunk3: begin
                     if (read_offset == 8) begin
                         read_offset <= 0;
                         decode_next <= IpSrcIp;
