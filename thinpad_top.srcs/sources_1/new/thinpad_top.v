@@ -80,13 +80,13 @@ assign ext_ram_we_n = 1'b1;
 assign uart_rdn = 1'b0;
 assign uart_wrn = 1'b0;
 
-// 直连串口接收发送演示，从直连串口收到的数据再发送出去
+localparam IDLE = 1'b0, PEND = 1'b1;
+
 wire [7:0] ext_uart_rx;
 reg  [7:0] ext_uart_buffer, ext_uart_tx;
 wire ext_uart_ready, ext_uart_busy;
-reg ext_uart_start, ext_uart_avai;
+reg ext_uart_start, state = IDLE;
 
-// 接收模块，9600无检验位
 async_receiver #(.ClkFrequency(50000000),.Baud(9600)) 
     ext_uart_r(
         .clk(clk_50M),                      // 外部时钟信号
@@ -95,26 +95,7 @@ async_receiver #(.ClkFrequency(50000000),.Baud(9600))
         .RxD_clear(ext_uart_ready),         // 清除接收标志
         .RxD_data(ext_uart_rx)              // 接收到的一字节数据
     );
-    
-always @(posedge clk_50M) begin // 接收到缓冲区ext_uart_buffer
-    if(ext_uart_ready)begin
-        ext_uart_buffer <= ext_uart_rx;
-        ext_uart_avai <= 1;
-    end else if(!ext_uart_busy && ext_uart_avai)begin 
-        ext_uart_avai <= 0;
-    end
-end
 
-always @(posedge clk_50M) begin // 将缓冲区ext_uart_buffer发送出去
-    if(!ext_uart_busy && ext_uart_avai)begin 
-        ext_uart_tx <= ext_uart_buffer;
-        ext_uart_start <= 1;
-    end else begin 
-        ext_uart_start <= 0;
-    end
-end
-
-// 发送模块，9600无检验位
 async_transmitter #(.ClkFrequency(50000000),.Baud(9600))
     ext_uart_t(
         .clk(clk_50M),                  // 外部时钟信号
@@ -123,5 +104,26 @@ async_transmitter #(.ClkFrequency(50000000),.Baud(9600))
         .TxD_start(ext_uart_start),     // 开始发送信号
         .TxD_data(ext_uart_tx)          // 待发送的数据
     );
+    
+always @(posedge clk_50M) begin
+    case (state)
+        IDLE: begin
+            if (ext_uart_ready) begin
+                ext_uart_buffer <= ext_uart_rx;
+                state <= PEND;
+            end
+            ext_uart_start <= 0;
+        end
+
+        PEND: begin
+            if (!ext_uart_busy) begin
+                ext_uart_tx <= ext_uart_buffer;
+                ext_uart_start <= 1;
+                state <= IDLE;
+            end
+        end
+        default: begin end
+    endcase
+end
 
 endmodule
