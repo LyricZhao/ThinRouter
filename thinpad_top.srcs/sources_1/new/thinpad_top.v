@@ -57,22 +57,7 @@ module thinpad_top(
     output wire ch376t_rst,
     input  wire ch376t_int_n,
     input  wire ch376t_sdo,
-
-    //网络交换机信号，参考 KSZ8795 芯片手册及 RGMII 规范
-    input  wire [3:0] eth_rgmii_rd,
-    input  wire eth_rgmii_rx_ctl,
-    input  wire eth_rgmii_rxc,
-    output wire [3:0] eth_rgmii_td,
-    output wire eth_rgmii_tx_ctl,
-    output wire eth_rgmii_txc,
-    output wire eth_rst_n,
-    input  wire eth_int_n,
-
-    input  wire eth_spi_miso,
-    output wire eth_spi_mosi,
-    output wire eth_spi_sck,
-    output wire eth_spi_ss_n,
-
+    
     //图像输出信号
     output wire[2:0] video_red,    //红色像素，3位
     output wire[2:0] video_green,  //绿色像素，3位
@@ -100,20 +85,6 @@ pll_example clock_gen
  // Clock in ports
   .clk_in1(clk_50M) // 外部时钟输入
  );
-
-assign eth_rst_n = ~reset_btn;
-// 以太网交换机寄存器配置
-eth_conf conf(
-    .clk(clk_50M),
-    .rst_in_n(locked),
-
-    .eth_spi_miso(eth_spi_miso),
-    .eth_spi_mosi(eth_spi_mosi),
-    .eth_spi_sck(eth_spi_sck),
-    .eth_spi_ss_n(eth_spi_ss_n),
-
-    .done()
-);
 
 reg reset_of_clk10M;
 // 异步复位，同步释放
@@ -228,124 +199,5 @@ vga #(12, 800, 856, 976, 1040, 600, 637, 643, 666, 1, 1) vga800x600at75 (
     .vsync(video_vsync),
     .data_enable(video_de)
 );
-
-// eth_mac ip core
-
-wire gtx_resetn;
-
-wire [7:0] f_tx_axis_fifo_tdata;
-wire f_tx_axis_fifo_tvalid, f_tx_axis_fifo_tlast, f_tx_axis_fifo_tready;
-wire [7:0] f_rx_axis_fifo_tdata;
-wire f_rx_axis_fifo_tvalid, f_rx_axis_fifo_tlast, f_rx_axis_fifo_tready;
-
-gtx_reset gtx_reset_inst(
-    .clk(clk_125M),
-    .gtx_resetn(gtx_resetn)
-);
-
-eth_mac_fifo_block trimac_fifo_block (
-    .gtx_clk                      (clk_125M),
-    
-    .glbl_rstn                    (eth_rst_n),
-    .rx_axi_rstn                  (eth_rst_n),
-    .tx_axi_rstn                  (eth_rst_n),
-
-    // Reference clock for IDELAYCTRL's
-    .refclk                       (clk_200M),
-
-    // Receiver Statistics Interface
-    //---------------------------------------
-    // .rx_mac_aclk                  (fifo_clock),
-    // .rx_reset                     (rx_reset),
-    // .rx_statistics_vector         (rx_statistics_vector),
-    // .rx_statistics_valid          (rx_statistics_valid),
-
-    // Receiver (AXI-S) Interface
-    //----------------------------------------
-    .rx_fifo_clock                (clk_125M),
-    .rx_fifo_resetn               (gtx_resetn),
-    .rx_axis_fifo_tdata           (f_rx_axis_fifo_tdata),
-    .rx_axis_fifo_tvalid          (f_rx_axis_fifo_tvalid),
-    .rx_axis_fifo_tready          (f_rx_axis_fifo_tready),
-    .rx_axis_fifo_tlast           (f_rx_axis_fifo_tlast),
-    
-    // Transmitter Statistics Interface
-    //------------------------------------------
-    // .tx_mac_aclk                  (tx_mac_aclk),
-    // .tx_reset                     (tx_reset),
-    .tx_ifg_delay                 (8'b0),
-    // .tx_statistics_vector         (tx_statistics_vector),
-    // .tx_statistics_valid          (tx_statistics_valid),
-
-    // Transmitter (AXI-S) Interface
-    //-------------------------------------------
-    .tx_fifo_clock                (clk_125M),
-    .tx_fifo_resetn               (gtx_resetn),
-    .tx_axis_fifo_tdata           (f_tx_axis_fifo_tdata),
-    .tx_axis_fifo_tvalid          (f_tx_axis_fifo_tvalid),
-    .tx_axis_fifo_tready          (f_tx_axis_fifo_tready),
-    .tx_axis_fifo_tlast           (f_tx_axis_fifo_tlast),
-    
-
-
-    // MAC Control Interface
-    //------------------------
-    .pause_req                    (1'b0),
-    .pause_val                    (16'b0),
-
-    // RGMII Interface
-    //------------------
-    .rgmii_txd                    (eth_rgmii_td),
-    .rgmii_tx_ctl                 (eth_rgmii_tx_ctl),
-    .rgmii_txc                    (eth_rgmii_txc),
-    .rgmii_rxd                    (eth_rgmii_rd),
-    .rgmii_rx_ctl                 (eth_rgmii_rx_ctl),
-    .rgmii_rxc                    (eth_rgmii_rxc),
-
-    // RGMII Inband Status Registers
-    //--------------------------------
-    // .inband_link_status           (inband_link_status),
-    // .inband_clock_speed           (inband_clock_speed),
-    // .inband_duplex_status         (inband_duplex_status),
-
-    // Configuration Vectors
-    //-----------------------
-    .rx_configuration_vector      (80'b10100000101110),
-    .tx_configuration_vector      (80'b10000000000110)
-);
-
-(*KEEP="TRUE"*)  wire [3:0] debug_eth_rgmii_td;
-(*KEEP="TRUE"*)  wire [0:0] debug_eth_rgmii_tx_ctl;
-(*KEEP="TRUE"*)  wire [0:0] debug_eth_rgmii_txc;
-(*KEEP="TRUE"*)  wire [3:0] debug_eth_rgmii_rd;
-(*KEEP="TRUE"*)  wire [0:0] debug_eth_rgmii_rx_ctl;
-(*KEEP="TRUE"*)  wire [0:0] debug_eth_rgmii_rxc;
-
-assign debug_eth_rgmii_td = eth_rgmii_td;
-assign debug_eth_rgmii_tx_ctl = eth_rgmii_tx_ctl;
-assign debug_eth_rgmii_txc = eth_rgmii_txc;
-assign debug_eth_rgmii_rd = eth_rgmii_rd;
-assign debug_eth_rgmii_rx_ctl = eth_rgmii_rx_ctl;
-assign debug_eth_rgmii_rxc = eth_rgmii_rxc;
-
-eth_mac_address_swap eth_mac_addr_inst(
-    .axi_tclk(clk_125M),
-    .axi_tresetn(gtx_resetn),
-    
-    // address swap control
-    .enable_address_swap(1'b1),
-    
-    // data from the RX FIFO
-    .rx_axis_fifo_tdata(f_rx_axis_fifo_tdata),
-    .rx_axis_fifo_tvalid(f_rx_axis_fifo_tvalid),
-    .rx_axis_fifo_tlast(f_rx_axis_fifo_tlast),
-    .rx_axis_fifo_tready(f_rx_axis_fifo_tready),
-    // data TO the tx fifo
-    .tx_axis_fifo_tdata(f_tx_axis_fifo_tdata),
-    .tx_axis_fifo_tvalid(f_tx_axis_fifo_tvalid),
-    .tx_axis_fifo_tlast(f_tx_axis_fifo_tlast),
-    .tx_axis_fifo_tready(f_tx_axis_fifo_tready)
-);
-
 
 endmodule
