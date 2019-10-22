@@ -77,15 +77,15 @@ assign ext_ram_ce_n = 1'b1;
 assign ext_ram_oe_n = 1'b1;
 assign ext_ram_we_n = 1'b1;
 
-assign uart_rdn = 1'b0;
-assign uart_wrn = 1'b0;
+assign uart_rdn = 1'b1;
+assign uart_wrn = 1'b1;
 
 localparam IDLE = 1'b0, PEND = 1'b1;
 
 wire [7:0] ext_uart_rx;
 reg  [7:0] ext_uart_buffer, ext_uart_tx;
 wire ext_uart_ready, ext_uart_busy;
-reg ext_uart_start, state = IDLE;
+reg ext_uart_start, ext_uart_available;
 
 async_receiver #(.ClkFrequency(50000000),.Baud(9600)) 
     ext_uart_r(
@@ -106,24 +106,21 @@ async_transmitter #(.ClkFrequency(50000000),.Baud(9600))
     );
     
 always @(posedge clk_50M) begin
-    case (state)
-        IDLE: begin
-            if (ext_uart_ready) begin
-                ext_uart_buffer <= ext_uart_rx;
-                state <= PEND;
-            end
-            ext_uart_start <= 0;
-        end
+    if (ext_uart_ready) begin
+        ext_uart_buffer <= ext_uart_rx;
+        ext_uart_available <= 1'b1;
+    end else if (!ext_uart_busy && ext_uart_available) begin
+        ext_uart_available <= 1'b0;
+    end
+end
 
-        PEND: begin
-            if (!ext_uart_busy) begin
-                ext_uart_tx <= ext_uart_buffer;
-                ext_uart_start <= 1;
-                state <= IDLE;
-            end
-        end
-        default: begin end
-    endcase
+always @(posedge clk_50M) begin
+    if (!ext_uart_busy && ext_uart_available) begin
+        ext_uart_tx <= ext_uart_buffer;
+        ext_uart_start <= 1'b1;
+    end else begin
+        ext_uart_start <= 1'b0;
+    end
 end
 
 endmodule
