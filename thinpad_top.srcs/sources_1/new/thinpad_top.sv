@@ -72,18 +72,19 @@ assign ext_ram_oe_n = 1'b1;
 assign ext_ram_we_n = 1'b1;
 
 /* States */
-enum logic [2:0] { RECEIVE, RECOVER, TRANSMIT, IDLE, WAIT_TBRE, WAIT_TSRE, PULL_WRN} state;
+enum logic [2:0] { RECEIVE, RECOVER, TRANSMIT, IDLE, WAIT_TBRE, WAIT_TSRE, PULL_WRN, WAIT_READ} state;
 
 /* UART */
 wire [7:0] uart_data;
 
 /* Variables */
-logic [19:0] addr, addr_end;
+logic [19:0] addr_end;
 logic [31:0] bus_data_to_write;
 
 /* Assigns */
 assign base_ram_data = (base_ram_we_n & uart_wrn) ? 32'bz : bus_data_to_write;
 assign uart_data = base_ram_data[7:0];
+assign base_ram_be_n = 4'b0;
 
 always @(posedge clk_11M0592) begin
     if (reset_btn) begin
@@ -93,7 +94,7 @@ always @(posedge clk_11M0592) begin
         base_ram_we_n <= 1;
         uart_rdn <= 0;
         uart_wrn <= 1;
-        addr <= dip_sw[19:0];
+        base_ram_addr <= dip_sw[19:0];
         addr_end <= dip_sw[19:0] + 9;
     end else begin
         case (state)
@@ -109,14 +110,14 @@ always @(posedge clk_11M0592) begin
             end
 
             RECOVER: begin
-                if (addr == addr_end) begin
-                    addr <= addr_end - 9;
+                if (base_ram_addr == addr_end) begin
+                    base_ram_addr <= addr_end - 9;
                     base_ram_oe_n <= 0;
                     base_ram_we_n <= 1;
                     base_ram_ce_n <= 0;
-                    state <= TRANSMIT;
+                    state <= WAIT_READ;
                 end else begin
-                    addr <= addr + 1;
+                    base_ram_addr <= base_ram_addr + 1;
                     base_ram_oe_n <= 1;
                     base_ram_we_n <= 1;
                     base_ram_ce_n <= 1;
@@ -133,16 +134,20 @@ always @(posedge clk_11M0592) begin
 
             WAIT_TSRE: begin
                 if (uart_tsre) begin
-                    if (addr == addr_end) begin
+                    if (base_ram_addr == addr_end) begin
                         state <= IDLE;
                     end else begin
                         base_ram_oe_n <= 0;
                         base_ram_ce_n <= 0;
-                        addr <= addr + 1;
-                        state <= TRANSMIT;
+                        base_ram_addr <= base_ram_addr + 1;
+                        state <= WAIT_READ;
                     end
                     uart_wrn <= 1;
                 end
+            end
+
+            WAIT_READ: begin
+                state <= TRANSMIT;
             end
 
             PULL_WRN: begin
