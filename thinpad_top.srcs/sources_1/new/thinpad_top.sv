@@ -78,7 +78,6 @@ enum logic [2:0] { RECEIVE, RECOVER, TRANSMIT, WAIT, IDLE} state;
 wire [7:0] uart_data;
 
 /* Variables */
-logic [3:0] counter;
 logic [19:0] addr, addr_end;
 logic [31:0] bus_data_to_write;
 
@@ -89,12 +88,11 @@ assign uart_data = base_ram_data[7:0];
 always @(posedge clk_50M) begin
     if (reset_btn) begin
         state <= RECEIVE;
-        base_ram_ce_n <= 0;
+        base_ram_ce_n <= 1;
         base_ram_oe_n <= 1;
         base_ram_we_n <= 1;
         uart_rdn <= 0;
         uart_wrn <= 1;
-        counter <= 0;
         addr <= dip_sw[19:0];
         addr_end <= dip_sw[19:0] + 9;
     end else begin
@@ -102,7 +100,9 @@ always @(posedge clk_50M) begin
             RECEIVE: begin
                 if (uart_dataready) begin
                     bus_data_to_write <= {24'b0, uart_data};
+                    base_ram_oe_n <= 0;
                     base_ram_we_n <= 0;
+                    base_ram_ce_n <= 0;
                     uart_rdn <= 1;
                     state <= RECOVER;
                 end
@@ -113,10 +113,13 @@ always @(posedge clk_50M) begin
                     addr <= addr_end - 9;
                     base_ram_oe_n <= 0;
                     base_ram_we_n <= 1;
+                    base_ram_ce_n <= 0;
                     state <= TRANSMIT;
                 end else begin
                     addr <= addr + 1;
+                    base_ram_oe_n <= 1;
                     base_ram_we_n <= 1;
+                    base_ram_ce_n <= 1;
                     uart_rdn <= 0;
                     state <= RECEIVE;
                 end
@@ -128,6 +131,7 @@ always @(posedge clk_50M) begin
                         state <= IDLE;
                     end else begin
                         base_ram_oe_n <= 0;
+                        base_ram_ce_n <= 0;
                         addr <= addr + 1;
                         state <= TRANSMIT;
                     end
@@ -138,6 +142,7 @@ always @(posedge clk_50M) begin
             TRANSMIT: begin
                 bus_data_to_write <= {24'b0, uart_data};
                 base_ram_oe_n <= 1;
+                base_ram_ce_n <= 1;
                 uart_wrn <= 0;
                 state <= WAIT;
             end
