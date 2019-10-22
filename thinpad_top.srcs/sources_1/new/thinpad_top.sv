@@ -86,7 +86,7 @@ assign base_ram_data = (base_ram_we_n & uart_wrn) ? 32'bz : bus_data_to_write;
 assign uart_data = base_ram_data[7:0];
 assign base_ram_be_n = 4'b0;
 
-always @(posedge clk_50M) begin
+always @(posedge clk_11M0592) begin
     if (reset_btn) begin
         state <= RECEIVE;
         base_ram_ce_n <= 1;
