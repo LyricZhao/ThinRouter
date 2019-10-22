@@ -45,16 +45,6 @@ wire uart_dataready;     //串口数据准备好
 wire uart_tbre;          //发送数据标志
 wire uart_tsre;          //数据发送完毕标志
 
-// W2: Loopback of eth_rgmii_rd/eth_rgmii_td
-
-wire [3:0] eth_rgmii_rd; //RGMII RX 数据
-wire eth_rgmii_rx_ctl;   //RGMII RX 控制
-wire eth_rgmii_rxc;      //RGMII RX 时钟
-
-wire [3:0] eth_rgmii_td;
-wire eth_rgmii_tx_ctl;
-wire eth_rgmii_txc;
-
 //Windows需要注意路径分隔符的转义，例如"D:\\foo\\bar.bin"
 parameter BASE_RAM_INIT_FILE = "/tmp/main.bin"; //BaseRAM初始化文件，请修改为实际的绝对路径
 parameter EXT_RAM_INIT_FILE = "/tmp/eram.bin";    //ExtRAM初始化文件，请修改为实际的绝对路径
@@ -115,13 +105,7 @@ thinpad_top dut(
     .flash_oe_n(flash_oe_n),
     .flash_ce_n(flash_ce_n),
     .flash_byte_n(flash_byte_n),
-    .flash_we_n(flash_we_n),
-    .eth_rgmii_rd(eth_rgmii_rd),
-    .eth_rgmii_rx_ctl(eth_rgmii_rx_ctl),
-    .eth_rgmii_rxc(eth_rgmii_rxc),
-    .eth_rgmii_td(eth_rgmii_td),
-    .eth_rgmii_tx_ctl(eth_rgmii_tx_ctl),
-    .eth_rgmii_txc(eth_rgmii_txc)
+    .flash_we_n(flash_we_n)
 );
 // 时钟源
 clock osc(
@@ -239,74 +223,6 @@ initial begin
         ext2.mem_array0[i] = tmp_array[i][8+:8];
         ext2.mem_array1[i] = tmp_array[i][0+:8];
     end
-end
-
-// RGMII 仿真模型
-rgmii_model rgmii(
-    .clk_125M(clk_125M),
-    .clk_125M_90deg(clk_125M_90deg),
-
-    .rgmii_rd(eth_rgmii_rd),
-    .rgmii_rxc(eth_rgmii_rxc),
-    .rgmii_rx_ctl(eth_rgmii_rx_ctl)
-);
-
-// 输出RGMII-TX端数据
-
-integer rgmii_test_output_file_id, n_frames = 0;
-
-initial begin
-    rgmii_test_output_file_id = $fopen("tx_test_frame.mem", "w");
-end
-
-logic [7:0] rgmii_tx_transmit_data;
-logic [3:0] rgmii_tx_transmit_data_q1_pre;
-logic rgmii_dv, rgmii_dv_pre, rgmii_dv_xor_er, rgmii_dv_reg = 0;
-
-genvar i;
-for (i = 0; i < 4; i ++) begin
-    IDDR #(
-        .DDR_CLK_EDGE("SAME_EDGE") // OPPOSITE_EDGE or SAME_EDGE
-    ) iddr_inst (
-        .Q1(rgmii_tx_transmit_data_q1_pre[i]),
-        .Q2(rgmii_tx_transmit_data[i + 4]),
-        .C(eth_rgmii_txc),
-        .CE(1'b1),
-        .D(eth_rgmii_td[i]),
-        .R(1'b0)
-    );
-end
-
-IDDR #(
-    .DDR_CLK_EDGE("SAME_EDGE")
-) iddr_inst_ctl (
-    .Q1(rgmii_dv_pre),
-    .Q2(rgmii_dv_xor_er),
-    .C(eth_rgmii_txc),
-    .CE(1'b1),
-    .D(eth_rgmii_tx_ctl),
-    .R(1'b0)
-);
-
-always @(posedge eth_rgmii_txc)
-begin
-    if (rgmii_dv_reg == 1'b1 && rgmii_dv == 1'b0) begin
-        n_frames = n_frames + 1;
-        if (n_frames == 1)
-            $fwrite(rgmii_test_output_file_id, "\n");
-        else if (n_frames == 2)
-            $fclose(rgmii_test_output_file_id);
-    end
-    if (rgmii_dv && n_frames < 2) begin
-        $display("%02h", rgmii_tx_transmit_data);
-        $fwrite(rgmii_test_output_file_id, "%02h ", rgmii_tx_transmit_data);
-    end
-    rgmii_dv <= rgmii_dv_pre;
-    rgmii_tx_transmit_data[0] <= rgmii_tx_transmit_data_q1_pre[0];
-    rgmii_tx_transmit_data[1] <= rgmii_tx_transmit_data_q1_pre[1];
-    rgmii_tx_transmit_data[2] <= rgmii_tx_transmit_data_q1_pre[2];
-    rgmii_tx_transmit_data[3] <= rgmii_tx_transmit_data_q1_pre[3];
-    rgmii_dv_reg <= rgmii_dv;
 end
 
 endmodule
