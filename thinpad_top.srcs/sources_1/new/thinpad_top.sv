@@ -72,7 +72,7 @@ assign ext_ram_oe_n = 1'b1;
 assign ext_ram_we_n = 1'b1;
 
 /* States */
-enum logic [2:0] { RECEIVE, RECOVER, TRANSMIT, WAIT, IDLE} state;
+enum logic [2:0] { RECEIVE, RECOVER, TRANSMIT, IDLE, WAIT_TBRE, WAIT_TSRE, PULL_WRN} state;
 
 /* UART */
 wire [7:0] uart_data;
@@ -125,7 +125,13 @@ always @(posedge clk_50M) begin
                 end
             end
 
-            WAIT: begin
+            WAIT_TBRE: begin
+                if (uart_tbre) begin
+                    state <= WAIT_TSRE;
+                end
+            end
+
+            WAIT_TSRE: begin
                 if (uart_tsre) begin
                     if (addr == addr_end) begin
                         state <= IDLE;
@@ -139,12 +145,17 @@ always @(posedge clk_50M) begin
                 end
             end
 
+            PULL_WRN: begin
+                uart_wrn <= 1;
+                state <= WAIT_TBRE;
+            end
+
             TRANSMIT: begin
                 bus_data_to_write <= {24'b0, uart_data};
                 base_ram_oe_n <= 1;
                 base_ram_ce_n <= 1;
                 uart_wrn <= 0;
-                state <= WAIT;
+                state <= PULL_WRN;
             end
 
             default: begin
