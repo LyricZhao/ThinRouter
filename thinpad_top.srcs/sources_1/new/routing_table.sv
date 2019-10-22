@@ -87,7 +87,7 @@ always_ff @(posedge clk) begin
                 if (insert_valid) begin
                     if (insert_mask_len == 0) begin
                         nexthop_root <= insert_nexthop;
-                    else begin
+                    end else begin
                         lookup_insert_ready <= 0;
                         addr_saved <= lookup_insert_addr;
                         nexthop_saved <= insert_nexthop;
