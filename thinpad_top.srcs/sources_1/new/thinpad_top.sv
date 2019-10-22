@@ -68,59 +68,83 @@ module thinpad_top(
     output wire video_de            // 行数据有效信号，用于区分消隐区
 );
 
-// 不使用内存、串口时，禁用其使能信号
-assign base_ram_ce_n = 1'b0;
-assign base_ram_oe_n = 1'b0;
-assign base_ram_we_n = 1'b0;
-
+/* Disable ExtRAM */
 assign ext_ram_ce_n = 1'b1;
 assign ext_ram_oe_n = 1'b1;
 assign ext_ram_we_n = 1'b1;
 
-assign uart_rdn = 1'b1;
-assign uart_wrn = 1'b1;
+/* States */
+enum logic [2:0] { RECEIVE, ROCOVER, TRASMIT, WAIT, IDLE} state;
 
-localparam IDLE = 1'b0, PEND = 1'b1;
+/* UART */
+wire [7:0] uart_data;
 
-wire [7:0] ext_uart_rx;
-reg  [7:0] ext_uart_buffer, ext_uart_tx;
-wire ext_uart_ready, ext_uart_busy;
-reg ext_uart_start, ext_uart_available;
+/* Variables */
+logic [3:0] counter;
+logic [19:0] addr, addr_end;
 
-async_receiver #(.ClkFrequency(50000000),.Baud(9600)) 
-    ext_uart_r(
-        .clk(clk_50M),                      // 外部时钟信号
-        .RxD(rxd),                          // 外部串行信号输入
-        .RxD_data_ready(ext_uart_ready),    // 数据接收到标志
-        .RxD_clear(ext_uart_ready),         // 清除接收标志
-        .RxD_data(ext_uart_rx)              // 接收到的一字节数据
-    );
+/* Assigns */
+assign uart_data = base_ram_data[7:0];
 
-async_transmitter #(.ClkFrequency(50000000),.Baud(9600))
-    ext_uart_t(
-        .clk(clk_50M),                  // 外部时钟信号
-        .TxD(txd),                      // 串行信号输出
-        .TxD_busy(ext_uart_busy),       // 发送器忙状态指示
-        .TxD_start(ext_uart_start),     // 开始发送信号
-        .TxD_data(ext_uart_tx)          // 待发送的数据
-    );
-    
-always @(posedge clk_50M) begin
-    if (ext_uart_ready) begin
-        ext_uart_buffer <= ext_uart_rx;
-        ext_uart_available <= 1'b1;
-    end else if (!ext_uart_busy && ext_uart_available) begin
-        ext_uart_available <= 1'b0;
-    end
+always @(posedge reset_btn) begin
+    state <= IDLE;
+    base_ram_ce_n <= 0;
+    base_ram_oe_n <= 1;
+    base_ram_we_n <= 1;
+    uart_rdn <= 0;
+    uart_wrn <= 1;
+    counter <= 0;
+    addr <= dip_sw[19:0];
+    addr_end <= dip_sw[19:0] + 9;
 end
 
 always @(posedge clk_50M) begin
-    if (!ext_uart_busy && ext_uart_available) begin
-        ext_uart_tx <= ext_uart_buffer;
-        ext_uart_start <= 1'b1;
-    end else begin
-        ext_uart_start <= 1'b0;
-    end
+    case (state):
+        RECEIVE: begin
+            if (uart_dataready) begin
+                base_ram_data <= {24'b0, uart_data};
+                base_ram_we_n <= 0;
+                uart_rdn <= 1;
+                state <= RECOVER;
+            end
+        end
+
+        RECOVER: begin
+            if (addr == addr_end) begin
+                addr <= addr_end - 9;
+                base_ram_oe_n <= 0;
+                base_ram_we_n <= 1;
+                state <= TRASMIT;
+            end else begin
+                addr <= addr + 1;
+                base_ram_we_n <= 1;
+                uart_rdn <= 0;
+                state <= RECEIVE;
+            end
+        end
+
+        WAIT: begin
+            if (uart_tsre) begin
+                if (addr == addr_end) begin
+                    state <= IDLE;
+                end else begin
+                    base_ram_oe_n <= 0;
+                    addr <= addr + 1;
+                    state <= TRASMIT;
+                end
+                uart_wrn <= 1;
+            end
+        end
+
+        TRASMIT: begin
+            uart_data <= base_ram_data[7:0];
+            base_ram_oe_n <= 1;
+            uart_wrn <= 0;
+            state <= WAIT;
+        end
+
+        default: begin /* IDLE */ end
+    endcase
 end
 
 endmodule
