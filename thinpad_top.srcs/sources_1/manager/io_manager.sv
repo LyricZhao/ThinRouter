@@ -155,14 +155,14 @@ end
 
 function void handle_arp();
     // todo
-    $display("Processing ARP packet...");
+    $display("@%0tns, Processing ARP packet...", $time);
 endfunction
 
 function void handle_ip();
     $write("IP Data:\n\t");
     `DISPLAY_DATA(ip_data, ip_total_size - 4 * ip_header_size);
     // todo
-    $display("Processing IP packet...");
+    $display("@%0tns, Processing IP packet...", $realtime);
 endfunction
 
 always_ff @ (posedge clk_io or posedge reset) begin

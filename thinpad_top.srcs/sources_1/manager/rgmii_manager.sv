@@ -5,8 +5,8 @@
 */
 
 module rgmii_manager(
-    input   wire    clk_125M,
-    input   wire    clk_200M,
+    input   wire    clk_rgmii,
+    input   wire    clk_internal,
     input   wire    [3:0] eth_rgmii_rd,
     input   wire    eth_rgmii_rx_ctl,
     input   wire    eth_rgmii_rxc,
@@ -29,13 +29,13 @@ wire axis_tx_ready;
 
 // 在第一个时钟上升沿，将 resetn 从 0 变为 1
 gtx_reset gtx_reset_inst(
-    .clk(clk_125M),
+    .clk(clk_rgmii),
     .gtx_resetn(gtx_resetn)
 );
 
 io_manager io_manager_inst (
-    .clk_io(clk_125M),
-    .clk_internal(clk_200M),
+    .clk_io(clk_internal),
+    .clk_internal(clk_internal),
     .rx_data(axis_rx_data),
     .rx_valid(axis_rx_valid),
     .rx_ready(axis_rx_ready),
@@ -48,14 +48,14 @@ io_manager io_manager_inst (
 );
 
 eth_mac_fifo_block trimac_fifo_block (
-    .gtx_clk                      (clk_125M),
+    .gtx_clk                      (clk_rgmii),
 
     .glbl_rstn                    (eth_rst_n),
     .rx_axi_rstn                  (eth_rst_n),
     .tx_axi_rstn                  (eth_rst_n),
 
     // Reference clock for IDELAYCTRL's
-    .refclk                       (clk_200M),
+    .refclk                       (clk_internal),
 
     // Receiver Statistics Interface
     //---------------------------------------
@@ -66,7 +66,7 @@ eth_mac_fifo_block trimac_fifo_block (
 
     // Receiver (AXI-S) Interface
     //----------------------------------------
-    .rx_fifo_clock                (clk_125M),
+    .rx_fifo_clock                (clk_internal),
     .rx_fifo_resetn               (gtx_resetn),
     .rx_axis_fifo_tdata           (axis_rx_data),
     .rx_axis_fifo_tvalid          (axis_rx_valid),
@@ -83,7 +83,7 @@ eth_mac_fifo_block trimac_fifo_block (
 
     // Transmitter (AXI-S) Interface
     //-------------------------------------------
-    .tx_fifo_clock                (clk_125M),
+    .tx_fifo_clock                (clk_internal),
     .tx_fifo_resetn               (gtx_resetn),
     .tx_axis_fifo_tdata           (axis_tx_data),
     .tx_axis_fifo_tvalid          (axis_tx_valid),
