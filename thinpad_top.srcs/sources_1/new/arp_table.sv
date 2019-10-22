@@ -11,7 +11,7 @@ module arp_table(
     output logic [`MAC_WIDTH-1:0] lookup_mac, // mac that is found
     output logic [`PORT_WIDTH-1:0] lookup_port, // port that is found
     input lookup_ip_valid, // 1 if the lookup_ip is valid
-    output logic lookup_mac_valid,
+    output logic lookup_mac_found,
     output logic lookup_mac_not_found,
 
     input [`IPV4_WIDTH-1:0] insert_ip,
@@ -70,7 +70,7 @@ enum logic [1:0] {S3,S2,S1,S0} StateA;
 always_ff @ (posedge clk) begin
     if (rst) begin
         data_addra <= 0;
-        lookup_mac_valid <= 0;
+        lookup_mac_found <= 0;
         lookup_mac_not_found <= 0;
         lookup_mac <= 0;
         lookup_port <= 0;
@@ -80,14 +80,14 @@ always_ff @ (posedge clk) begin
             S0: begin
                 if (lookup_ip_valid) begin
                     data_addra <= 0;
-                    lookup_mac_valid <= 0;
+                    lookup_mac_found <= 0;
                     lookup_mac_not_found <= 0;       
                     StateA <= S1;                 
                 end     
             end
             S1: begin
                 if (data_douta[`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH-1:`MAC_WIDTH+`PORT_WIDTH]==lookup_ip) begin
-                    lookup_mac_valid <= 1;
+                    lookup_mac_found <= 1;
                     lookup_mac <= data_douta[`MAC_WIDTH+`PORT_WIDTH-1:`PORT_WIDTH];
                     lookup_port <= data_douta[`PORT_WIDTH-1:0];
                     StateA <= S0;
