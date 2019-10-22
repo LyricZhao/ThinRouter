@@ -85,7 +85,6 @@ logic [31:0] bus_data_to_write;
 /* Assigns */
 assign base_ram_data = is_writing ? bus_data_to_write : 32'bz;
 assign uart_data = base_ram_data[7:0];
-assign base_ram_be_n = 4'b0;
 
 always @(posedge clk_11M0592) begin
     if (reset_btn) begin
@@ -93,6 +92,7 @@ always @(posedge clk_11M0592) begin
         base_ram_ce_n <= 1;
         base_ram_oe_n <= 1;
         base_ram_we_n <= 1;
+        base_ram_be_n = 4'b0;
         uart_rdn <= 0;
         uart_wrn <= 1;
         is_writing <= 0;
@@ -144,6 +144,7 @@ always @(posedge clk_11M0592) begin
                     end else begin
                         base_ram_oe_n <= 0;
                         base_ram_ce_n <= 0;
+                        base_ram_be_n = 4'b0;
                         base_ram_addr <= base_ram_addr + 1;
                         state <= TRANSMIT;
                     end
@@ -157,6 +158,7 @@ always @(posedge clk_11M0592) begin
             end
 
             TRANSMIT: begin
+                base_ram_be_n = 4'b1111;
                 bus_data_to_write <= {24'b0, uart_data};
                 base_ram_oe_n <= 1;
                 base_ram_ce_n <= 1;
