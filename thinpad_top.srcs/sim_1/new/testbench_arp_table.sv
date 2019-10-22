@@ -12,7 +12,7 @@ module testbench_arp_table();
     logic [`MAC_WIDTH-1:0] lookup_mac;
     logic [1:0] lookup_port;
     logic lookup_ip_valid;
-    logic lookup_mac_valid;
+    logic lookup_mac_found;
     logic lookup_mac_not_found;
 
     logic [`IPV4_WIDTH-1:0] insert_ip;
@@ -31,7 +31,7 @@ module testbench_arp_table();
         .lookup_mac(lookup_mac),
         .lookup_port(lookup_port),
         .lookup_ip_valid(lookup_ip_valid),
-        .lookup_mac_valid(lookup_mac_valid),
+        .lookup_mac_found(lookup_mac_found),
         .lookup_mac_not_found(lookup_mac_not_found),
 
         .insert_ip(insert_ip),
@@ -57,7 +57,7 @@ module testbench_arp_table();
     begin
         do
             repeat (1) @ (posedge clk);
-        while (!lookup_mac_valid && !lookup_mac_not_found);
+        while (!lookup_mac_found && !lookup_mac_not_found);
     end
     endtask
 

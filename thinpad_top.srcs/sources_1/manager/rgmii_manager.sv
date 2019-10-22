@@ -7,6 +7,7 @@
 module rgmii_manager(
     input   wire    clk_rgmii,
     input   wire    clk_internal,
+    input   wire    rst,
     input   wire    [3:0] eth_rgmii_rd,
     input   wire    eth_rgmii_rx_ctl,
     input   wire    eth_rgmii_rxc,
@@ -44,7 +45,7 @@ io_manager io_manager_inst (
     .tx_valid(axis_tx_valid),
     .tx_ready(axis_tx_ready),
     .tx_last(axis_tx_last),
-    .gtx_resetn(gtx_resetn)
+    .rst(rst)
 );
 
 eth_mac_fifo_block trimac_fifo_block (
