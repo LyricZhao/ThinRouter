@@ -13,7 +13,7 @@ module thinpad_top(
 
     // CPLD串口控制器信号
     output logic uart_rdn,           // 读串口信号，低有效
-    output logic uart_wrn,           // 写串口信号，低有效
+    output logic uart_wrn = 1,       // 写串口信号，低有效
     input logic uart_dataready,      // 串口数据准备好
     input logic uart_tbre,           // 发送数据标志
     input logic uart_tsre,           // 数据发送完毕标志
