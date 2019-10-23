@@ -5,9 +5,10 @@
 */
 
 module rgmii_manager(
-    input   wire    clk_rgmii,
-    input   wire    clk_internal,
-    input   wire    rst,
+    input   wire    clk_rgmii,          // RGMII 的 125M 时钟
+    input   wire    clk_internal,       // 处理内部同步逻辑用的时钟
+    input   wire    clk_ref,            // 给 eth_mac_fifo_block 用的 200M 时钟
+    input   wire    rst,                // 硬件 rst 按键
     input   wire    [3:0] eth_rgmii_rd,
     input   wire    eth_rgmii_rx_ctl,
     input   wire    eth_rgmii_rxc,
@@ -56,7 +57,7 @@ eth_mac_fifo_block trimac_fifo_block (
     .tx_axi_rstn                  (eth_rst_n),
 
     // Reference clock for IDELAYCTRL's
-    .refclk                       (clk_internal),
+    .refclk                       (clk_ref),
 
     // Receiver Statistics Interface
     //---------------------------------------

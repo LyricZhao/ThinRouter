@@ -85,21 +85,22 @@ always_ff @ (posedge clk_io or posedge rst) begin
         bytes_read <= 0;
         bytes_sent <= 0;
         bytes_forwarded <= 0;
+        state <= Idle;
+        tx_last <= 0;
+        tx_valid <= 0;
     end else begin
         case(state)
             Idle: begin
                 tx_last <= 0;
                 tx_valid <= 0;
-                bytes_sent <= 0;
-                state <= Sending;
-                // if (rx_valid) begin
-                //     state <= Reading;
-                //     frame_in[367 -: 8] <= rx_data;
-                //     bytes_read <= 1;
-                //     packet_arrive <= 1;
-                //     bytes_sent <= 0;
-                //     bytes_forwarded <= 0;
-                // end
+                if (rx_valid) begin
+                    state <= Reading;
+                    frame_in[367 -: 8] <= rx_data;
+                    bytes_read <= 1;
+                    packet_arrive <= 1;
+                    bytes_sent <= 0;
+                    bytes_forwarded <= 0;
+                end
             end
             Reading: begin
                 // 持续接收数据
