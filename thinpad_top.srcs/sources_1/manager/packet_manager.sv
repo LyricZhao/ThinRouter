@@ -181,9 +181,7 @@ always_ff @ (posedge clk or posedge rst) begin
                         if (protocol == IPv4) begin
                             state <= IpRunning;
                             // 一些东西可以直接填充
-                            // [367:320]    查表 MAC
-                            frame_out[319:272] <= frame_in[367:320];
-                            frame_out[271:242] <= frame_in[271:242];
+                            frame_out[367:242] <= frame_in[367:242];
                             // [241:240]    查表 VLAN ID
                             frame_out[239:160] <= frame_in[239:160];
                             frame_out[159:152] <= frame_in[159:152] - 1;
@@ -215,19 +213,15 @@ always_ff @ (posedge clk or posedge rst) begin
             IpRunning: begin
                 case(frame_in[367:320])
                     `TYX_MAC: begin
-                        frame_out[367:320] <= `TYX_MAC;
                         frame_out[241:240] <= `TYX_PORT;
                     end
                     `ZCG_MAC: begin
-                        frame_out[367:320] <= `ZCG_MAC;
                         frame_out[241:240] <= `ZCG_PORT;
                     end
                     `WZY_MAC: begin
-                        frame_out[367:320] <= `WZY_MAC;
                         frame_out[241:240] <= `WZY_PORT;
                     end
                     default: begin
-                        frame_out[367:320] <= '1;
                         frame_out[241:240] <= '0;
                     end
                 endcase
