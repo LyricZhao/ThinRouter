@@ -236,6 +236,8 @@ always_ff @ (posedge clk or posedge rst) begin
                 out_bytes <= 46;
                 state <= Idle;
             end
+            default: begin
+            end
         endcase
     end
 end
