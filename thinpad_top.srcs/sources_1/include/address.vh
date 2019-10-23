@@ -13,3 +13,7 @@
 `define ZCG_MAC     48'h000ec6cb3dc0
 `define ZCG_PORT    1
 `define ZCG_IP      32'h0a000403
+
+`define WZY_MAC     48'ha44cc80ee095
+`define WZY_PORT    2
+`define WZY_IP      32'h0a000404
