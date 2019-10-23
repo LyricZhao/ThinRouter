@@ -1,10 +1,10 @@
 -- Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
 -- --------------------------------------------------------------------------------
--- Tool Version: Vivado v.2018.3 (lin64) Build 2405991 Thu Dec  6 23:36:41 MST 2018
--- Date        : Fri Sep 27 16:28:02 2019
--- Host        : parallels-Parallels-Virtual-Platform running 64-bit Ubuntu 18.04.1 LTS
+-- Tool Version: Vivado v.2018.3 (win64) Build 2405991 Thu Dec  6 23:38:27 MST 2018
+-- Date        : Wed Oct 23 15:20:15 2019
+-- Host        : DESKTOP-EIUC5JR running 64-bit major release  (build 9200)
 -- Command     : write_vhdl -force -mode synth_stub
---               /media/psf/Home/Desktop/cod19grp4/thinpad_top.srcs/sources_1/ip/eth_mac/eth_mac_stub.vhdl
+--               Z:/Work/Programs/semester5/CPU/cod19grp4/thinpad_top.srcs/sources_1/ip/eth_mac/eth_mac_stub.vhdl
 -- Design      : eth_mac
 -- Purpose     : Stub declaration of top-level module interface
 -- Device      : xc7a100tfgg676-2L

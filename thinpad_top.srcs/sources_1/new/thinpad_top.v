@@ -236,7 +236,8 @@ vga #(12, 800, 856, 976, 1040, 600, 637, 643, 666, 1, 1) vga800x600at75 (
 
 rgmii_manager rgmii_manager_inst (
     .clk_rgmii(clk_125M),
-    .clk_internal(clk_200M),
+    .clk_internal(clk_125M),
+    .clk_ref(clk_200M),
     .rst(reset_btn),
     .eth_rgmii_rd(eth_rgmii_rd),
     .eth_rgmii_rx_ctl(eth_rgmii_rx_ctl),

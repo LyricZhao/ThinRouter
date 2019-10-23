@@ -70,6 +70,7 @@ IP  包网帧：
 */
 
 `include "debug.vh"
+`include "address.vh"
 
 module packet_manager (
     input   wire    clk,                // 父模块同步时钟
@@ -95,22 +96,14 @@ enum {
     Idle,       // 空闲
     Receiving,  // 正在和 io_manager 同步接收包
     IpRunning,  // 正在用子模块处理生成新网帧
-    ArpRunning  // 正在用子模块处理生成新网帧
+    ArpRunning, // 正在用子模块处理生成新网帧
+    Test
 } state;
 
 enum {
     ARP,
     IPv4
 } protocol;     // 目前读取的网帧采用的协议，在读取 18 字节后确定
-
-function void bad_exit;
-input string message; 
-begin
-    $display({"BAD PACKET: (packet_manager) ", message});
-    bad <= 0;
-    state <= Idle;
-end
-endfunction
 
 always_ff @ (posedge clk or posedge rst) begin
     if (rst) begin
@@ -121,6 +114,12 @@ always_ff @ (posedge clk or posedge rst) begin
         out_bytes <= 0;
         require_direct_fw <= 0;
         direct_fw_offset <= 0;
+
+        // test
+        // state <= Test;
+        // out_bytes <= 46;
+        // out_ready <= 1;
+        // frame_out <= 368'h00E04C6806E2A888088888888100000008060001080006040002A888088888880606060600E04C6806E206060601;
     end else if (packet_arrive) begin
         // 开始接收数据包
         if (state != Idle) begin
@@ -146,7 +145,11 @@ always_ff @ (posedge clk or posedge rst) begin
                         case(frame_in[239:224])
                             16'h0806: protocol <= ARP;
                             16'h0800: protocol <= IPv4;
-                            default: bad_exit("Unsupported protocol");
+                            default: begin
+                                bad <= 1;
+                                state <= Idle;
+                                $display("BAD PACKET: (packet_manager) Unsupported protocol");
+                            end
                         endcase
                     end
                     22: begin
@@ -160,8 +163,11 @@ always_ff @ (posedge clk or posedge rst) begin
                     end
                     27: begin
                         // 对于 IP 包，如果 TTL 为零则丢弃
-                        if (protocol == IPv4 && frame_in[159:152] == '0)
-                            bad_exit("TTL = 0");
+                        if (protocol == IPv4 && frame_in[159:152] == '0) begin
+                            bad <= 1;
+                            state <= Idle;
+                            $display("BAD PACKET: (packet_manager) TTL = 0");
+                        end
                     end
                     38: begin
                         // todo: 把赋值操作摊到之前的时候
@@ -175,6 +181,7 @@ always_ff @ (posedge clk or posedge rst) begin
                             // [241:240]    查表 VLAN ID
                             frame_out[239:160] <= frame_in[239:160];
                             frame_out[159:152] <= frame_in[159:152] - 1;
+                            frame_out[151:144] <= frame_in[151:144];
                             if (frame_in[143:128] == '1)
                                 frame_out[143:128] <= 16'h1;
                             else
@@ -188,7 +195,7 @@ always_ff @ (posedge clk or posedge rst) begin
                             state <= ArpRunning;
                             // 一些东西可以直接填充
                             frame_out[367:320] <= frame_in[319:272];
-                            frame_out[319:272] <= frame_in[367:320];
+                            frame_out[319:272] <= `ROUTER_MAC;
                             frame_out[271:176] <= frame_in[271:176];
                             frame_out[175:160] <= 16'h2;
                             // [159:112]    查表 MAC
@@ -200,14 +207,31 @@ always_ff @ (posedge clk or posedge rst) begin
                 endcase
             end
             IpRunning: begin
-                frame_out[367:320] <= '1;
-                frame_out[241:240] <= '0;
+                case(frame_in[367:320])
+                    `TYX_MAC: begin
+                        frame_out[367:320] <= `TYX_MAC;
+                        frame_out[241:240] <= `TYX_PORT;
+                    end
+                    `ZCG_MAC: begin
+                        frame_out[367:320] <= `ZCG_MAC;
+                        frame_out[241:240] <= `ZCG_PORT;
+                    end
+                    default: begin
+                        frame_out[367:320] <= '1;
+                        frame_out[241:240] <= '0;
+                    end
+                endcase
                 out_ready <= 1;
                 out_bytes <= 38;
                 state <= Idle;
             end
             ArpRunning: begin
-                frame_out[159:112] <= '0;
+                case(frame_in[31:0])
+                    `TYX_IP:    frame_out[159:112] <= `TYX_MAC;
+                    `ZCG_IP:    frame_out[159:112] <= `ZCG_MAC;
+                    `ROUTER_IP: frame_out[159:112] <= `ROUTER_MAC;
+                    default:    frame_out[159:112] <= '0;
+                endcase
                 out_ready <= 1;
                 out_bytes <= 46;
                 state <= Idle;
