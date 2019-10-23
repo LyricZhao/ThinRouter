@@ -96,7 +96,8 @@ enum {
     Idle,       // 空闲
     Receiving,  // 正在和 io_manager 同步接收包
     IpRunning,  // 正在用子模块处理生成新网帧
-    ArpRunning  // 正在用子模块处理生成新网帧
+    ArpRunning, // 正在用子模块处理生成新网帧
+    Test
 } state;
 
 enum {
@@ -107,12 +108,18 @@ enum {
 always_ff @ (posedge clk or posedge rst) begin
     if (rst) begin
         // 复位
-        state <= Idle;
+        // state <= Idle;
         bad <= 0;
-        out_ready <= 0;
-        out_bytes <= 0;
+        // out_ready <= 0;
+        // out_bytes <= 0;
         require_direct_fw <= 0;
         direct_fw_offset <= 0;
+
+        // test
+        state <= Test;
+        out_bytes <= 46;
+        out_ready <= 1;
+        frame_out <= 368'h00E04C6806E2A888088888888100000008060001080006040002A888088888880606060600E04C6806E206060601;
     end else if (packet_arrive) begin
         // 开始接收数据包
         if (state != Idle) begin

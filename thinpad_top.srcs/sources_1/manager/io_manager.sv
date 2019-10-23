@@ -67,7 +67,16 @@ enum {
 byte bytes_sent;
 int bytes_forwarded;
 
-assign rx_ready = state != Waiting && state != Sending;
+// 控制 rx_ready 信号
+always_comb 
+case (state)
+    Idle, Reading: 
+        rx_ready = 1;
+    Waiting, Sending: 
+        rx_ready = 0;
+    Forwarding:
+        rx_ready = tx_ready;
+endcase
 
 always_ff @ (posedge clk_io or posedge rst) begin
     // 初始化
@@ -81,14 +90,16 @@ always_ff @ (posedge clk_io or posedge rst) begin
             Idle: begin
                 tx_last <= 0;
                 tx_valid <= 0;
-                if (rx_valid) begin
-                    state <= Reading;
-                    frame_in[367 -: 8] <= rx_data;
-                    bytes_read <= 1;
-                    packet_arrive <= 1;
-                    bytes_sent <= 0;
-                    bytes_forwarded <= 0;
-                end
+                bytes_sent <= 0;
+                state <= Sending;
+                // if (rx_valid) begin
+                //     state <= Reading;
+                //     frame_in[367 -: 8] <= rx_data;
+                //     bytes_read <= 1;
+                //     packet_arrive <= 1;
+                //     bytes_sent <= 0;
+                //     bytes_forwarded <= 0;
+                // end
             end
             Reading: begin
                 // 持续接收数据
@@ -112,19 +123,21 @@ always_ff @ (posedge clk_io or posedge rst) begin
                 end
             end
             Sending: begin
-                $write("%2x ", frame_out[367 - bytes_sent * 8 -: 8]); 
-                tx_data <= frame_out[367 - bytes_sent * 8 -: 8];
-                tx_valid <= 1;
-                bytes_sent <= bytes_sent + 1;
-                if (bytes_sent + 1 == out_bytes) begin
-                    // packet_manager 的部分转发完成（还可能有 data）
-                    if (require_direct_fw) begin
-                        $write("\nforwarding...\n\t");
-                        state <= Forwarding;
-                    end else begin
-                        $display("LAST");
-                        tx_last <= 1;
-                        state <= Idle;
+                if (tx_ready) begin
+                    $write("%2x ", frame_out[367 - bytes_sent * 8 -: 8]); 
+                    tx_data <= frame_out[367 - bytes_sent * 8 -: 8];
+                    tx_valid <= 1;
+                    bytes_sent <= bytes_sent + 1;
+                    if (bytes_sent + 1 == out_bytes) begin
+                        // packet_manager 的部分转发完成（还可能有 data）
+                        if (require_direct_fw) begin
+                            $write("\nforwarding...\n\t");
+                            state <= Forwarding;
+                        end else begin
+                            $display("LAST");
+                            tx_last <= 1;
+                            state <= Idle;
+                        end
                     end
                 end
             end
