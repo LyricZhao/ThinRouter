@@ -14,6 +14,8 @@
 io_manager 只能在此模块 done=1 时给一拍 start_process
 */
 
+`timescale 1ns / 1ps
+
 `include "debug.sv"
 
 module arp_packet_manager(

@@ -7,6 +7,8 @@
 todo
 */
 
+`timescale 1ns / 1ps
+
 `include "debug.sv"
 
 module ip_packet_manager(

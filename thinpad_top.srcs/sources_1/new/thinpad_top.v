@@ -1,4 +1,5 @@
 `default_nettype none
+`timescale 1ns / 1ps
 
 module thinpad_top(
     input wire clk_50M,           // 50MHz 时钟输入

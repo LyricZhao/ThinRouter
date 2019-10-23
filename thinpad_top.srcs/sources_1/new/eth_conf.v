@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 module eth_conf(
     input wire clk,
     input wire rst_in_n,

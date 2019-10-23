@@ -4,6 +4,8 @@
 接收数据后展开，然后交给 packet_manager 处理，处理后再输出
 */
 
+`timescale 1ns / 1ps
+
 `include "debug.vh"
 
 module io_manager (

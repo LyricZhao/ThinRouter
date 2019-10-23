@@ -4,6 +4,8 @@
 然后交给 io_manager 处理
 */
 
+`timescale 1ns / 1ps
+
 module rgmii_manager(
     input   wire    clk_rgmii,          // RGMII 的 125M 时钟
     input   wire    clk_internal,       // 处理内部同步逻辑用的时钟
