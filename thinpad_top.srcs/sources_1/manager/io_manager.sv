@@ -25,16 +25,45 @@ module io_manager (
     output  bit     tx_last             // 数据传出结束
 );
 
-bit packet_arrive;
-bit [367:0] frame_in;
-byte bytes_read;
-wire bad;
-wire [367:0] frame_out;
-wire out_ready;
-byte out_bytes;
-wire require_direct_fw;
-byte direct_fw_offset;
-int fw_bytes;
+// 接收数据用
+bit  packet_arrive;     // 提供给 packet_manager 的一拍信号，表示收到一个新的包
+bit  [367:0] frame_in;  // 将收到的数据包从高位往低位存储
+byte bytes_read;        // 已经接受的字节数
+
+// packet_manager 的输出
+wire bad;               // packet_manager 在解析时随时可能置 1，此时应转丢包逻辑
+wire [367:0] frame_out; // packet_manager 处理后的需要发走的包
+wire out_ready;         // packet_manager 处理完成信号
+byte out_bytes;         // packet_manager 处理完成后，表示需要从 frame_out 发送多少字节
+wire require_direct_fw; // packet_manager 表示需要在接受了 direct_fw_offset 字节后暂停，后续的 IP 包 data 部分不走那里，直接转发
+byte direct_fw_offset;  // 
+int  fw_bytes;          // 需要直接转发的字节数
+
+// 状态
+enum {
+    Idle,               // 空闲，遇到 rx_valid 转下一条
+    Reading,            // 正在接收，等待 packet_manager 的 require_direct_fw 或者 rx_last，转下一条
+    Waiting,            // 等待 packet_manager 处理完，之后转下一条
+    Sending,            // 发送 packet_manager 处理后的新网帧
+    Forwarding,         // 连接 rx tx 转发 IP 包的 data
+    Discarding          // 丢包（或者是丢弃掉 trailer），等到 rx_last 转 Idle
+} state;
+
+// 处理状态用到的变量
+byte bytes_sent;        // Sending 下，已经从 packet_manager 的 frame_out 发送的字节数
+int  bytes_forwarded;   // Forwarding 下，已经转发的字节数（只用于 IP 包的 data 部分）
+bit  packet_ended;      // 当前处理的包已经 last
+
+// 驱动 rx_ready 信号
+always_comb 
+case (state)
+    Idle, Reading, Discarding: 
+        rx_ready = 1;
+    Waiting, Sending: 
+        rx_ready = 0;
+    Forwarding:
+        rx_ready = tx_ready;
+endcase
 
 packet_manager packet_manager_inst (
     .clk(clk_internal),
@@ -56,36 +85,18 @@ packet_manager packet_manager_inst (
     .fw_bytes(fw_bytes)
 );
 
-enum {
-    Idle,       // 空闲
-    Reading,    // 正在接收
-    Waiting,    // 等待 packet_manager 处理完
-    Sending,    // 发送 packet_manager 处理后的新网帧
-    Forwarding  // 连接 rx tx 转发 IP 包的 data
-} state;
-
-byte bytes_sent;
-int bytes_forwarded;
-
-// 控制 rx_ready 信号
-always_comb 
-case (state)
-    Idle, Reading: 
-        rx_ready = 1;
-    Waiting, Sending: 
-        rx_ready = 0;
-    Forwarding:
-        rx_ready = tx_ready;
-endcase
-
 always_ff @ (posedge clk_io or posedge rst) begin
     // 初始化
     if (rst) begin
+        // 收包变量
         packet_arrive <= 0;
         bytes_read <= 0;
+        // 处理逻辑变量
+        state <= Idle;
         bytes_sent <= 0;
         bytes_forwarded <= 0;
-        state <= Idle;
+        packet_ended <= 0;
+        // 输出信号
         tx_last <= 0;
         tx_valid <= 0;
     end else begin
@@ -94,36 +105,57 @@ always_ff @ (posedge clk_io or posedge rst) begin
                 tx_last <= 0;
                 tx_valid <= 0;
                 if (rx_valid) begin
+                    // 状态
                     state <= Reading;
+                    packet_arrive <= 1;
+                    // 记录当前收到的字节
                     frame_in[367 -: 8] <= rx_data;
                     bytes_read <= 1;
-                    packet_arrive <= 1;
+                    // 变量清零
                     bytes_sent <= 0;
                     bytes_forwarded <= 0;
+                    packet_ended <= 0;
                 end
             end
             Reading: begin
                 // 持续接收数据
                 packet_arrive <= 0;
-                if (rx_valid) begin
+                if (bad) begin
+                    if (packet_ended || (rx_valid && rx_last))
+                        state <= Idle;
+                    else
+                        state <= Discarding;
+                end else if (rx_valid) begin
                     frame_in[367 - bytes_read * 8 -: 8] <= rx_data;
                     bytes_read <= bytes_read + 1;
-                    // 收到 last 后，或到达 data 部分时，暂停等待处理
-                    if (rx_last || (require_direct_fw && bytes_read + 1 == direct_fw_offset)) begin
-                        $write("frame_in ready\n\t");
+                    // 收到 last 后，暂停等待处理
+                    if (rx_last) begin
+                        packet_ended <= 1;
+                        $write("frame_in completed\n\t");
+                        `DISPLAY_BITS(frame_in, 367, 360 - bytes_read * 8);
+                        state <= Waiting;
+                    // 或者到达 IP 包 data 前了，也暂停等待处理
+                    end else if (require_direct_fw && bytes_read + 1 == direct_fw_offset) begin
+                        $write("IP header completed\n\t");
                         `DISPLAY_BITS(frame_in, 367, 360 - bytes_read * 8);
                         state <= Waiting;
                     end
                 end
             end
             Waiting: begin
-                // packet_manager 处理完后转 Sending
-                if (out_ready) begin
+                // 此时 rx_ready 为 0
+                if (bad) begin
+                    if (packet_ended)
+                        state <= Idle;
+                    else
+                        state <= Discarding;
+                end else if (out_ready) begin
                     $write("frame_out ready, sending...\n\t");
                     state <= Sending;
                 end
             end
             Sending: begin
+                // 此时 rx_ready = 0，out_ready = 1，bad = 0
                 if (tx_ready) begin
                     $write("%2x ", frame_out[367 - bytes_sent * 8 -: 8]); 
                     tx_data <= frame_out[367 - bytes_sent * 8 -: 8];
@@ -132,7 +164,7 @@ always_ff @ (posedge clk_io or posedge rst) begin
                     if (bytes_sent + 1 == out_bytes) begin
                         // packet_manager 的部分转发完成（还可能有 data）
                         if (require_direct_fw) begin
-                            $write("\nforwarding...\n\t");
+                            $write("\nand forwarding...\n\t");
                             state <= Forwarding;
                         end else begin
                             $display("LAST");
@@ -140,31 +172,51 @@ always_ff @ (posedge clk_io or posedge rst) begin
                             state <= Idle;
                         end
                     end
+                end else begin
+                    tx_valid <= 0;
+                    tx_last <= 0;
                 end
             end
             Forwarding: begin
                 if (rx_valid) begin
-                    bytes_forwarded <= bytes_forwarded + 1;
-                    // 只当长度小于 header 给定的 data 长度时转发
-                    if (bytes_forwarded < fw_bytes) begin
+                    if (bytes_forwarded == fw_bytes) begin
+                        // 如果已经转发了应当转发的数量，剩下的应当丢弃
+                        tx_valid <= 0;
+                        if (rx_last)
+                            state <= Idle;
+                        else
+                            state <= Discarding;
+                    end else begin
+                        bytes_forwarded <= bytes_forwarded + 1;
                         $write("%2x ", rx_data);
                         tx_data <= rx_data;
                         tx_valid <= 1;
-                    end else begin
-                        tx_valid <= 0;
+                        if (rx_last) begin
+                            // 如果遇到 rx_last 则必须立即停止
+                            $display("LAST (EOP)");
+                            tx_last <= 1;
+                            state <= Idle;
+                        end else begin
+                            // data 包转发完毕发 last，转 Discarding
+                            if (bytes_forwarded + 1 == fw_bytes) begin
+                                $display("LAST");
+                                tx_last <= 1;
+                                packet_ended <= 1;
+                                state <= Discarding;
+                            end
+                        end
                     end
-                    // data 包转发完毕（或 rx_last）发 last（但是 rx 中可能还存在 trailer）
-                    if (bytes_forwarded + 1 == fw_bytes) begin
-                        tx_last <= 1;
-                        $display("LAST");
-                    end
-                    if (rx_last) begin
-                        tx_last <= 1;
-                        state <= Idle;
-                    end
-                end else
+                end else begin
+                    // 如果 rx_valid = 0
                     tx_valid <= 0;
                     tx_last <= 0;
+                end
+            end
+            Discarding: begin
+                if (rx_valid && rx_last)
+                    state <= Idle;
+            end
+            default: begin
             end
         endcase
     end

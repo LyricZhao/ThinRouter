@@ -92,6 +92,11 @@ module packet_manager (
     output  int     fw_bytes            // 转发大小（字节）
 );
 
+`define BAD_EXIT(msg) \
+    bad <= 1; \
+    state <= Idle; \
+    $display("%s", {"BAD PACKET: ", msg});
+
 enum {
     Idle,       // 空闲
     Receiving,  // 正在和 io_manager 同步接收包
@@ -137,8 +142,13 @@ always_ff @ (posedge clk or posedge rst) begin
             Receiving: begin
                 case(bytes_read)
                     6:  begin
-                        // 检查目标 MAC 是不是本路由器
-                        // todo
+                        // todo: 检查目标 MAC，若不是广播任何已知地址则丢包
+                        // case(frame_in[367:320])
+                        //     `ROUTER_MAC, '1: ;
+                        //     default: begin
+                        //         `BAD_EXIT("MAC not matched");
+                        //     end
+                        // endcase
                     end
                     18: begin
                         // 检查协议是否为 ARP 或 IP
@@ -146,9 +156,7 @@ always_ff @ (posedge clk or posedge rst) begin
                             16'h0806: protocol <= ARP;
                             16'h0800: protocol <= IPv4;
                             default: begin
-                                bad <= 1;
-                                state <= Idle;
-                                $display("BAD PACKET: (packet_manager) Unsupported protocol");
+                                `BAD_EXIT("Unsupported protocol");
                             end
                         endcase
                     end
@@ -164,9 +172,7 @@ always_ff @ (posedge clk or posedge rst) begin
                     27: begin
                         // 对于 IP 包，如果 TTL 为零则丢弃
                         if (protocol == IPv4 && frame_in[159:152] == '0) begin
-                            bad <= 1;
-                            state <= Idle;
-                            $display("BAD PACKET: (packet_manager) TTL = 0");
+                            `BAD_EXIT("TTL = 0");
                         end
                     end
                     38: begin
@@ -175,9 +181,7 @@ always_ff @ (posedge clk or posedge rst) begin
                         if (protocol == IPv4) begin
                             state <= IpRunning;
                             // 一些东西可以直接填充
-                            // [367:320]    查表 MAC
-                            frame_out[319:272] <= frame_in[367:320];
-                            frame_out[271:242] <= frame_in[271:242];
+                            frame_out[367:242] <= frame_in[367:242];
                             // [241:240]    查表 VLAN ID
                             frame_out[239:160] <= frame_in[239:160];
                             frame_out[159:152] <= frame_in[159:152] - 1;
@@ -209,15 +213,15 @@ always_ff @ (posedge clk or posedge rst) begin
             IpRunning: begin
                 case(frame_in[367:320])
                     `TYX_MAC: begin
-                        frame_out[367:320] <= `TYX_MAC;
                         frame_out[241:240] <= `TYX_PORT;
                     end
                     `ZCG_MAC: begin
-                        frame_out[367:320] <= `ZCG_MAC;
                         frame_out[241:240] <= `ZCG_PORT;
                     end
+                    `WZY_MAC: begin
+                        frame_out[241:240] <= `WZY_PORT;
+                    end
                     default: begin
-                        frame_out[367:320] <= '1;
                         frame_out[241:240] <= '0;
                     end
                 endcase
@@ -229,12 +233,15 @@ always_ff @ (posedge clk or posedge rst) begin
                 case(frame_in[31:0])
                     `TYX_IP:    frame_out[159:112] <= `TYX_MAC;
                     `ZCG_IP:    frame_out[159:112] <= `ZCG_MAC;
+                    `WZY_IP:    frame_out[159:112] <= `WZY_MAC;
                     `ROUTER_IP: frame_out[159:112] <= `ROUTER_MAC;
                     default:    frame_out[159:112] <= '0;
                 endcase
                 out_ready <= 1;
                 out_bytes <= 46;
                 state <= Idle;
+            end
+            default: begin
             end
         endcase
     end
