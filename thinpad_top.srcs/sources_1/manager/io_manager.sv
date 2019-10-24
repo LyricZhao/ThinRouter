@@ -11,8 +11,14 @@ module io_manager (
     input   wire    clk_io,             // IO 时钟
     input   wire    clk_internal,       // 内部处理逻辑用的时钟
 
-    // top 中的 reset 按钮
-    input   wire    rst,
+    // top 硬件
+    input   wire    rst,                // 硬件 rst 按键
+    input   wire    clk,                // 硬件 clk 按键
+    input   wire    [3:0] btn,          // 硬件按钮
+
+    output  wire    [15:0] led_out,     // 硬件 led 指示灯
+    output  wire    [7:0]  digit0_out,  // 硬件低位数码管
+    output  wire    [7:0]  digit1_out,  // 硬件高位数码管
 
     // 目前先接上 eth_mac_fifo_block
     input   wire    [7:0] rx_data,      // 数据入口
@@ -24,6 +30,11 @@ module io_manager (
     input   wire    tx_ready,           // 外面是否准备接收：当前不处理外部不 ready 的逻辑 （TODO）
     output  bit     tx_last             // 数据传出结束
 );
+
+// packet_manager 的 led 信号
+wire [15:0] pm_led;
+wire [7:0]  pm_digit0;
+wire [7:0]  pm_digit1;
 
 // 接收数据用
 bit  packet_arrive;     // 提供给 packet_manager 的一拍信号，表示收到一个新的包
@@ -66,8 +77,14 @@ case (state)
 endcase
 
 packet_manager packet_manager_inst (
-    .clk(clk_internal),
+    .clk_internal(clk_internal),
+
     .rst(rst),
+    .clk(clk),
+    .btn(btn),
+    .led_out(pm_led),
+    .digit0_out(pm_digit0),
+    .digit1_out(pm_digit1),
 
     .packet_arrive(packet_arrive),
 
@@ -221,5 +238,42 @@ always_ff @ (posedge clk_io or posedge rst) begin
         endcase
     end
 end
+
+/*************
+ * debug 信号
+ ************/
+
+// assign led_out = pm_led;
+// assign digit0_out = pm_digit0;
+// assign digit1_out = pm_digit1;
+bit debug_incoming_signal;
+bit debug_discard_signal;
+bit debug_send_signal;
+always_ff @ (posedge clk_internal) begin
+    debug_incoming_signal <= state == Reading;
+    debug_discard_signal <= bad;
+    debug_send_signal <= state == Sending;
+end
+
+// 收到数据包显示在 led
+led_loop debug_incoming (
+    .rst(rst),
+    .clk(debug_incoming_signal),
+    .led(led_out)
+);
+
+// 正常发包显示在高位数码管
+digit_loop debug_send (
+    .rst(rst),
+    .clk(debug_send_signal),
+    .digit(digit1_out)
+);
+
+// 丢包显示在低位数码管
+digit_loop debug_discard (
+    .rst(rst),
+    .clk(debug_discard_signal),
+    .digit(digit0_out)
+);
 
 endmodule

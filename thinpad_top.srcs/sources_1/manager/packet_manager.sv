@@ -73,8 +73,16 @@ IP  包网帧：
 `include "address.vh"
 
 module packet_manager (
-    input   wire    clk,                // 父模块同步时钟
-    input   wire    rst,                // 父模块同步复位
+    input   wire    clk_internal,                // 父模块同步时钟
+
+    // top 硬件
+    input   wire    rst,                // 硬件 rst 按键
+    input   wire    clk,                // 硬件 clk 按键
+    input   wire    [3:0] btn,          // 硬件按钮
+
+    output  wire    [15:0] led_out,     // 硬件 led 指示灯
+    output  wire    [7:0]  digit0_out,  // 硬件低位数码管
+    output  wire    [7:0]  digit1_out,  // 硬件高位数码管
 
     input   wire    packet_arrive,      // 开始收包，置一拍 1
 
@@ -110,7 +118,7 @@ enum {
     IPv4
 } protocol;     // 目前读取的网帧采用的协议，在读取 18 字节后确定
 
-always_ff @ (posedge clk or posedge rst) begin
+always_ff @ (posedge clk_internal or posedge rst) begin
     if (rst) begin
         // 复位
         state <= Idle;
