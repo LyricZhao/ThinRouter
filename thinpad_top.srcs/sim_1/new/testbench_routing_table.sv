@@ -44,7 +44,7 @@ task insert;
     input bit[7:0] mask_len;    // 掩码长度
     input bit[31:0] nexthop;    // 下一跳地址
 begin
-    $display("insert %0d.%0d.%0d.%0d/%0d -> %0d.%0d.%0d.%0d",
+    $display("%0t\tinsert %0d.%0d.%0d.%0d/%0d -> %0d.%0d.%0d.%0d", $realtime,
         addr[31:24], addr[23:16], addr[15:8], addr[7:0], mask_len,
         nexthop[31:24], nexthop[23:16], nexthop[15:8], nexthop[7:0]);
     // 拷贝的之前代码
@@ -56,7 +56,7 @@ begin
     repeat (1) @ (posedge clk);
     insert_valid = 0;
     wait_till_ready();
-    $display("insert done");
+    $display("%0t\tinsert done", $realtime);
 end
 endtask
 
@@ -65,7 +65,7 @@ task query;
     input bit[31:0] addr;           // 查询地址
     input bit[31:0] expect_nexthop; // 预期匹配的 nexthop，没有匹配则为 0
 begin
-    $display("query  %0d.%0d.%0d.%0d",
+    $display("%0t\tquery  %0d.%0d.%0d.%0d", $realtime,
         addr[31:24], addr[23:16], addr[15:8], addr[7:0]);
     // 拷贝的之前代码
     repeat (2) @ (posedge clk);
@@ -74,7 +74,7 @@ begin
     repeat (1) @ (posedge clk);
     lookup_valid <= 0;
     wait_for_lookup_output();
-    $display("get    %0d.%0d.%0d.%0d",
+    $display("%0t\tget    %0d.%0d.%0d.%0d", $realtime, 
         lookup_output_nexthop[31:24], lookup_output_nexthop[23:16], lookup_output_nexthop[15:8], lookup_output_nexthop[7:0]);
     if (lookup_output_nexthop == expect_nexthop)
         $display("correct");
@@ -125,6 +125,7 @@ end
 endtask
 
 initial begin
+    $timeformat(-9, 0, " ns", 12);
     clk = 0;
     rst = 1;
     lookup_valid = 0;
