@@ -5,7 +5,7 @@
 
 每行，
 如果以 "info:      " 开头，则为注释，应打印整行
-如果以 "eth frame: " 开头，则为 hex 表示的数据包
+如果以 "eth_frame: " 开头，则为 hex 表示的数据包
 如果以 "expect:    " 开头，则为 hex 表示的应当返回的数据包
 如果以 "discard"     开头，则表示前面一个数据包应当被丢弃
 
@@ -84,6 +84,26 @@ import os
 import struct
 import zlib
 import json
+
+
+def chance(c: float) -> bool:
+    return random.random() < c
+
+
+def big_hex(v: int, size: int) -> str:
+    s = ''
+    for i in range(size):
+        s = '%02X ' % (v & 0xff) + s
+        v >>= 8
+    return s
+
+
+def little_hex(v: int, size: int) -> str:
+    s = ''
+    for i in range(size):
+        s += ' %02X' % (v & 0xff)
+        v >>= 8
+    return s
 
 
 class Config:
@@ -285,14 +305,74 @@ class ArpRequest:
         return 'ARP Request: %s(%s) -> %s' % (self.src_ip, self.src_mac, self.dst_ip)
 
 
+class IpRequest:
+    def __init__(self, dst_ip, src_ip):
+        self.dst_ip = dst_ip
+        self.src_ip = src_ip
+        self.id = random.randrange(16**4)
+        self.ttl = random.choice([64, 128, 255])
+        self.ip_protocol = random.randrange(256)
+        if chance(0.3):
+            self.ip_len = 20
+            self.data = []
+        else:
+            data_len = random.randint(24, 512)
+            self.data = [random.randrange(256) for i in range(data_len)]
+            self.ip_len = data_len + 20
+        checksum = (
+            0x4500 +
+            self.ip_len +
+            self.id +
+            (self.ttl << 8) + self.ip_protocol +
+            (self.dst_ip.value >> 16) + (self.dst_ip.value & 0xffff) +
+            (self.src_ip.value >> 16) + (self.src_ip.value & 0xffff)
+        )
+        if checksum > 0xffff:
+            checksum = (checksum >> 16) + (checksum & 0xffff)
+        if checksum > 0xffff:
+            checksum = (checksum >> 16) + (checksum & 0xffff)
+        self.checksum = checksum ^ 0xffff
+
+    @property
+    def hex(self) -> str:
+        return (
+            '08 00 45 00 ' +
+            big_hex(self.ip_len, 2) +
+            big_hex(self.id, 2) +
+            '00 00 %02X %02X ' % (self.ttl, self.ip_protocol) +
+            big_hex(self.checksum, 2) +
+            self.dst_ip.hex +
+            self.src_ip.hex +
+            ''.join('%02X ' % c for c in self.data)
+        )
+
+    @property
+    def raw(self) -> bytearray:
+        return (
+            b'\x08\x00\x45\x00' +
+            self.ip_len.to_bytes(2, 'big') +
+            self.id.to_bytes(2, 'big') +
+            b'\x00\x00' +
+            self.ttl.to_bytes(1, 'big') +
+            self.ip_protocol.to_bytes(1, 'big') +
+            self.checksum.to_bytes(2, 'big') +
+            self.src_ip.raw +
+            self.dst_ip.raw +
+            b''.join(c.to_bytes(1, 'big') for c in self.data)
+        )
+
+    def __str__(self):
+        return 'IP Request: %s -> %s' % (self.src_ip, self.dst_ip)
+
+
 class EthFrame:
     preamble = '55 55 55 55 55 55 55 D5 '
 
-    """
-    以太网帧，需要生成 Preamble, dest MAC, src MAC, VLAN TAG, CRC
-    """
     @staticmethod
     def get_arp():
+        """
+        以太网帧，需要生成 Preamble, dest MAC, src MAC, VLAN TAG, CRC
+        """
         if random.random() < 0.3:
             dst_mac = MAC.get_used()
         else:
@@ -301,6 +381,18 @@ class EthFrame:
         src_mac = MAC.get_random()
         src_ip = IP.get_random()
         request = ArpRequest(dst_ip, src_mac, src_ip)
+        return EthFrame(dst_mac, src_mac, request)
+
+    @staticmethod
+    def get_ip():
+        if random.random() < 0.3:
+            dst_mac = MAC.get_unused()
+        else:
+            dst_mac = MAC.get_used()
+        src_mac = MAC.get_random()
+        dst_ip = IP.get_random()
+        src_ip = IP.get_random()
+        request = IpRequest(dst_ip, src_ip)
         return EthFrame(dst_mac, src_mac, request)
 
     def __init__(self, dst_mac: MAC, src_mac: MAC, ip_layer_data):
@@ -377,12 +469,19 @@ if __name__ == '__main__':
     if not parse_arguments():
         wrong_usage_exit()
 
-    frame = EthFrame.get_arp()
+    frame = EthFrame.get_ip()
     print(frame)
     print(frame.hex)
 
     output = ''
+    for i in range(Config.count):
+        if chance(0.3):
+            frame = EthFrame.get_arp()
+        else:
+            frame = EthFrame.get_ip()
+        output += 'info:      %s\neth_frame: %s\n' % (frame, frame.hex)
+
     print('已生成 %d 条测试样例' %
           (Config.count))
 
-    open(os.path.join(Config.path, 'arp_test.mem'), 'w').write(output)
+    open(os.path.join(Config.path, 'eth_frame_test.mem'), 'w').write(output)
