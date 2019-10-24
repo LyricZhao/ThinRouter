@@ -70,6 +70,7 @@ module thinpad_top(
 assign ext_ram_ce_n = 1'b1;
 assign ext_ram_oe_n = 1'b1;
 assign ext_ram_we_n = 1'b1;
+
 assign base_ram_be_n = 4'b0;
 
 /* States */
@@ -159,11 +160,6 @@ always @(posedge clk_11M0592) begin
             end
 
             default: begin
-                base_ram_oe_n <= 1;
-                base_ram_we_n <= 1;
-                uart_rdn <= 0;
-                uart_wrn <= 1;
-                is_writing <= 0;
             end
         endcase
     end
