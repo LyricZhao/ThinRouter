@@ -90,7 +90,7 @@ assign uart_data = base_ram_data[7:0];
 always @(posedge clk_11M0592) begin
     if (reset_btn) begin
         state <= RECEIVE;
-        base_ram_ce_n <= 1;
+        base_ram_ce_n <= 0;
         base_ram_oe_n <= 1;
         base_ram_we_n <= 1;
         uart_rdn <= 0;
@@ -105,7 +105,6 @@ always @(posedge clk_11M0592) begin
                     bus_data_to_write <= {24'b0, uart_data};
                     base_ram_oe_n <= 0;
                     base_ram_we_n <= 0;
-                    base_ram_ce_n <= 0;
                     is_writing <= 1;
                     uart_rdn <= 1;
                     state <= RECOVER;
@@ -117,14 +116,12 @@ always @(posedge clk_11M0592) begin
                     base_ram_addr <= base_ram_addr_end - 9;
                     base_ram_oe_n <= 0;
                     base_ram_we_n <= 1;
-                    base_ram_ce_n <= 0;
                     is_writing <= 0;
                     state <= WAIT_READ;
                 end else begin
                     base_ram_addr <= base_ram_addr + 1;
                     base_ram_oe_n <= 1;
                     base_ram_we_n <= 1;
-                    base_ram_ce_n <= 1;
                     is_writing <= 0;
                     uart_rdn <= 0;
                     state <= RECEIVE;
@@ -143,7 +140,6 @@ always @(posedge clk_11M0592) begin
                         state <= IDLE;
                     end else begin
                         base_ram_oe_n <= 0;
-                        base_ram_ce_n <= 0;
                         base_ram_addr <= base_ram_addr + 1;
                         state <= WAIT_READ;
                     end
@@ -163,14 +159,12 @@ always @(posedge clk_11M0592) begin
             TRANSMIT: begin
                 bus_data_to_write <= {24'b0, uart_data};
                 base_ram_oe_n <= 1;
-                base_ram_ce_n <= 1;
                 uart_wrn <= 0;
                 is_writing <= 1;
                 state <= PULL_WRN;
             end
 
             default: begin
-                base_ram_ce_n <= 1;
                 base_ram_oe_n <= 1;
                 base_ram_we_n <= 1;
                 uart_rdn <= 0;
