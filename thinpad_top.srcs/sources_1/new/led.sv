@@ -52,7 +52,7 @@ endmodule
 // 0-F
 module digit_hex (
     input   wire    [3:0] value,
-    output  wire    [7:0] digit
+    output  bit     [7:0] digit
 );
 always_comb case (value)
     0 : digit = 8'b01111110;
@@ -106,18 +106,18 @@ endmodule
 module digit_loop (
     input   wire    rst,
     input   wire    clk,
-    output  wire    [7:0] led
+    output  bit     [7:0] digit
 );
 bit [2:0] cnt;
 always_comb case (cnt)
-    0: led = 8'b00000001;
-    1: led = 8'b00000010;
-    2: led = 8'b00000100;
-    3: led = 8'b00001000;
-    4: led = 8'b01000000;
-    5: led = 8'b00100000;
-    6: led = 8'b00010000;
-    7: led = 8'b00000000;
+    0: digit = 8'b00000001;
+    1: digit = 8'b00000010;
+    2: digit = 8'b00000100;
+    3: digit = 8'b00001000;
+    4: digit = 8'b01000000;
+    5: digit = 8'b00100000;
+    6: digit = 8'b00010000;
+    7: digit = 8'b00000000;
 endcase
 always_ff @ (posedge clk or posedge rst) begin
     if (rst)
@@ -133,21 +133,21 @@ endmodule
 module digit_loop_alt (
     input   wire    rst,
     input   wire    clk,
-    output  wire    [7:0] led
+    output  bit     [7:0] digit
 );
 bit [2:0] cnt;
 always_comb
     if (rst)
-        led = 8'b00000001;
+        digit = 8'b00000001;
     else case (cnt)
-        0: led = 8'b00010000;
-        1: led = 8'b00100000;
-        2: led = 8'b01000000;
-        3: led = 8'b10000000;
-        4: led = 8'b00000010;
-        5: led = 8'b00000100;
-        6: led = 8'b00001000;
-        7: led = 8'b10000000;
+        0: digit = 8'b00010000;
+        1: digit = 8'b00100000;
+        2: digit = 8'b01000000;
+        3: digit = 8'b10000000;
+        4: digit = 8'b00000010;
+        5: digit = 8'b00000100;
+        6: digit = 8'b00001000;
+        7: digit = 8'b10000000;
     endcase
 always_ff @ (posedge clk or posedge rst) begin
     if (rst)
