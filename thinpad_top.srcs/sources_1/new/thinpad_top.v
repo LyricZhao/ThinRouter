@@ -154,25 +154,6 @@ assign uart_wrn = 1'b1;
 // g=dpy0[7] // |     |
 //           // ---d---  p
 
-// 7段数码管译码器演示，将number用16进制显示在数码管上面
-reg[7:0] number;
-SEG7_LUT segL(.oSEG1(dpy0), .iDIG(number[3:0])); //dpy0是低位数码管
-SEG7_LUT segH(.oSEG1(dpy1), .iDIG(number[7:4])); //dpy1是高位数码管
-
-reg[15:0] led_bits;
-assign leds = led_bits;
-
-always@(posedge clock_btn or posedge reset_btn) begin
-    if(reset_btn)begin //复位按下，设置LED和数码管为初始值
-        number<=0;
-        led_bits <= 16'h1;
-    end
-    else begin //每次按下时钟按钮，数码管显示值加1，LED循环左移
-        number <= number+1;
-        led_bits <= {led_bits[14:0],led_bits[15]};
-    end
-end
-
 //直连串口接收发送演示，从直连串口收到的数据再发送出去
 wire [7:0] ext_uart_rx;
 reg  [7:0] ext_uart_buffer, ext_uart_tx;
@@ -238,7 +219,14 @@ rgmii_manager rgmii_manager_inst (
     .clk_rgmii(clk_125M),
     .clk_internal(clk_125M),
     .clk_ref(clk_200M),
+
     .rst(reset_btn),
+    .clk(clock_btn),
+    .btn(touch_btn),
+    .led_out(leds),
+    .digit0_out(dpy0),
+    .digit1_out(dpy1),
+
     .eth_rgmii_rd(eth_rgmii_rd),
     .eth_rgmii_rx_ctl(eth_rgmii_rx_ctl),
     .eth_rgmii_rxc(eth_rgmii_rxc),

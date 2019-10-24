@@ -8,7 +8,15 @@ module rgmii_manager(
     input   wire    clk_rgmii,          // RGMII 的 125M 时钟
     input   wire    clk_internal,       // 处理内部同步逻辑用的时钟
     input   wire    clk_ref,            // 给 eth_mac_fifo_block 用的 200M 时钟
+
     input   wire    rst,                // 硬件 rst 按键
+    input   wire    clk,                // 硬件 clk 按键
+    input   wire    [3:0] btn,          // 硬件按钮
+
+    output  wire    [15:0] led_out,     // 硬件 led 指示灯
+    output  wire    [7:0]  digit0_out,  // 硬件低位数码管
+    output  wire    [7:0]  digit1_out,  // 硬件高位数码管
+
     input   wire    [3:0] eth_rgmii_rd,
     input   wire    eth_rgmii_rx_ctl,
     input   wire    eth_rgmii_rxc,
@@ -18,8 +26,12 @@ module rgmii_manager(
     output  wire    eth_rst_n
 );
 
-wire gtx_resetn;
+// LED
+wire [15:0] led;        // 16 个指示灯
+wire [7:0]  digit0;     // 右边低位数码管
+wire [7:0]  digit1;     // 左边高位数码管
 
+// AXI-S 接口
 wire [7:0] axis_rx_data;
 wire axis_rx_valid;
 wire axis_rx_last;
@@ -30,6 +42,7 @@ wire axis_tx_last;
 wire axis_tx_ready;
 
 // 在第一个时钟上升沿，将 resetn 从 0 变为 1
+wire gtx_resetn;
 gtx_reset gtx_reset_inst(
     .clk(clk_rgmii),
     .gtx_resetn(gtx_resetn)
@@ -38,6 +51,14 @@ gtx_reset gtx_reset_inst(
 io_manager io_manager_inst (
     .clk_io(clk_internal),
     .clk_internal(clk_internal),
+
+    .rst(rst),
+    .clk(clk),
+    .btn(btn),
+    .led_out(led_out),
+    .digit0_out(digit0_out),
+    .digit1_out(digit1_out),
+
     .rx_data(axis_rx_data),
     .rx_valid(axis_rx_valid),
     .rx_ready(axis_rx_ready),
@@ -45,8 +66,7 @@ io_manager io_manager_inst (
     .tx_data(axis_tx_data),
     .tx_valid(axis_tx_valid),
     .tx_ready(axis_tx_ready),
-    .tx_last(axis_tx_last),
-    .rst(rst)
+    .tx_last(axis_tx_last)
 );
 
 eth_mac_fifo_block trimac_fifo_block (
