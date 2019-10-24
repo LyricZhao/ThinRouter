@@ -73,7 +73,7 @@ assign ext_ram_we_n = 1'b1;
 assign base_ram_be_n = 4'b0;
 
 /* States */
-enum logic [2:0] { RECEIVE, WRITE, TRANSMIT, IDLE, WAIT_TBRE, WAIT_TSRE, WAIT_READ, PULL_WRN} state;
+enum logic [2:0] { RECEIVE, WRITE, TRANSMIT, IDLE, WAIT_TBRE, WAIT_TSRE, PULL_WRN} state;
 
 /* UART */
 wire [7:0] uart_data;
@@ -116,7 +116,7 @@ always @(posedge clk_11M0592) begin
                     base_ram_oe_n <= 0;
                     base_ram_we_n <= 1;
                     is_writing <= 0;
-                    state <= WAIT_READ;
+                    state <= TRANSMIT;
                 end else begin
                     base_ram_addr <= base_ram_addr + 1;
                     base_ram_we_n <= 1;
@@ -139,7 +139,7 @@ always @(posedge clk_11M0592) begin
                     end else begin
                         base_ram_oe_n <= 0;
                         base_ram_addr <= base_ram_addr + 1;
-                        state <= WAIT_READ;
+                        state <= TRANSMIT;
                     end
                 end
             end
@@ -148,10 +148,6 @@ always @(posedge clk_11M0592) begin
                 uart_wrn <= 1;
                 is_writing <= 0;
                 state <= WAIT_TBRE;
-            end
-
-            WAIT_READ: begin
-                state <= TRANSMIT;
             end
 
             TRANSMIT: begin
