@@ -13,6 +13,7 @@ todo:
 连上 IP 表、ARP 表后有对应的测例
 
 目前涉及的 MAC 都还只从以下值抽取:
+    ROUTER: a8:88:08:88:88:88   @0  10.0.4.1
     TYX:    00:e0:4c:68:06:e2   @0  10.0.4.2
     ZCG:    00:0e:c6:cb:3d:c0   @1  10.0.4.3
     WZY:    a4:4c:c8:0e:e0:95   @2  10.0.4.4
@@ -26,7 +27,7 @@ ARP 包:
 14  最低两位为 VLAN ID
 16  0x0806  ARP
 18  0x0001  以太网
-20  0x8000  IPv4
+20  0x0800  IPv4
 22  0x06    硬件地址长度
 23  0x04    协议地址长度
 24  0x0001  ARP Request
@@ -81,7 +82,7 @@ import sys
 import random
 import os
 import struct
-import binascii
+import zlib
 import json
 
 
@@ -111,13 +112,29 @@ class MAC:
     used: Set[MAC] = set()  # 使用过的 MAC 地址
 
     @staticmethod
+    def test():
+        mac = MAC.get_random()
+        print(mac)
+        print(mac.raw)
+        print(mac.hex)
+
+    @staticmethod
+    def get_broadcast():
+        return MAC(0xff_ff_ff_ff_ff_ff, 0)
+
+    @staticmethod
+    def get_none():
+        return MAC(0, 0)
+
+    @staticmethod
     def get_random():
         # return MAC(random.randrange(16 ** 12), random.randrange(4))
         return MAC(*random.choice([
-            (0x00e04c6806e2, 0),
-            (0x000ec6cb3dc0, 1),
-            (0xa44cc80ee095, 2),
-            (0x9cebe8b4e7e4, 3)
+            (0xa8_88_08_88_88_88, 0),
+            (0x00_e0_4c_68_06_e2, 0),
+            (0x00_0e_c6_cb_3d_c0, 1),
+            (0xa4_4c_c8_0e_e0_95, 2),
+            (0x9c_eb_e8_b4_e7_e4, 3)
         ]))
 
     @staticmethod
@@ -145,17 +162,27 @@ class MAC:
         self.vlan_id = vlan_id
 
     @property
-    def hex(self):
+    def hex(self) -> str:
         """
         生成保存在测例文件中的 hex 串
         """
         return '%s%s %s%s %s%s %s%s %s%s %s%s ' % tuple('%012X' % self.value)
 
-    def __str__(self):
+    @property
+    def raw(self) -> bytearray:
+        """
+        生成实际的 bytearray
+        """
+        return struct.pack('>q', self.value)[2:]
+
+    def __str__(self) -> str:
         """
         生成打印格式的字符串
         """
-        return '%s%s:%s%s:%s%s:%s%s:%s%s:%s%s' % tuple('%012x' % self.value)
+        if self.value == 0xff_ff_ff_ff_ff_ff:
+            return 'Broadcast'
+        else:
+            return '%s%s:%s%s:%s%s:%s%s:%s%s:%s%s' % tuple('%012x' % self.value)
 
     def __hash__(self):
         return self.value
@@ -168,10 +195,17 @@ class IP:
     used: Set[IP] = set()   # 使用过的 IP 地址
 
     @staticmethod
+    def test():
+        ip = IP.get_random()
+        print(ip)
+        print(ip.raw)
+        print(ip.hex)
+
+    @staticmethod
     def get_random():
         # return IP(random.randrange(16 ** 8))
         return IP(random.choice([
-            0x0a000402, 0x0a000403, 0x0a000404, 0x0a000405
+            0x0a000401, 0x0a000402, 0x0a000403, 0x0a000404, 0x0a000405
         ]))
 
     @staticmethod
@@ -210,11 +244,94 @@ class IP:
         """
         return '%d.%d.%d.%d' % (self.value >> 24, (self.value >> 16) & 255, (self.value >> 8) & 255, self.value & 255)
 
+    @property
+    def raw(self) -> bytearray:
+        """
+        生成实际的 bytearray
+        """
+        return struct.pack('>I', self.value)
+
     def __hash__(self):
         return self.value
 
     def __eq__(self, other):
         return self.value == other.value
+
+
+class ArpRequest:
+    def __init__(self, dst_ip, src_mac, src_ip):
+        self.dst_mac = MAC.get_none()
+        self.dst_ip = dst_ip
+        self.src_mac = src_mac
+        self.src_ip = src_ip
+
+    @property
+    def hex(self) -> str:
+        return (
+            '08 06 00 01 08 00 06 04 00 01 ' +
+            self.src_mac.hex + self.src_ip.hex +
+            self.dst_mac.hex + self.dst_ip.hex
+        )
+
+    @property
+    def raw(self) -> bytearray:
+        return (
+            b'\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01' +
+            self.src_mac.raw + self.src_ip.raw +
+            self.dst_mac.raw + self.dst_ip.raw
+        )
+
+    def __str__(self):
+        return 'ARP Request: %s(%s) -> %s' % (self.src_ip, self.src_mac, self.dst_ip)
+
+
+class EthFrame:
+    preamble = '55 55 55 55 55 55 55 D5 '
+
+    """
+    以太网帧，需要生成 Preamble, dest MAC, src MAC, VLAN TAG, CRC
+    """
+    @staticmethod
+    def get_arp():
+        if random.random() < 0.3:
+            dst_mac = MAC.get_used()
+        else:
+            dst_mac = MAC.get_broadcast()
+        dst_ip = IP.get_random()
+        src_mac = MAC.get_random()
+        src_ip = IP.get_random()
+        request = ArpRequest(dst_ip, src_mac, src_ip)
+        return EthFrame(dst_mac, src_mac, request)
+
+    def __init__(self, dst_mac: MAC, src_mac: MAC, ip_layer_data):
+        """
+        使用已有的信息包装成一个以太网帧
+        """
+        self.dst_mac = dst_mac
+        self.src_mac = src_mac
+        self.ip_layer_data = ip_layer_data
+        raw = (
+            dst_mac.raw +
+            src_mac.raw +
+            b'\x81\x00' + struct.pack('>H', src_mac.vlan_id) +
+            ip_layer_data.raw
+        )
+        crc = '%08X' % zlib.crc32(raw)
+        self.crc = ' '.join([crc[6:], crc[4:6], crc[2:4], crc[:2]])
+
+    @property
+    def hex(self) -> str:
+        return (
+            EthFrame.preamble +
+            self.dst_mac.hex +
+            self.src_mac.hex +
+            '81 00 00 0%d ' % self.src_mac.vlan_id +
+            self.ip_layer_data.hex +
+            self.crc
+        )
+
+    def __str__(self):
+        return '%s -> %s: %s' % (self.src_mac, self.dst_mac, self.ip_layer_data)
 
 
 def parse_arguments() -> bool:
@@ -255,8 +372,14 @@ def parse_arguments() -> bool:
 
 
 if __name__ == '__main__':
+    # MAC.test()
+    # IP.test()
     if not parse_arguments():
         wrong_usage_exit()
+
+    frame = EthFrame.get_arp()
+    print(frame)
+    print(frame.hex)
 
     output = ''
     print('已生成 %d 条测试样例' %
