@@ -23,7 +23,7 @@ module rgmii_manager(
     output  wire    [3:0] eth_rgmii_td,
     output  wire    eth_rgmii_tx_ctl,
     output  wire    eth_rgmii_txc,
-    output  wire    eth_rst_n
+    input   wire    eth_rst_n
 );
 
 // LED

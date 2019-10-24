@@ -17,3 +17,7 @@
 `define WZY_MAC     48'ha44cc80ee095
 `define WZY_PORT    2
 `define WZY_IP      32'h0a000404
+
+`define EXT_MAC     48'h9cebe8b4e7e4
+`define EXT_PORT    3
+`define EXT_IP      32'h0a000405

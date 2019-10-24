@@ -161,8 +161,18 @@ always_ff @ (posedge clk_internal or posedge rst) begin
                     18: begin
                         // 检查协议是否为 ARP 或 IP
                         case(frame_in[239:224])
-                            16'h0806: protocol <= ARP;
-                            16'h0800: protocol <= IPv4;
+                            16'h0806: begin
+                                if (btn[1]) begin
+                                    `BAD_EXIT("User cancelled");
+                                end else
+                                    protocol <= ARP;
+                            end
+                            16'h0800: begin
+                                if (btn[0]) begin
+                                    `BAD_EXIT("User cancelled");
+                                end else
+                                    protocol <= IPv4;
+                            end
                             default: begin
                                 `BAD_EXIT("Unsupported protocol");
                             end
@@ -229,6 +239,9 @@ always_ff @ (posedge clk_internal or posedge rst) begin
                     `WZY_MAC: begin
                         frame_out[241:240] <= `WZY_PORT;
                     end
+                    `EXT_MAC: begin
+                        frame_out[241:240] <= `EXT_PORT;
+                    end
                     default: begin
                         frame_out[241:240] <= '0;
                     end
@@ -242,8 +255,9 @@ always_ff @ (posedge clk_internal or posedge rst) begin
                     `TYX_IP:    frame_out[159:112] <= `TYX_MAC;
                     `ZCG_IP:    frame_out[159:112] <= `ZCG_MAC;
                     `WZY_IP:    frame_out[159:112] <= `WZY_MAC;
+                    `EXT_IP:    frame_out[159:112] <= `EXT_MAC;
                     `ROUTER_IP: frame_out[159:112] <= `ROUTER_MAC;
-                    default:    frame_out[159:112] <= '0;
+                    default:    bad <= 1;
                 endcase
                 out_ready <= 1;
                 out_bytes <= 46;
