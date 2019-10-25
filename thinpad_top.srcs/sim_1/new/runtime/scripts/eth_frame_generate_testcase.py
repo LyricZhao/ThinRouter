@@ -290,7 +290,8 @@ class ArpRequest:
         return (
             '08 06 00 01 08 00 06 04 00 01 ' +
             self.src_mac.hex + self.src_ip.hex +
-            self.dst_mac.hex + self.dst_ip.hex
+            self.dst_mac.hex + self.dst_ip.hex +
+            '00 ' * 14
         )
 
     @property
@@ -298,7 +299,8 @@ class ArpRequest:
         return (
             b'\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01' +
             self.src_mac.raw + self.src_ip.raw +
-            self.dst_mac.raw + self.dst_ip.raw
+            self.dst_mac.raw + self.dst_ip.raw +
+            bytearray(14)
         )
 
     def __str__(self):
@@ -356,8 +358,8 @@ class IpRequest:
             self.ttl.to_bytes(1, 'big') +
             self.ip_protocol.to_bytes(1, 'big') +
             self.checksum.to_bytes(2, 'big') +
-            self.src_ip.raw +
             self.dst_ip.raw +
+            self.src_ip.raw +
             b''.join(c.to_bytes(1, 'big') for c in self.data)
         )
 
@@ -408,8 +410,7 @@ class EthFrame:
             b'\x81\x00' + struct.pack('>H', src_mac.vlan_id) +
             ip_layer_data.raw
         )
-        crc = '%08X' % zlib.crc32(raw)
-        self.crc = ' '.join([crc[6:], crc[4:6], crc[2:4], crc[:2]])
+        self.crc = little_hex(zlib.crc32(raw), 4)
 
     @property
     def hex(self) -> str:
@@ -469,9 +470,13 @@ if __name__ == '__main__':
     if not parse_arguments():
         wrong_usage_exit()
 
+    ip = EthFrame.get_ip().ip_layer_data
+    print(ip.hex)
+    print(''.join('%02X ' % x for x in ip.raw))
+
     output = ''
     for i in range(Config.count):
-        if chance(0.3):
+        if chance(0.0):
             frame = EthFrame.get_arp()
         else:
             frame = EthFrame.get_ip()

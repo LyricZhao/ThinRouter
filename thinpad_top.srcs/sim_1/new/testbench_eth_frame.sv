@@ -30,12 +30,12 @@ always_ff @ (posedge clk_125M) begin
                 case (buffer)
                     "info:": begin
                         $fgets(buffer, fd);
-                        $write("Info:\t%s", buffer);
+                        // $write("Info:\t%s", buffer);
                     end
                     "eth_frame:": begin
                         state = state + 1;
                         $fscanf(fd, "%x", data);
-                        $write("Frame IN:\t");
+                        // $write("Frame IN:\t");
                     end
                 endcase
             end
@@ -45,13 +45,13 @@ always_ff @ (posedge clk_125M) begin
                 // end of line
                 state = WAIT;
                 trans = 0;
-                $display("");
+                // $display("");
             end else begin
                 trans = 1;
                 data1 = data[3:0];
                 data2 = data[7:4];
                 $fscanf(fd, "%x", data);
-                $write("%02x ", data[7:0]);
+                // $write("%02x ", data[7:0]);
             end
         end
         default:
