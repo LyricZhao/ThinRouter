@@ -101,7 +101,7 @@ def big_hex(v: int, size: int) -> str:
 def little_hex(v: int, size: int) -> str:
     s = ''
     for i in range(size):
-        s += ' %02X' % (v & 0xff)
+        s += '%02X ' % (v & 0xff)
         v >>= 8
     return s
 
@@ -290,8 +290,7 @@ class ArpRequest:
         return (
             '08 06 00 01 08 00 06 04 00 01 ' +
             self.src_mac.hex + self.src_ip.hex +
-            self.dst_mac.hex + self.dst_ip.hex +
-            '00 ' * 14
+            self.dst_mac.hex + self.dst_ip.hex
         )
 
     @property
@@ -299,8 +298,7 @@ class ArpRequest:
         return (
             b'\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01' +
             self.src_mac.raw + self.src_ip.raw +
-            self.dst_mac.raw + self.dst_ip.raw +
-            bytearray(14)
+            self.dst_mac.raw + self.dst_ip.raw
         )
 
     def __str__(self):
@@ -318,7 +316,7 @@ class IpRequest:
             self.ip_len = 20
             self.data = []
         else:
-            data_len = random.randint(24, 512)
+            data_len = random.randrange(Config.max_data_length + 1)
             self.data = [random.randrange(256) for i in range(data_len)]
             self.ip_len = data_len + 20
         checksum = (
@@ -404,11 +402,17 @@ class EthFrame:
         self.dst_mac = dst_mac
         self.src_mac = src_mac
         self.ip_layer_data = ip_layer_data
+        data_len = len(ip_layer_data.raw)
+        if data_len >= 44:
+            self.padding_size = 0
+        else:
+            self.padding_size = 44 - data_len
         raw = (
             dst_mac.raw +
             src_mac.raw +
             b'\x81\x00' + struct.pack('>H', src_mac.vlan_id) +
-            ip_layer_data.raw
+            ip_layer_data.raw +
+            b'\x00' * self.padding_size
         )
         self.crc = little_hex(zlib.crc32(raw), 4)
 
@@ -420,6 +424,7 @@ class EthFrame:
             self.src_mac.hex +
             '81 00 00 0%d ' % self.src_mac.vlan_id +
             self.ip_layer_data.hex +
+            '00 ' * self.padding_size +
             self.crc
         )
 
@@ -470,17 +475,13 @@ if __name__ == '__main__':
     if not parse_arguments():
         wrong_usage_exit()
 
-    ip = EthFrame.get_ip().ip_layer_data
-    print(ip.hex)
-    print(''.join('%02X ' % x for x in ip.raw))
-
     output = ''
     for i in range(Config.count):
         if chance(0.0):
             frame = EthFrame.get_arp()
         else:
             frame = EthFrame.get_ip()
-        output += 'info:      %s\neth_frame: %s FFF\n' % (frame, frame.hex)
+        output += 'info:      %s\neth_frame: %sFFF\n' % (frame, frame.hex)
 
     print('已生成 %d 条测试样例' %
           (Config.count))

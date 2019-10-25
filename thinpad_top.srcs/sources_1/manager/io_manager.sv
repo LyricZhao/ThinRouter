@@ -140,8 +140,10 @@ always_ff @ (posedge clk_io or posedge rst) begin
                 if (bad) begin
                     if (packet_ended || (rx_valid && rx_last))
                         state <= Idle;
-                    else
+                    else begin
+                        $write("Discarding... ");
                         state <= Discarding;
+                    end
                 end else if (rx_valid) begin
                     frame_in[367 - bytes_read * 8 -: 8] <= rx_data;
                     bytes_read <= bytes_read + 1;
@@ -164,8 +166,10 @@ always_ff @ (posedge clk_io or posedge rst) begin
                 if (bad) begin
                     if (packet_ended)
                         state <= Idle;
-                    else
+                    else begin
+                        $write("Discarding... ");
                         state <= Discarding;
+                    end
                 end else if (out_ready) begin
                     $write("frame_out ready, sending...\n\t");
                     state <= Sending;
@@ -230,8 +234,10 @@ always_ff @ (posedge clk_io or posedge rst) begin
                 end
             end
             Discarding: begin
-                if (rx_valid && rx_last)
+                if (rx_valid && rx_last) begin
+                    $display("complete");
                     state <= Idle;
+                end
             end
             default: begin
             end
