@@ -147,6 +147,9 @@ always_ff @ (posedge clk_internal or posedge rst) begin
         end
     end else begin
         case(state)
+            Idle: begin
+                bad <= 0;
+            end
             Receiving: begin
                 case(bytes_read)
                     6:  begin
@@ -174,6 +177,7 @@ always_ff @ (posedge clk_internal or posedge rst) begin
                                     protocol <= IPv4;
                             end
                             default: begin
+                                `DISPLAY_BITS(frame_in, 367, 0);
                                 `BAD_EXIT("Unsupported protocol");
                             end
                         endcase
