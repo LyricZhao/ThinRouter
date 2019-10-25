@@ -1,56 +1,64 @@
 `timescale 1ns / 1ps
 module rgmii_model (
-    input clk_125M,
-    input clk_125M_90deg,
+    input wire clk_125M,
+    input wire clk_125M_90deg,
 
-    output [3:0] rgmii_rd,
-    output rgmii_rx_ctl,
-    output rgmii_rxc
+    output wire [3:0] rgmii_rd,
+    output wire rgmii_rx_ctl,
+    output wire rgmii_rxc
 );
 
-localparam INTERVAL = 10;   // 发包间隔
+localparam WAIT = 0;
+localparam READ_LABEL = 10;
+localparam READ_DATA = 11;
+int state = 0;
 
-bit trans;                  // 给 ODDR 的传输信号
+bit trans = 0;              // 给 ODDR 的传输信号
 bit [3:0] data1;            // 给 ODDR 的数据
 bit [3:0] data2;            // 给 ODDR 的数据
-int fd;                     // file descriptor
-int interval_cnt;           // 间隔计数
-
-initial begin
-    fd = $fopen("example_frame.mem", "r");
-
-    while (!$feof(fd)) begin
-        res = $fscanf(fd, "%x", frame_data[frame_count][index]);
-        if (res != 1) begin
-            // end of a frame
-            // read a line
-            $fgets(buffer, fd);
-            if (index > 0) begin
-                frame_size[frame_count] = index + 1;
-                frame_count = frame_count + 1;
-            end
-            index = 0;
-        end else begin
-            index = index + 1;
-        end
-    end
-
-    if (index > 0) begin
-        frame_size[frame_count] = index + 1;
-        frame_count = frame_count + 1;
-    end
-end
+int fd = 0;                 // file descriptor
+string buffer;
+bit [15:0] data;
 
 always_ff @ (posedge clk_125M) begin
-    if (packet_clk && count < frame_size[frame_index] - 1) begin
-        trans <= 1'b1;
-        data1 <= frame_data[frame_index][count][3:0];
-        data2 <= frame_data[frame_index][count][7:4];
-    end else begin
-        trans <= 1'b0;
-        data1 <= 4'b0;
-        data2 <= 4'b0;
-    end
+    if (fd) case (state)
+        READ_LABEL: begin
+            if ($feof(fd))
+                fd = 0;
+            else begin
+                $fscanf(fd, "%s", buffer);
+                case (buffer)
+                    "info:": begin
+                        $fgets(buffer, fd);
+                        $write("Info:\t%s", buffer);
+                    end
+                    "eth_frame:": begin
+                        state = state + 1;
+                        $fscanf(fd, "%x", data);
+                        $write("Frame IN:\t");
+                    end
+                endcase
+            end
+        end
+        READ_DATA: begin
+            if (data == 12'hfff) begin
+                // end of line
+                state = WAIT;
+                trans = 0;
+                $display("");
+            end else begin
+                trans = 1;
+                data1 = data[3:0];
+                data2 = data[7:4];
+                $fscanf(fd, "%x", data);
+                $write("%02x ", data[7:0]);
+            end
+        end
+        default:
+            state = state + 1;
+    endcase
+    else
+        fd = #1000 $fopen("eth_frame_test.mem", "r");
 end
 
 genvar i;

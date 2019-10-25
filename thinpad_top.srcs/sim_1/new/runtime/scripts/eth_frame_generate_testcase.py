@@ -5,8 +5,8 @@
 
 每行，
 如果以 "info:      " 开头，则为注释，应打印整行
-如果以 "eth_frame: " 开头，则为 hex 表示的数据包
-如果以 "expect:    " 开头，则为 hex 表示的应当返回的数据包
+如果以 "eth_frame: " 开头，则为 hex 表示的数据包，以 FFF 结束
+如果以 "expect:    " 开头，则为 hex 表示的应当返回的数据包，以 FFF 结束
 如果以 "discard"     开头，则表示前面一个数据包应当被丢弃
 
 todo: 
@@ -469,17 +469,13 @@ if __name__ == '__main__':
     if not parse_arguments():
         wrong_usage_exit()
 
-    frame = EthFrame.get_ip()
-    print(frame)
-    print(frame.hex)
-
     output = ''
     for i in range(Config.count):
         if chance(0.3):
             frame = EthFrame.get_arp()
         else:
             frame = EthFrame.get_ip()
-        output += 'info:      %s\neth_frame: %s\n' % (frame, frame.hex)
+        output += 'info:      %s\neth_frame: %s FFF\n' % (frame, frame.hex)
 
     print('已生成 %d 条测试样例' %
           (Config.count))
