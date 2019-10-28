@@ -9,7 +9,7 @@
 module rgmii_manager(
     input   wire    clk_rgmii,          // RGMII 的 125M 时钟
     input   wire    clk_internal,       // 处理内部同步逻辑用的时钟
-    input   wire    clk_ref,            // 给 eth_mac_fifo_block 用的 200M 时钟
+    input   wire    clk_ref,            // 给 IDELAYCTRL (这个模块在eth_mac里面) 用的 200M 时钟
 
     input   wire    rst,                // 硬件 rst 按键
     input   wire    clk,                // 硬件 clk 按键
