@@ -11,7 +11,7 @@ module reset_gen (
     output logic rst_n
 );
 
-always_ff @(posedge clk or posedge reset_btn) begin
+always_ff @(posedge clk) begin
     if (locked == 1 && reset_btn == 0) begin
         rst_n <= 1;
     end else begin

@@ -150,7 +150,7 @@ rgmii_manager rgmii_manager_inst (
     .eth_rgmii_rxc(eth_rgmii_rxc),
     .eth_rgmii_td(eth_rgmii_td),
     .eth_rgmii_tx_ctl(eth_rgmii_tx_ctl),
-    .eth_rgmii_txc(eth_rgmii_txc),
+    .eth_rgmii_txc(eth_rgmii_txc)
 );
 
 endmodule

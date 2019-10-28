@@ -135,10 +135,10 @@ always_ff @ (posedge clk_io) begin
                 // 持续接收数据
                 packet_arrive <= 0;
                 if (bad) begin
-                    if (packet_ended || (rx_valid && rx_last))
+                    if (packet_ended || (rx_valid && rx_last)) begin
                         state <= Idle;
                         rx_ready <= 1;
-                    else begin
+                    end else begin
                         $write("Discarding... ");
                         state <= Discarding;
                         rx_ready <= 1;
@@ -166,10 +166,10 @@ always_ff @ (posedge clk_io) begin
             Waiting: begin
                 // 此时 rx_ready 为 0
                 if (bad) begin
-                    if (packet_ended)
+                    if (packet_ended) begin
                         state <= Idle;
                         rx_ready <= 1;
-                    else begin
+                    end else begin
                         $write("Discarding... ");
                         state <= Discarding;
                         rx_ready <= 1;
@@ -212,10 +212,10 @@ always_ff @ (posedge clk_io) begin
                     if (bytes_forwarded == fw_bytes) begin
                         // 如果已经转发了应当转发的数量，剩下的应当丢弃
                         tx_valid <= 0;
-                        if (rx_last)
+                        if (rx_last) begin
                             state <= Idle;
                             rx_ready <= 1;
-                        else
+                        end else
                             state <= Discarding;
                             rx_ready <= 1;
                     end else begin
@@ -279,21 +279,18 @@ end
 
 // 收到数据包显示在 led
 led_loop debug_incoming (
-    .rst(rst),
     .clk(debug_incoming_signal),
     .led(led_out)
 );
 
 // 正常发包显示在高位数码管
 digit_loop debug_send (
-    .rst(rst),
     .clk(debug_send_signal),
     .digit(digit1_out)
 );
 
 // 丢包显示在低位数码管
 digit_loop debug_discard (
-    .rst(rst),
     .clk(debug_discard_signal),
     .digit(digit0_out)
 );
