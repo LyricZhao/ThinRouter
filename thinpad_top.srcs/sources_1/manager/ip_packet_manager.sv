@@ -13,7 +13,7 @@ todo
 
 module ip_packet_manager(
     input   wire    clk,                    // 内部时钟
-    input   wire    rst,                    // 重置信号
+    input   wire    rst_n,                  // 重置信号
 
     input   wire    [15:0]  data_size,      // IP 数据大小
     input   wire    [31:0]  fragment_data,  // IP 头信息

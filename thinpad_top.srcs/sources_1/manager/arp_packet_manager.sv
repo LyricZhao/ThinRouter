@@ -20,7 +20,7 @@ io_manager 只能在此模块 done=1 时给一拍 start_process
 
 module arp_packet_manager(
     input   wire    clk,                    // 内部时钟
-    input   wire    rst,                    // 重置信号
+    input   wire    rst_n,                  // 重置信号
 
     input   wire    [47:0]  sender_mac,     // 来源 MAC
     input   wire    [31:0]  sender_ip,      // 来源 IP
