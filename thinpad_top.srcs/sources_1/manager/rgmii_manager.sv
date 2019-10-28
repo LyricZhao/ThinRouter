@@ -2,17 +2,21 @@
 涂轶翔：
 把 top 里面的 RGMII 接口接过来，通过某个库转化成 AXI-S 接口
 然后交给 io_manager 处理
+
+赵成钢：
+把gtx_reset去掉了，换成了一个生成reset的新模块，会考虑用户输入
+把全部的逻辑都统一成rst_n清空
 */
 
 `timescale 1ns / 1ps
 
 module rgmii_manager(
     input   wire    clk_rgmii,          // RGMII 的 125M 时钟
-    input   wire    clk_internal,       // 处理内部同步逻辑用的时钟
+    input   wire    clk_internal,       // 处理内部同步逻辑用的时钟，FIFO也是
     input   wire    clk_ref,            // 给 IDELAYCTRL (这个模块在eth_mac里面) 用的 200M 时钟
+    input   wire    rst_n,              // PLL分频稳定后为1，后级电路复位，也加入了用户的按键
 
-    input   wire    rst,                // 硬件 rst 按键
-    input   wire    clk,                // 硬件 clk 按键
+    input   wire    clk_btn,            // 硬件 clk 按键
     input   wire    [3:0] btn,          // 硬件按钮
 
     output  wire    [15:0] led_out,     // 硬件 led 指示灯
@@ -24,8 +28,7 @@ module rgmii_manager(
     input   wire    eth_rgmii_rxc,
     output  wire    [3:0] eth_rgmii_td,
     output  wire    eth_rgmii_tx_ctl,
-    output  wire    eth_rgmii_txc,
-    input   wire    eth_rst_n
+    output  wire    eth_rgmii_txc
 );
 
 // LED
@@ -43,19 +46,12 @@ wire axis_tx_valid;
 wire axis_tx_last;
 wire axis_tx_ready;
 
-// 在第一个时钟上升沿，将 resetn 从 0 变为 1
-wire gtx_resetn;
-gtx_reset gtx_reset_inst(
-    .clk(clk_rgmii),
-    .gtx_resetn(gtx_resetn)
-);
-
 io_manager io_manager_inst (
     .clk_io(clk_internal),
     .clk_internal(clk_internal),
 
-    .rst(rst),
-    .clk(clk),
+    .rst_n(rst_n),
+    .clk_btn(clk_btn),
     .btn(btn),
     .led_out(led_out),
     .digit0_out(digit0_out),
@@ -74,9 +70,9 @@ io_manager io_manager_inst (
 eth_mac_fifo_block trimac_fifo_block (
     .gtx_clk                      (clk_rgmii),
 
-    .glbl_rstn                    (eth_rst_n),
-    .rx_axi_rstn                  (eth_rst_n),
-    .tx_axi_rstn                  (eth_rst_n),
+    .glbl_rstn                    (rst_n),
+    .rx_axi_rstn                  (rst_n),
+    .tx_axi_rstn                  (rst_n),
 
     // Reference clock for IDELAYCTRL's
     .refclk                       (clk_ref),
@@ -91,7 +87,7 @@ eth_mac_fifo_block trimac_fifo_block (
     // Receiver (AXI-S) Interface
     //----------------------------------------
     .rx_fifo_clock                (clk_internal),
-    .rx_fifo_resetn               (gtx_resetn),
+    .rx_fifo_resetn               (rst_n),
     .rx_axis_fifo_tdata           (axis_rx_data),
     .rx_axis_fifo_tvalid          (axis_rx_valid),
     .rx_axis_fifo_tready          (axis_rx_ready),
@@ -108,7 +104,7 @@ eth_mac_fifo_block trimac_fifo_block (
     // Transmitter (AXI-S) Interface
     //-------------------------------------------
     .tx_fifo_clock                (clk_internal),
-    .tx_fifo_resetn               (gtx_resetn),
+    .tx_fifo_resetn               (rst_n),
     .tx_axis_fifo_tdata           (axis_tx_data),
     .tx_axis_fifo_tvalid          (axis_tx_valid),
     .tx_axis_fifo_tready          (axis_tx_ready),

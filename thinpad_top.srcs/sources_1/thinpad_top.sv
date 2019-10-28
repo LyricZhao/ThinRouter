@@ -1,3 +1,8 @@
+/*
+赵成钢：
+把文件换成SystemVerilog，里面的PLL_Example也换成了新的
+*/
+
 `timescale 1ns / 1ps
 
 module thinpad_top(
@@ -16,12 +21,12 @@ module thinpad_top(
     // CPLD串口控制器信号
     output logic uart_rdn,           // 读串口信号，低有效
     output logic uart_wrn,           // 写串口信号，低有效
-    input  logic uart_dataready,      // 串口数据准备好
-    input  logic uart_tbre,           // 发送数据标志
-    input  logic uart_tsre,           // 数据发送完毕标志
+    input  logic uart_dataready,     // 串口数据准备好
+    input  logic uart_tbre,          // 发送数据标志
+    input  logic uart_tsre,          // 数据发送完毕标志
 
     // BaseRAM信号
-    inout  logic[31:0] base_ram_data, // BaseRAM数据，低8位与CPLD串口控制器共享
+    inout  logic[31:0] base_ram_data,// BaseRAM数据，低8位与CPLD串口控制器共享
     output logic[19:0] base_ram_addr,// BaseRAM地址
     output logic[3:0] base_ram_be_n, // BaseRAM字节使能，低有效。如果不使用字节使能，请保持为0
     output logic base_ram_ce_n,      // BaseRAM片选，低有效
@@ -88,23 +93,33 @@ module thinpad_top(
 logic locked, clk_10M, clk_20M, clk_125M, clk_200M;
 pll clock_gen 
 (
-  // Clock out ports
-  .clk_out1(clk_10M),               // 时钟输出1
-  .clk_out2(clk_20M),               // 时钟输出2
-  .clk_out3(clk_125M),              // 时钟输出3
-  .clk_out4(clk_200M),              // 时钟输出4
-  .reset(reset_btn),                // PLL 复位输入
-  .locked(locked),                  // 锁定输出，"1"表示时钟稳定，可作为后级电路复位
-  .clk_in1(clk_50M)                 // 外部时钟输入
+    // Clock out ports
+    .clk_out1(clk_10M),               // 时钟输出1
+    .clk_out2(clk_20M),               // 时钟输出2
+    .clk_out3(clk_125M),              // 时钟输出3
+    .clk_out4(clk_200M),              // 时钟输出4
+    .reset(reset_btn),                // PLL 复位输入，这里是用户按键
+    .locked(locked),                  // 锁定输出，"1"表示时钟稳定，可作为后级电路复位
+    .clk_in1(clk_50M)                 // 外部时钟输入
 );
 
-// 以太网交换机
+// 生成rst_n信号，SystemVerilog那本书上说最好用rst_n来控制复位
 
-assign eth_rst_n = ~reset_btn;
+wire rst_n;
+
+reset_gen reset_gen_inst(
+    .clk(clk_50M),
+    .locked(locked),
+    .reset_btn(reset_btn),
+
+    .rst_n(rst_n)
+);
+
+// 这里应该是KSZ8795芯片的一些设置，初始化用
 
 eth_conf conf(
     .clk(clk_50M),
-    .rst_in_n(locked),
+    .rst_in_n(rst_n),
 
     .eth_spi_miso(eth_spi_miso),
     .eth_spi_mosi(eth_spi_mosi),
@@ -122,8 +137,8 @@ rgmii_manager rgmii_manager_inst (
     .clk_rgmii(clk_125M),
     .clk_internal(clk_125M),
     .clk_ref(clk_200M),
+    .rst_n(rst_n),
 
-    .rst(reset_btn),
     .clk(clock_btn),
     .btn(touch_btn),
     .led_out(leds),
@@ -136,7 +151,6 @@ rgmii_manager rgmii_manager_inst (
     .eth_rgmii_td(eth_rgmii_td),
     .eth_rgmii_tx_ctl(eth_rgmii_tx_ctl),
     .eth_rgmii_txc(eth_rgmii_txc),
-    .eth_rst_n(eth_rst_n)
 );
 
 endmodule
