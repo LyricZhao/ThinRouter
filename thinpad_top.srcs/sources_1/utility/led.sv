@@ -24,28 +24,25 @@ endmodule
 
 // 左右摇摆
 module led_loop #(parameter LEN = 16) (
-    input   wire    rst,
     input   wire    clk,
-    output  bit     [LEN-1:0] led
+    output  wire    [LEN-1:0] led
 );
-bit flipped;
-always_ff @ (posedge clk or posedge rst) begin
-    if (rst) begin
-        led <= 0;
-    end else begin
-        if (led == 0) begin
-            led <= 1;
-        end else if (led[0] == 1) begin
-            led <= 2;
-            flipped <= 0;
-        end else if (led[LEN-1] == 1) begin
-            led[LEN-1:LEN-2] <= 2'b01;
-            flipped <= 1;
-        end else if (flipped)
-            led <= led >>> 1;
-        else
-            led <= led << 1;
-    end
+bit [LEN-1:0] value = '0;
+bit flipped = 0;
+assign led = value;
+always_ff @ (posedge clk) begin
+    if (value == 0) begin
+        value <= 1;
+    end else if (value[0] == 1) begin
+        value <= 2;
+        flipped <= 0;
+    end else if (value[LEN-1] == 1) begin
+        value[LEN-1:LEN-2] <= 2'b01;
+        flipped <= 1;
+    end else if (flipped)
+        value <= value >>> 1;
+    else
+        value <= value << 1;
 end
 endmodule
 
@@ -76,39 +73,32 @@ endmodule
 
 // 00-99
 module digit_dec_count (
-    input   wire    rst,
     input   wire    clk,
     output  wire    [7:0] digit0,
     output  wire    [7:0] digit1
 );
-bit [3:0] value0;
-bit [3:0] value1;
+bit [3:0] value0 = '0;
+bit [3:0] value1 = '0;
 digit_hex lo(value0, digit0);
 digit_hex hi(value1, digit1);
-always_ff @ (posedge clk or posedge rst) begin
-    if (rst) begin
+always_ff @ (posedge clk) begin
+    if (value0 == 9) begin
         value0 <= 0;
-        value1 <= 0;
-    end else begin
-        if (value0 == 9) begin
-            value0 <= 0;
-            if (value1 == 9) 
-                value1 <= 0;
-            else
-                value1 <= value1 + 1;
-        end else 
-            value0 <= value0 + 1;
-    end
+        if (value1 == 9) 
+            value1 <= 0;
+        else
+            value1 <= value1 + 1;
+    end else 
+        value0 <= value0 + 1;
 end
 endmodule
 
 // 数码管循环亮灯
 module digit_loop (
-    input   wire    rst,
     input   wire    clk,
     output  bit     [7:0] digit
 );
-bit [2:0] cnt;
+bit [2:0] cnt = '0;
 always_comb case (cnt)
     0: digit = 8'b00000001;
     1: digit = 8'b00000010;
@@ -119,10 +109,8 @@ always_comb case (cnt)
     6: digit = 8'b00010000;
     7: digit = 8'b00000000;
 endcase
-always_ff @ (posedge clk or posedge rst) begin
-    if (rst)
-        cnt <= 0;
-    else case (cnt)
+always_ff @ (posedge clk) begin
+    case (cnt)
         0, 6: cnt <= 1;
         default: cnt <= cnt + 1;
     endcase
@@ -131,15 +119,12 @@ endmodule
 
 // 数码管循环亮灯
 module digit_loop_alt (
-    input   wire    rst,
     input   wire    clk,
     output  bit     [7:0] digit
 );
-bit [2:0] cnt;
+bit [2:0] cnt = '0;
 always_comb
-    if (rst)
-        digit = 8'b00000001;
-    else case (cnt)
+    case (cnt)
         0: digit = 8'b00010000;
         1: digit = 8'b00100000;
         2: digit = 8'b01000000;
@@ -149,10 +134,7 @@ always_comb
         6: digit = 8'b00001000;
         7: digit = 8'b10000000;
     endcase
-always_ff @ (posedge clk or posedge rst) begin
-    if (rst)
-        cnt <= 0;
-    else
-        cnt <= cnt + 1;
+always_ff @ (posedge clk) begin
+    cnt <= cnt + 1;
 end
 endmodule

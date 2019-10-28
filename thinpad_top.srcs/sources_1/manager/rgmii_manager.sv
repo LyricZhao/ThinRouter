@@ -110,8 +110,6 @@ eth_mac_fifo_block trimac_fifo_block (
     .tx_axis_fifo_tready          (axis_tx_ready),
     .tx_axis_fifo_tlast           (axis_tx_last),
 
-
-
     // MAC Control Interface
     //------------------------
     .pause_req                    (1'b0),

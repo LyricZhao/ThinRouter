@@ -3,6 +3,9 @@
 此模块用来将已经展开的包内容进行处理，
 但是 IP 包的 Data 除外，它应当由 io_manager 直接转发
 
+赵成钢：
+等待Review
+
 todo: 处理中间突然结束的包
 todo: 处理错误格式的包
 
@@ -75,11 +78,11 @@ IP  包网帧：
 `include "address.vh"
 
 module packet_manager (
-    input   wire    clk_internal,                // 父模块同步时钟
+    input   wire    clk_internal,       // 父模块同步时钟
+    input   wire    rst_n,              // rst_n 逻辑
 
     // top 硬件
-    input   wire    rst,                // 硬件 rst 按键
-    input   wire    clk,                // 硬件 clk 按键
+    input   wire    clk_btn,            // 硬件 clk 按键
     input   wire    [3:0] btn,          // 硬件按钮
 
     output  wire    [15:0] led_out,     // 硬件 led 指示灯
@@ -107,7 +110,7 @@ module packet_manager (
     state <= Idle; \
     $display("%s", {"BAD PACKET: ", msg});
 
-enum {
+enum logic [2:0] {
     Idle,       // 空闲
     Receiving,  // 正在和 io_manager 同步接收包
     IpRunning,  // 正在用子模块处理生成新网帧
@@ -115,13 +118,13 @@ enum {
     Test
 } state;
 
-enum {
+enum logic {
     ARP,
     IPv4
 } protocol;     // 目前读取的网帧采用的协议，在读取 18 字节后确定
 
-always_ff @ (posedge clk_internal or posedge rst) begin
-    if (rst) begin
+always_ff @ (posedge clk_internal) begin
+    if (~rst_n) begin
         // 复位
         state <= Idle;
         bad <= 0;
@@ -210,11 +213,11 @@ always_ff @ (posedge clk_internal or posedge rst) begin
                             frame_out[239:160] <= frame_in[239:160];
                             frame_out[159:152] <= frame_in[159:152] - 1;
                             frame_out[151:144] <= frame_in[151:144];
-                            if (frame_in[143:128] == '1)
-                                frame_out[143:128] <= 16'h1;
+                            if (frame_in[143:136] == '1)
+                                frame_out[143:136] <= 8'h1;
                             else
-                                frame_out[143:128] <= frame_in[143:128] + 1;
-                            frame_out[127:64] <= frame_in[127:64];
+                                frame_out[143:136] <= frame_in[143:136] + 1;
+                            frame_out[135:64] <= frame_in[135:64];
                         end
                     end
                     46: begin

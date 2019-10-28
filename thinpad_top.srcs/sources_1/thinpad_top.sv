@@ -139,7 +139,7 @@ rgmii_manager rgmii_manager_inst (
     .clk_ref(clk_200M),
     .rst_n(rst_n),
 
-    .clk(clock_btn),
+    .clk_btn(clock_btn),
     .btn(touch_btn),
     .led_out(leds),
     .digit0_out(dpy0),

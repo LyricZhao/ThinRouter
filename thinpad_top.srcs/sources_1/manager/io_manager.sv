@@ -2,6 +2,9 @@
 涂轶翔：
 通过自动机实现数据的处理，负责所有数据的输入输出，IO 使用 AXI-S 接口
 接收数据后展开，然后交给 packet_manager 处理，处理后再输出
+
+赵成钢：
+把rx_ready那段组合逻辑先改掉加入到时序逻辑里面了
 */
 
 `timescale 1ns / 1ps
@@ -12,10 +15,10 @@ module io_manager (
     // 由父模块提供各种时钟
     input   wire    clk_io,             // IO 时钟
     input   wire    clk_internal,       // 内部处理逻辑用的时钟
+    input   wire    rst_n,              // rstn 逻辑
 
     // top 硬件
-    input   wire    rst,                // 硬件 rst 按键
-    input   wire    clk,                // 硬件 clk 按键
+    input   wire    clk_btn,            // 硬件 clk 按键
     input   wire    [3:0] btn,          // 硬件按钮
 
     output  wire    [15:0] led_out,     // 硬件 led 指示灯
@@ -53,7 +56,7 @@ byte direct_fw_offset;  //
 int  fw_bytes;          // 需要直接转发的字节数
 
 // 状态
-enum {
+enum logic[2:0] {
     Idle,               // 空闲，遇到 rx_valid 转下一条
     Reading,            // 正在接收，等待 packet_manager 的 require_direct_fw 或者 rx_last，转下一条
     Waiting,            // 等待 packet_manager 处理完，之后转下一条
@@ -67,22 +70,11 @@ byte bytes_sent;        // Sending 下，已经从 packet_manager 的 frame_out 
 int  bytes_forwarded;   // Forwarding 下，已经转发的字节数（只用于 IP 包的 data 部分）
 bit  packet_ended;      // 当前处理的包已经 last
 
-// 驱动 rx_ready 信号
-always_comb 
-case (state)
-    Idle, Reading, Discarding: 
-        rx_ready = 1;
-    Waiting, Sending: 
-        rx_ready = 0;
-    Forwarding:
-        rx_ready = tx_ready;
-endcase
-
 packet_manager packet_manager_inst (
     .clk_internal(clk_internal),
 
-    .rst(rst),
-    .clk(clk),
+    .rst_n(rst_n),
+    .clk_btn(clk_btn),
     .btn(btn),
     .led_out(pm_led),
     .digit0_out(pm_digit0),
@@ -104,14 +96,15 @@ packet_manager packet_manager_inst (
     .fw_bytes(fw_bytes)
 );
 
-always_ff @ (posedge clk_io or posedge rst) begin
+always_ff @ (posedge clk_io) begin
     // 初始化
-    if (rst) begin
+    if (~rst_n) begin
         // 收包变量
         packet_arrive <= 0;
         bytes_read <= 0;
         // 处理逻辑变量
         state <= Idle;
+        rx_ready <= 1;
         bytes_sent <= 0;
         bytes_forwarded <= 0;
         packet_ended <= 0;
@@ -126,6 +119,7 @@ always_ff @ (posedge clk_io or posedge rst) begin
                 if (rx_valid) begin
                     // 状态
                     state <= Reading;
+                    rx_ready <= 1;
                     packet_arrive <= 1;
                     // 记录当前收到的字节
                     frame_in[367 -: 8] <= rx_data;
@@ -136,15 +130,18 @@ always_ff @ (posedge clk_io or posedge rst) begin
                     packet_ended <= 0;
                 end
             end
+
             Reading: begin
                 // 持续接收数据
                 packet_arrive <= 0;
                 if (bad) begin
                     if (packet_ended || (rx_valid && rx_last))
                         state <= Idle;
+                        rx_ready <= 1;
                     else begin
                         $write("Discarding... ");
                         state <= Discarding;
+                        rx_ready <= 1;
                     end
                 end else if (rx_valid) begin
                     frame_in[367 - bytes_read * 8 -: 8] <= rx_data;
@@ -155,28 +152,35 @@ always_ff @ (posedge clk_io or posedge rst) begin
                         $write("frame_in completed\n\t");
                         `DISPLAY_BITS(frame_in, 367, 360 - bytes_read * 8);
                         state <= Waiting;
+                        rx_ready <= 0;
                     // 或者到达 IP 包 data 前了，也暂停等待处理
-                    end else if (require_direct_fw && bytes_read + 1 == direct_fw_offset) begin
+                    end else if (bytes_read == 45 || (require_direct_fw && bytes_read + 1 == direct_fw_offset)) begin
                         $write("IP header completed\n\t");
                         `DISPLAY_BITS(frame_in, 367, 360 - bytes_read * 8);
                         state <= Waiting;
+                        rx_ready <= 0;
                     end
                 end
             end
+
             Waiting: begin
                 // 此时 rx_ready 为 0
                 if (bad) begin
                     if (packet_ended)
                         state <= Idle;
+                        rx_ready <= 1;
                     else begin
                         $write("Discarding... ");
                         state <= Discarding;
+                        rx_ready <= 1;
                     end
                 end else if (out_ready) begin
                     $write("frame_out ready, sending...\n\t");
                     state <= Sending;
+                    rx_ready <= 0;
                 end
             end
+
             Sending: begin
                 // 此时 rx_ready = 0，out_ready = 1，bad = 0
                 if (tx_ready) begin
@@ -189,10 +193,12 @@ always_ff @ (posedge clk_io or posedge rst) begin
                         if (require_direct_fw) begin
                             $write("\nand forwarding...\n\t");
                             state <= Forwarding;
+                            rx_ready <= 0;      // ZCG: 既然进入了Forwarding状态肯定第一个周期是0，这里和原来的组合逻辑不太一样
                         end else begin
                             $display("LAST");
                             tx_last <= 1;
                             state <= Idle;
+                            rx_ready <= 1;
                         end
                     end
                 end else begin
@@ -200,6 +206,7 @@ always_ff @ (posedge clk_io or posedge rst) begin
                     tx_last <= 0;
                 end
             end
+
             Forwarding: begin
                 if (rx_valid) begin
                     if (bytes_forwarded == fw_bytes) begin
@@ -207,8 +214,10 @@ always_ff @ (posedge clk_io or posedge rst) begin
                         tx_valid <= 0;
                         if (rx_last)
                             state <= Idle;
+                            rx_ready <= 1;
                         else
                             state <= Discarding;
+                            rx_ready <= 1;
                     end else begin
                         bytes_forwarded <= bytes_forwarded + 1;
                         $write("%2x ", rx_data);
@@ -219,6 +228,7 @@ always_ff @ (posedge clk_io or posedge rst) begin
                             $display("LAST (EOP)");
                             tx_last <= 1;
                             state <= Idle;
+                            rx_ready <= 1;
                         end else begin
                             // data 包转发完毕发 last，转 Discarding
                             if (bytes_forwarded + 1 == fw_bytes) begin
@@ -226,6 +236,7 @@ always_ff @ (posedge clk_io or posedge rst) begin
                                 tx_last <= 1;
                                 packet_ended <= 1;
                                 state <= Discarding;
+                                rx_ready <= 1;
                             end
                         end
                     end
@@ -235,12 +246,15 @@ always_ff @ (posedge clk_io or posedge rst) begin
                     tx_last <= 0;
                 end
             end
+
             Discarding: begin
                 if (rx_valid && rx_last) begin
                     $display("complete");
                     state <= Idle;
+                    rx_ready <= 1;
                 end
             end
+
             default: begin
             end
         endcase
