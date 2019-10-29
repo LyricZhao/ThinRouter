@@ -96,24 +96,35 @@ endmodule
 // 数码管循环亮灯
 module digit_loop (
     input   wire    clk,
+    input   wire    rst_n,
     output  bit     [7:0] digit
 );
 bit [2:0] cnt = '0;
-always_comb case (cnt)
-    0: digit = 8'b00000001;
-    1: digit = 8'b00000010;
-    2: digit = 8'b00000100;
-    3: digit = 8'b00001000;
-    4: digit = 8'b01000000;
-    5: digit = 8'b00100000;
-    6: digit = 8'b00010000;
-    7: digit = 8'b00000000;
-endcase
+always_comb begin
+    if (~rst_n) begin
+        digit = 8'b11111111;
+    end else begin
+        case (cnt)
+            0: digit = 8'b00000001;
+            1: digit = 8'b00000010;
+            2: digit = 8'b00000100;
+            3: digit = 8'b00001000;
+            4: digit = 8'b01000000;
+            5: digit = 8'b00100000;
+            6: digit = 8'b00010000;
+            7: digit = 8'b00000000;
+        endcase
+    end
+end
 always_ff @ (posedge clk) begin
-    case (cnt)
-        0, 6: cnt <= 1;
-        default: cnt <= cnt + 1;
-    endcase
+    if (digit == 8'b11111111) begin
+        cnt <= 1;
+    end else begin
+        case (cnt)
+            0, 6: cnt <= 1;
+            default: cnt <= cnt + 1;
+        endcase
+    end
 end
 endmodule
 

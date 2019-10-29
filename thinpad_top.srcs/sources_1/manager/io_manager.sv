@@ -1,9 +1,6 @@
 /*
-涂轶翔：
 通过自动机实现数据的处理，负责所有数据的输入输出，IO 使用 AXI-S 接口
 接收数据后展开，然后交给 packet_manager 处理，处理后再输出
-
-赵成钢：
 */
 
 `timescale 1ns / 1ps
@@ -277,12 +274,14 @@ led_loop debug_incoming (
 
 // 正常发包显示在高位数码管
 digit_loop debug_send (
+    .rst_n(rst_n),
     .clk(debug_send_signal),
     .digit(digit1_out)
 );
 
 // 丢包显示在低位数码管
 digit_loop debug_discard (
+    .rst_n(rst_n),
     .clk(debug_discard_signal),
     .digit(digit0_out)
 );

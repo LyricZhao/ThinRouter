@@ -31,7 +31,7 @@
     <Option Name="EnableBDX" Val="FALSE"/>
     <Option Name="DSAVendor" Val="xilinx"/>
     <Option Name="DSANumComputeUnits" Val="16"/>
-    <Option Name="WTXSimLaunchSim" Val="603"/>
+    <Option Name="WTXSimLaunchSim" Val="604"/>
     <Option Name="WTModelSimLaunchSim" Val="0"/>
     <Option Name="WTQuestaLaunchSim" Val="0"/>
     <Option Name="WTIesLaunchSim" Val="0"/>
@@ -63,49 +63,49 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/eth_mac_bram_tdp.v">
+      <File Path="$PSRCDIR/sources_1/eth_mac/eth_mac_bram_tdp.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/eth_mac_fifo_block.v">
+      <File Path="$PSRCDIR/sources_1/eth_mac/eth_mac_fifo_block.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/eth_mac_reset_sync.v">
+      <File Path="$PSRCDIR/sources_1/eth_mac/eth_mac_reset_sync.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/eth_mac_rx_client_fifo.v">
+      <File Path="$PSRCDIR/sources_1/eth_mac/eth_mac_rx_client_fifo.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/eth_mac_sync_block.v">
+      <File Path="$PSRCDIR/sources_1/eth_mac/eth_mac_sync_block.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/eth_mac_ten_100_1g_eth_fifo.v">
+      <File Path="$PSRCDIR/sources_1/eth_mac/eth_mac_ten_100_1g_eth_fifo.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/eth_mac_tx_client_fifo.v">
+      <File Path="$PSRCDIR/sources_1/eth_mac/eth_mac_tx_client_fifo.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
@@ -210,44 +210,66 @@
     </FileSet>
     <FileSet Name="sim_1" Type="SimulationSrcs" RelSrcDir="$PSRCDIR/sim_1">
       <Filter Type="Srcs"/>
-      <File Path="$PSRCDIR/sim_1/new/clock.v">
+      <File Path="$PSRCDIR/sim_1/imports/sim_1/modules/clock.v">
         <FileInfo>
+          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/modules/clock.v"/>
+          <Attr Name="ImportTime" Val="1572357259"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sim_1/new/sram_model.v">
+      <File Path="$PSRCDIR/sim_1/imports/sim_1/modules/sram_model.v">
         <FileInfo>
+          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/modules/sram_model.v"/>
+          <Attr Name="ImportTime" Val="1572357255"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sim_1/new/testbench_eth_frame.sv">
-        <FileInfo RelPath="testbench_eth_frame.sv">
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/new/testbench_thinpad.sv">
+      <File Path="$PSRCDIR/sim_1/imports/sim_1/testbenchs/testbench_eth_frame.sv">
         <FileInfo>
+          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/testbenchs/testbench_eth_frame.sv"/>
+          <Attr Name="ImportTime" Val="1572357265"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sim_1/new/testbench_routing_table.sv">
+      <File Path="$PSRCDIR/sim_1/imports/sim_1/testbenchs/testbench_thinpad.sv">
+        <FileInfo>
+          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/testbenchs/testbench_thinpad.sv"/>
+          <Attr Name="ImportTime" Val="1572357268"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/imports/sim_1/testbenchs/testbench_routing_table.sv">
         <FileInfo>
           <Attr Name="AutoDisabled" Val="1"/>
+          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/testbenchs/testbench_routing_table.sv"/>
+          <Attr Name="ImportTime" Val="1572357267"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sim_1/new/runtime/eth_frame_test.mem">
+      <File Path="$PSRCDIR/sim_1/imports/sim_1/testbenchs/testbench_arp_table.sv">
         <FileInfo>
+          <Attr Name="AutoDisabled" Val="1"/>
+          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/testbenchs/testbench_arp_table.sv"/>
+          <Attr Name="ImportTime" Val="1572357264"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/imports/runtime/eth_frame_test.mem">
+        <FileInfo>
+          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/eth_frame_test.mem"/>
+          <Attr Name="ImportTime" Val="1572340205"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
@@ -256,6 +278,7 @@
         <Option Name="DesignMode" Val="RTL"/>
         <Option Name="TopModule" Val="testbench_thinpad"/>
         <Option Name="TopLib" Val="xil_defaultlib"/>
+        <Option Name="TopAutoSet" Val="TRUE"/>
         <Option Name="TransportPathDelay" Val="0"/>
         <Option Name="TransportIntDelay" Val="0"/>
         <Option Name="SrcSet" Val="sources_1"/>

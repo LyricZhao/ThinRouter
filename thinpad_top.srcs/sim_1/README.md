@@ -1,10 +1,8 @@
 # Testbench 说明
 
-涂轶翔
-
 ## 使用方法
 
-- `thinpad_top.srcs/sim_1/new/runtime/scripts` 下存放生成测试用例的脚本，用 Python3 运行。`python3 xxx.py -?` 可以查看使用说明
+- `thinpad_top.srcs/sim_1/runtime/scripts` 下存放生成测试用例的脚本，用 Python3 运行。`python3 xxx.py -?` 可以查看使用说明
 
 - 脚本生成的 mem 文件已经添加到工程中，如果缺少则需要运行脚本生成。因为生成是随机的，所以生成的文件没有加入 git
 
@@ -16,7 +14,7 @@ Vivado 文件读写就是大坑，我花了一个晚上让 testbench 能够从�
 
 遇到的错误信息在 Google 上完全搜不到，甚至 Vivado 一度提示我给客服提交 bug
 
-以下是坑，环境 MacOS Monjave + Parallels Desktop + Win10
+以下是坑，环境 MacOS Mojave + Parallel Desktop + Win10
 
 - 绝对路径是打不开文件的，什么姿势都打不开
 

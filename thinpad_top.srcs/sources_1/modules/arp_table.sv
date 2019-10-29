@@ -2,7 +2,6 @@
 
 `include "constants.vh"
 
-
 module arp_table(
     input clk,
     input rst,

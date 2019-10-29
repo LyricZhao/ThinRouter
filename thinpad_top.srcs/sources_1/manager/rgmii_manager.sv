@@ -1,11 +1,6 @@
 /*
-涂轶翔：
 把 top 里面的 RGMII 接口接过来，通过某个库转化成 AXI-S 接口
 然后交给 io_manager 处理
-
-赵成钢：
-把gtx_reset去掉了，换成了一个生成reset的新模块，会考虑用户输入
-把全部的逻辑都统一成rst_n清空
 */
 
 `timescale 1ns / 1ps
