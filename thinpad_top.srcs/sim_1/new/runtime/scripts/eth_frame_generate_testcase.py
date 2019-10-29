@@ -53,8 +53,8 @@ IP 包:
 26  TTL
 27  IP 协议
 28  Checksum
-30  目标 IP
-34  来源 IP
+30  来源 IP
+34  目标 IP
 38  数据
 ??  CRC
 ??
@@ -324,8 +324,8 @@ class IpRequest:
             self.ip_len +
             self.id +
             (self.ttl << 8) + self.ip_protocol +
-            (self.dst_ip.value >> 16) + (self.dst_ip.value & 0xffff) +
-            (self.src_ip.value >> 16) + (self.src_ip.value & 0xffff)
+            (self.src_ip.value >> 16) + (self.src_ip.value & 0xffff) +
+            (self.dst_ip.value >> 16) + (self.dst_ip.value & 0xffff)
         )
         if checksum > 0xffff:
             checksum = (checksum >> 16) + (checksum & 0xffff)
@@ -341,8 +341,8 @@ class IpRequest:
             big_hex(self.id, 2) +
             '00 00 %02X %02X ' % (self.ttl, self.ip_protocol) +
             big_hex(self.checksum, 2) +
-            self.dst_ip.hex +
             self.src_ip.hex +
+            self.dst_ip.hex +
             ''.join('%02X ' % c for c in self.data)
         )
 
@@ -356,8 +356,8 @@ class IpRequest:
             self.ttl.to_bytes(1, 'big') +
             self.ip_protocol.to_bytes(1, 'big') +
             self.checksum.to_bytes(2, 'big') +
-            self.dst_ip.raw +
             self.src_ip.raw +
+            self.dst_ip.raw +
             b''.join(c.to_bytes(1, 'big') for c in self.data)
         )
 

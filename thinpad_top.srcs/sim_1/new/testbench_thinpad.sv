@@ -150,7 +150,7 @@ initial begin
     reset_btn = 0;
 end
 
-// RGMII 仿真模型
+// RGMII 仿真模型 这里从testbench_eth_frame的rgmmi上接过去
 rgmii_model rgmii(
     .clk_125M(clk_125M),
     .clk_125M_90deg(clk_125M_90deg),
