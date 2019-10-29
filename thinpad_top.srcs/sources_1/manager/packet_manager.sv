@@ -40,7 +40,7 @@ ARP 包网帧：
 0   [367:320]   目标 MAC
 6   [319:272]   来源 MAC
 12  [271:256]   0x8100  VLAN
-14  [255:240]   [241:240] 为 VLAN ID
+14  [255:240]   [251:240] 为 VLAN ID
 16  [239:224]   0x0806  ARP
 18  [223:208]   0x0001  以太网
 20  [207:192]   0x8000  IPv4
@@ -57,7 +57,7 @@ IP  包网帧：
 0   [367:320]   目标 MAC
 6   [319:272]   来源 MAC
 12  [271:256]   0x8100  VLAN
-14  [255:240]   [241:240] 为 VLAN ID
+14  [255:240]   [251:240] 为 VLAN ID
 16  [239:224]   0x0800  IPv4
 18  [223:216]   0x45    Protocol v4, header 大小 20B
 19  [215:208]   0x00    DSF
@@ -67,8 +67,8 @@ IP  包网帧：
 26  [159:152]   TTL
 27  [151:144]   IP 协议
 28  [143:128]   Checksum
-30  [127:96 ]   目标 IP
-34  [ 95:64 ]   来源 IP
+30  [127:96 ]   来源 IP
+34  [ 95:64 ]   目标 IP
 38
 */
 
@@ -208,8 +208,9 @@ always_ff @ (posedge clk_internal) begin
                         if (protocol == IPv4) begin
                             state <= IpRunning;
                             // 一些东西可以直接填充
-                            frame_out[367:242] <= frame_in[367:242];
-                            // [241:240]    查表 VLAN ID
+                            frame_out[319:272] <= `ROUTER_MAC;
+                            frame_out[271:252] <= frame_in[271:252];
+                            // [251:240]    查表 VLAN ID
                             frame_out[239:160] <= frame_in[239:160];
                             frame_out[159:152] <= frame_in[159:152] - 1;
                             frame_out[151:144] <= frame_in[151:144];
@@ -238,21 +239,27 @@ always_ff @ (posedge clk_internal) begin
                 endcase
             end
             IpRunning: begin
-                case(frame_in[367:320])
-                    `TYX_MAC: begin
-                        frame_out[241:240] <= `TYX_PORT;
+                case(frame_in[95:64])
+                    `TYX_IP: begin
+                        frame_out[367:320] <= `TYX_MAC;
+                        frame_out[251:240] <= `TYX_PORT;
                     end
-                    `ZCG_MAC: begin
-                        frame_out[241:240] <= `ZCG_PORT;
+                    `ZCG_IP: begin
+                        frame_out[367:320] <= `ZCG_MAC;
+                        frame_out[251:240] <= `ZCG_PORT;
                     end
-                    `WZY_MAC: begin
-                        frame_out[241:240] <= `WZY_PORT;
+                    `WZY_IP: begin
+                        frame_out[367:320] <= `WZY_MAC;
+                        frame_out[251:240] <= `WZY_PORT;
                     end
-                    `EXT_MAC: begin
-                        frame_out[241:240] <= `EXT_PORT;
+                    `EXT_IP: begin
+                        frame_out[367:320] <= `EXT_MAC;
+                        frame_out[251:240] <= `EXT_PORT;
                     end
+                    // default是直接原路返回
                     default: begin
-                        frame_out[241:240] <= '0;
+                        frame_out[367:320] <= frame_in[319:272];
+                        frame_out[251:240] <= frame_in[251:240];
                     end
                 endcase
                 out_ready <= 1;

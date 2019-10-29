@@ -103,23 +103,11 @@ pll clock_gen
     .clk_in1(clk_50M)                 // 外部时钟输入
 );
 
-// 生成rst_n信号，SystemVerilog那本书上说最好用rst_n来控制复位
-
-wire rst_n;
-
-reset_gen reset_gen_inst(
-    .clk(clk_50M),
-    .locked(locked),
-    .reset_btn(reset_btn),
-
-    .rst_n(rst_n)
-);
-
 // 这里应该是KSZ8795芯片的一些设置，初始化用
 
 eth_conf conf(
     .clk(clk_50M),
-    .rst_in_n(rst_n),
+    .rst_in_n(locked),
 
     .eth_spi_miso(eth_spi_miso),
     .eth_spi_mosi(eth_spi_mosi),
@@ -137,7 +125,7 @@ rgmii_manager rgmii_manager_inst (
     .clk_rgmii(clk_125M),
     .clk_internal(clk_125M),
     .clk_ref(clk_200M),
-    .rst_n(rst_n),
+    .rst_n(locked),
 
     .clk_btn(clock_btn),
     .btn(touch_btn),

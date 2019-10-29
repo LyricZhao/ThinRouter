@@ -1,8 +1,3 @@
-/*
-涂轶翔：
-先写死一些地址
-*/
-
 `define ROUTER_MAC  48'ha88808888888
 `define ROUTER_IP   32'h0a000401
 

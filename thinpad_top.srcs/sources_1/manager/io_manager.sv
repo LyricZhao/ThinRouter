@@ -259,12 +259,10 @@ end
  * debug 信号
  ************/
 
-// assign led_out = pm_led;
-// assign digit0_out = pm_digit0;
-// assign digit1_out = pm_digit1;
 bit debug_incoming_signal;
 bit debug_discard_signal;
 bit debug_send_signal;
+
 always_ff @ (posedge clk_internal) begin
     debug_incoming_signal <= state == Reading;
     debug_discard_signal <= bad;
