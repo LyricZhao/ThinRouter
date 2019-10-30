@@ -39,10 +39,10 @@ bit [47:0]  mac_entries[3:0];
 bit [2:0]   vlan_entries[3:0];
 
 assign {mac_output, vlan_output, found} = 
-    (ip_input == ip_entries[0] ? {mac_entries[0], vlan_output[0], 1'b0} : 52'h0) |
-    (ip_input == ip_entries[1] ? {mac_entries[1], vlan_output[1], 1'b0} : 52'h0) |
-    (ip_input == ip_entries[2] ? {mac_entries[2], vlan_output[2], 1'b0} : 52'h0) |
-    (ip_input == ip_entries[3] ? {mac_entries[3], vlan_output[3], 1'b0} : 52'h0);
+    (ip_input == ip_entries[0] ? {mac_entries[0], vlan_entries[0], 1'b1} : 52'h0) |
+    (ip_input == ip_entries[1] ? {mac_entries[1], vlan_entries[1], 1'b1} : 52'h0) |
+    (ip_input == ip_entries[2] ? {mac_entries[2], vlan_entries[2], 1'b1} : 52'h0) |
+    (ip_input == ip_entries[3] ? {mac_entries[3], vlan_entries[3], 1'b1} : 52'h0);
 
 always_ff @ (posedge clk_internal) begin
     if (~rst_n) begin

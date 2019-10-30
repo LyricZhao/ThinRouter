@@ -31,7 +31,7 @@
     <Option Name="EnableBDX" Val="FALSE"/>
     <Option Name="DSAVendor" Val="xilinx"/>
     <Option Name="DSANumComputeUnits" Val="16"/>
-    <Option Name="WTXSimLaunchSim" Val="604"/>
+    <Option Name="WTXSimLaunchSim" Val="617"/>
     <Option Name="WTModelSimLaunchSim" Val="0"/>
     <Option Name="WTQuestaLaunchSim" Val="0"/>
     <Option Name="WTIesLaunchSim" Val="0"/>
@@ -276,7 +276,7 @@
       <File Path="$PSRCDIR/sim_1/imports/runtime/eth_frame_test.mem">
         <FileInfo>
           <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/eth_frame_test.mem"/>
-          <Attr Name="ImportTime" Val="1572340205"/>
+          <Attr Name="ImportTime" Val="1572462723"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>

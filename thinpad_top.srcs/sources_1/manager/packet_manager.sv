@@ -119,6 +119,10 @@ enum logic {
     IPv4
 } protocol;     // 目前读取的网帧采用的协议，在读取 18 字节后确定
 
+bit arp_entry_valid;            // 让 arp_manager 写记录的信号，可能拉高不止一拍
+wire [47:0] arp_mac_result;     // arp_manager 查询结果
+wire [2:0]  arp_vlan_result;    // arp_manager 查询结果
+wire arp_found;                 // 是否查询到了结果
 // 处理 ARP 表
 arp_manager arp_manager_inst (
     .clk_internal(clk_internal),
@@ -132,11 +136,6 @@ arp_manager arp_manager_inst (
     .vlan_output(arp_vlan_result),
     .found(arp_found)
 );
-
-bit arp_entry_valid;            // 让 arp_manager 写记录的信号，可能拉高不止一拍
-wire [47:0] arp_mac_result;     // arp_manager 查询结果
-wire [2:0]  arp_vlan_result;    // arp_manager 查询结果
-wire arp_found;                 // 是否查询到了结果
 
 always_ff @ (posedge clk_internal) begin
     if (~rst_n) begin
@@ -241,10 +240,12 @@ always_ff @ (posedge clk_internal) begin
                     // 对于 ARP 接受了来源 MAC 和 IP
                     36: begin
                         // 让 arp_manager 记录
-                        arp_entry_valid <= 1;
+                        if (protocol == ARP)
+                            arp_entry_valid <= 1;
                     end
                     37: begin
-                        arp_entry_valid <= 0;
+                        if (protocol == ARP)
+                            arp_entry_valid <= 0;
                     end
                     // IP header 结束
                     38: begin
