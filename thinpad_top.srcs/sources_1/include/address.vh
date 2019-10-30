@@ -3,6 +3,11 @@
 `define ROUTER_IP_3     32'h0a_04_03_01
 `define ROUTER_IP_4     32'h0a_04_04_01
 
+`define SUBNET_1        24'h0a_04_01
+`define SUBNET_2        24'h0a_04_02
+`define SUBNET_3        24'h0a_04_03
+`define SUBNET_4        24'h0a_04_04
+
 `define ROUTER_MAC_1    48'ha8_88_08_18_88_88
 `define ROUTER_MAC_2    48'ha8_88_08_28_88_88
 `define ROUTER_MAC_3    48'ha8_88_08_38_88_88
