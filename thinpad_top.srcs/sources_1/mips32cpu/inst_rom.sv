@@ -28,8 +28,8 @@ initial $display("insert done");
 
 
 
-always @ (*) begin
-    if (ce == `ChipDisable) 
+always_comb begin
+    if (ce == 1'b0) 
     begin
         inst <= `ZeroWord;
     end else begin

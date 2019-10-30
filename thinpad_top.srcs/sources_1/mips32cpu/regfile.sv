@@ -23,22 +23,21 @@ module regfile(
 reg[`RegBus]  regs[0:`RegNum-1];
 
 always_ff @ (posedge clk) begin
-    if (rst == `RstDisable) begin
-        if((we == `WriteEnable) && (waddr != `RegNumLog2'h0)) begin
+    if (rst == 1'b0) begin
+        if ((we == 1'b1) && (waddr != 5'h0)) begin
             regs[waddr] <= wdata;
         end
     end
 end
 
 always_comb begin
-    if(rst == `RstEnable) begin
+    if (rst == 1'b1) begin
         rdata1 <= `ZeroWord;
-    end else if(raddr1 == `RegNumLog2'h0) begin
+    end else if (raddr1 == 5'h0) begin //如果读0号寄存器
         rdata1 <= `ZeroWord;
-    end else if((raddr1 == waddr) && (we == `WriteEnable) 
-                    && (re1 == `ReadEnable)) begin
+    end else if ((raddr1 == waddr) && (we == 1'b1) && (re1 == 1'b1)) begin //如果读的寄存器正准备被写，直接读即将被写的值
         rdata1 <= wdata;
-    end else if(re1 == `ReadEnable) begin
+    end else if (re1 == 1'b1) begin
         rdata1 <= regs[raddr1];
     end else begin
         rdata1 <= `ZeroWord;
@@ -46,14 +45,13 @@ always_comb begin
 end
 
 always_comb begin
-    if(rst == `RstEnable) begin
-            rdata2 <= `ZeroWord;
-    end else if(raddr2 == `RegNumLog2'h0) begin
-            rdata2 <= `ZeroWord;
-    end else if((raddr2 == waddr) && (we == `WriteEnable) 
-                    && (re2 == `ReadEnable)) begin
+    if (rst == 1'b1) begin
+        rdata2 <= `ZeroWord;
+    end else if (raddr2 == 5'h0) begin //如果读0号寄存器
+        rdata2 <= `ZeroWord;
+    end else if ((raddr2 == waddr) && (we == 1'b1) && (re2 == 1'b1)) begin //如果读的寄存器正准备被写，直接读即将被写的值（数据前传）
         rdata2 <= wdata;
-    end else if(re2 == `ReadEnable) begin
+    end else if (re2 == 1'b1) begin
         rdata2 <= regs[raddr2];
     end else begin
         rdata2 <= `ZeroWord;

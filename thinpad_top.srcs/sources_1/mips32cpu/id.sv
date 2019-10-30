@@ -1,4 +1,4 @@
-//ID-译码模块
+//ID译码模块
 
 
 `include "constants_cpu.vh"
@@ -35,7 +35,7 @@ module id(
     input wire[`RegAddrBus] mem_wd_i
 );
 
-wire[5:0] op = inst_i[31:26];
+wire[5:0] op1 = inst_i[31:26];
 wire[4:0] op2 = inst_i[10:6];
 wire[5:0] op3 = inst_i[5:0];
 wire[4:0] op4 = inst_i[20:16];
@@ -66,7 +66,28 @@ always_comb begin
         reg1_addr_o <= inst_i[25:21];
         reg2_addr_o <= inst_i[20:16];		
         imm <= `ZeroWord;			
-        case (op)
+        case (op1)
+            `EXE_SPECIAL:begin//6'b000000
+                case (op2)
+                    5'b00000:begin
+                        case (op3)
+                            `EXE_OR:begin
+                            end
+                            `EXE_AND:begin
+                            end
+                            `EXE_XOR:begin
+                            end
+                            `EXE_NOR:begin
+                            end
+            
+                        endcase
+                    end
+                    default:begin
+                        /*nothing*/
+                    end 
+                endcase
+            end
+
             `EXE_ORI:begin
                 wreg_o <= `WriteEnable;		
                 aluop_o <= `EXE_OR_OP;
@@ -76,7 +97,17 @@ always_comb begin
                 imm <= {16'h0, inst_i[15:0]};		
                 wd_o <= inst_i[20:16];
                 instvalid <= `InstValid;	
-            end 							 
+            end 			
+            `EXE_ANDI:begin
+
+            end			
+            `EXE_XORI:begin
+            
+            end	 
+            `EXE_LUI:begin
+
+            end
+
             default:begin
                 /*nothing*/
             end

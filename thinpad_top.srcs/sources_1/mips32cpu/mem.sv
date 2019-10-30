@@ -21,7 +21,7 @@ module mem(
 always_comb begin
     if (rst == 1'b1) begin
         wd_o <= `NOPRegAddr;
-        wreg_o <= `WriteDisable;
+        wreg_o <= 1'b0;
         wdata_o <= `ZeroWord;
     end else begin
         wd_o <= wd_i;
