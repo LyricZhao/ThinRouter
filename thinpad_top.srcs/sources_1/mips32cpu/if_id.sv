@@ -14,14 +14,14 @@ module if_id(
 	
 );
 
-	always @ (posedge clk) begin
-		if (rst == `RstEnable) begin
-			id_pc <= `ZeroWord;
-			id_inst <= `ZeroWord;
-	    end else begin
-		    id_pc <= if_pc;
-		    id_inst <= if_inst;
-		end
-	end
+always_ff @ (posedge clk) begin
+    if (rst == 1'b1) begin
+        id_pc <= `ZeroWord;
+        id_inst <= `ZeroWord;
+    end else begin
+        id_pc <= if_pc;
+        id_inst <= if_inst;
+    end
+end
 
 endmodule

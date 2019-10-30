@@ -21,17 +21,17 @@ module ex_mem(
 );
 
 
-	always @ (posedge clk) begin
-		if(rst == `RstEnable) begin
-			mem_wd <= `NOPRegAddr;
-			mem_wreg <= `WriteDisable;
-		  mem_wdata <= `ZeroWord;	
-		end else begin
-			mem_wd <= ex_wd;
-			mem_wreg <= ex_wreg;
-			mem_wdata <= ex_wdata;			
-		end    //if
-	end      //always
+always_ff @ (posedge clk) begin
+    if (rst == 1'b1) begin
+        mem_wd <= `NOPRegAddr;
+        mem_wreg <= `WriteDisable;
+        mem_wdata <= `ZeroWord;	
+    end else begin
+        mem_wd <= ex_wd;
+        mem_wreg <= ex_wreg;
+        mem_wdata <= ex_wdata;			
+    end
+end
 			
 
 endmodule
