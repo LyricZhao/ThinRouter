@@ -153,14 +153,24 @@ always_ff @ (posedge clk_internal) begin
             end
             Receiving: begin
                 case(bytes_read)
-                    6:  begin
-                        // todo: 检查目标 MAC，若不是广播任何已知地址则丢包
-                        // case(frame_in[367:320])
-                        //     `ROUTER_MAC, '1: ;
-                        //     default: begin
-                        //         `BAD_EXIT("MAC not matched");
-                        //     end
-                        // endcase
+                    // 接受了 VLAN ID
+                    16: begin
+                        // 根据端口设置 frame_out 的 MAC
+                        case(frame_in[251:240])
+                            1: begin
+                                frame_out[319:272] <= `ROUTER_MAC_1;
+                            end
+                            2: begin
+                                frame_out[319:272] <= `ROUTER_MAC_2;
+                            end
+                            3: begin
+                                frame_out[319:272] <= `ROUTER_MAC_3;
+                            end
+                            4: begin
+                                frame_out[319:272] <= `ROUTER_MAC_4;
+                            end
+                        endcase
+                        // todo 检查目标 MAC 和 VLAN ID 是否匹配
                     end
                     18: begin
                         // 检查协议是否为 ARP 或 IP
@@ -199,21 +209,26 @@ always_ff @ (posedge clk_internal) begin
                         end
                     end
                     38: begin
-                        // todo: 把赋值操作摊到之前的时候
                         // 如果是 IP 包，这里要开始处理
                         if (protocol == IPv4) begin
                             state <= IpRunning;
-                            // 一些东西可以直接填充
-                            frame_out[319:272] <= `ROUTER_MAC;
+                            // [367:320]    目标 MAC    等待处理
+                            // [319:272]    来源 MAC    已经在 16 处理
+                            // VLAN
                             frame_out[271:252] <= frame_in[271:252];
-                            // [251:240]    查表 VLAN ID
+                            // [251:240]    VLAN ID     需要后面查表
+                            // IP header
                             frame_out[239:160] <= frame_in[239:160];
+                            // TTL -= 1
                             frame_out[159:152] <= frame_in[159:152] - 1;
+                            // IP header
                             frame_out[151:144] <= frame_in[151:144];
+                            // IP header checksum
                             if (frame_in[143:136] == '1)
                                 frame_out[143:136] <= 8'h1;
                             else
                                 frame_out[143:136] <= frame_in[143:136] + 1;
+                            // IP header src&dst IP
                             frame_out[135:64] <= frame_in[135:64];
                         end
                     end
@@ -221,15 +236,17 @@ always_ff @ (posedge clk_internal) begin
                         // 如果是 ARP 包，这里要开始处理
                         if (protocol == ARP) begin
                             state <= ArpRunning;
-                            // 一些东西可以直接填充
+                            // 目标 MAC     直接回复发出者
                             frame_out[367:320] <= frame_in[319:272];
-                            frame_out[319:272] <= `ROUTER_MAC;
+                            // [319:272]    来源 MAC    已经在 16 处理
+                            // ARP 各种内容
                             frame_out[271:176] <= frame_in[271:176];
+                            // ARP Reply
                             frame_out[175:160] <= 16'h2;
-                            // [159:112]    查表 MAC
+                            // [159:112]    来源 MAC    需要后面查表
                             frame_out[111:80] <= frame_in[31:0];
-                            frame_out[79:32] <= frame_in[159:112];
-                            frame_out[31:0] <= frame_in[111:80];
+                            // 返回给 MAC 和 IP
+                            frame_out[79:0] <= frame_in[159:80];
                         end
                     end
                 endcase
