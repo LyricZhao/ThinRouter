@@ -47,8 +47,8 @@ wire bad;               // packet_manager 在解析时随时可能置 1，此时
 wire [367:0] frame_out; // packet_manager 处理后的需要发走的包
 wire out_ready;         // packet_manager 处理完成信号
 byte out_bytes;         // packet_manager 处理完成后，表示需要从 frame_out 发送多少字节
-wire require_direct_fw; // packet_manager 表示需要在接受了 direct_fw_offset 字节后暂停，后续的 IP 包 data 部分不走那里，直接转发
-byte direct_fw_offset;  // 
+wire require_direct_fw; // packet_manager 表示需要在接受了 stop_at 字节后暂停，后续的 IP 包 data 部分不走那里，直接转发
+byte stop_at;  // 
 int  fw_bytes;          // 需要直接转发的字节数
 
 // 状态
@@ -88,7 +88,7 @@ packet_manager packet_manager_inst (
     .out_bytes(out_bytes),
 
     .require_direct_fw(require_direct_fw),
-    .direct_fw_offset(direct_fw_offset),
+    .stop_at(stop_at),
     .fw_bytes(fw_bytes)
 );
 
@@ -155,11 +155,19 @@ always_ff @ (posedge clk_io) begin
                         $write("frame_in completed\n\t");
                         `DISPLAY_BITS(frame_in, 367, 360 - bytes_read * 8);
                         state <= Waiting;
-                    // 或者到达 IP 包 data 前了，也暂停等待处理
-                    end else if (bytes_read == 45 || (require_direct_fw && bytes_read + 1 == direct_fw_offset)) begin
-                        $write("IP header completed\n\t");
-                        `DISPLAY_BITS(frame_in, 367, 360 - bytes_read * 8);
-                        state <= Waiting;
+                    // 或者到达 packet_manager 提供的结束位置了
+                    end else if (bytes_read + 1 == stop_at) begin
+                        if (require_direct_fw) begin
+                            // IP 包需要转发 data
+                            $write("IP header completed\n\t");
+                            `DISPLAY_BITS(frame_in, 367, 360 - bytes_read * 8);
+                            state <= Waiting;
+                        end else begin
+                            // 单纯的包结束
+                            $write("frame_in completed\n\t");
+                            `DISPLAY_BITS(frame_in, 367, 360 - bytes_read * 8);
+                            state <= Waiting;
+                        end
                     end
                 end
             end
@@ -191,10 +199,14 @@ always_ff @ (posedge clk_io) begin
                         if (require_direct_fw) begin
                             $write("\nand forwarding...\n\t");
                             state <= Forwarding;
-                        end else begin
+                        end else if (packet_ended) begin
                             $display("LAST");
                             tx_last <= 1;
                             state <= Idle;
+                        end else begin
+                            tx_last <= 1;
+                            $write("Discarding... ");
+                            state <= Discarding;
                         end
                     end
                 end else begin
@@ -240,6 +252,8 @@ always_ff @ (posedge clk_io) begin
             end
 
             Discarding: begin
+                tx_last <= 0;
+                tx_valid <= 0;
                 if (rx_valid && rx_last) begin
                     $display("complete");
                     state <= Idle;
@@ -282,7 +296,7 @@ digit_loop debug_send (
 // 丢包显示在低位数码管
 digit_loop debug_discard (
     .rst_n(rst_n),
-    .clk(debug_discard_signal),
+    .clk(bad),
     .digit(digit0_out)
 );
 

@@ -14,8 +14,8 @@ todo: 处理错误格式的包
     对于 IP 包，会提前计算头长度，让 io_manager 从那里开始自己直接转发
     -   发现是 IP 包后（且后面有 data 需要直接转发）：
         require_direct_fw 置 1
-        direct_fw_offset 置 data 开始的位置
-    -   io_manager 停在 direct_fw_offset 的位置
+        stop_at 置 data 开始的位置
+    -   io_manager 停在 stop_at 的位置
         rx_ready 置 0，等待此模块处理完
     -   此模块生成新的 header 在 frame_out
         其长度在 out_bytes （默认 20）
@@ -97,7 +97,7 @@ module packet_manager (
     output  byte    out_bytes,          // 输出网帧大小（字节）
 
     output  bit     require_direct_fw,  // 要求父模块进行直接转发
-    output  byte    direct_fw_offset,   // 从哪里开始直接转发
+    output  byte    stop_at,            // 从哪里停止（结束或需要转发）
     output  int     fw_bytes            // 转发大小（字节）
 );
 
@@ -119,7 +119,7 @@ enum logic {
     IPv4
 } protocol;     // 目前读取的网帧采用的协议，在读取 18 字节后确定
 
-bit arp_entry_valid;            // 让 arp_manager 写记录的信号，可能拉高不止一拍
+bit  arp_entry_valid;           // 让 arp_manager 写记录的信号，可能拉高不止一拍
 wire [47:0] arp_mac_result;     // arp_manager 查询结果
 wire [2:0]  arp_vlan_result;    // arp_manager 查询结果
 wire arp_found;                 // 是否查询到了结果
@@ -128,13 +128,15 @@ arp_manager arp_manager_inst (
     .clk_internal(clk_internal),
     .rst_n(rst_n),
 
-    .valid(arp_entry_valid),
-    .ip_input(frame_in[111:80]),
+    .valid(arp_entry_valid),            // 让 arp_manager 写记录的信号，可能拉高不止一拍
+    // 给 arp_manager 提供写入 / 查询的 IP 地址
+    // 对于 ARP 包写入，用 [111:80]；对于 IP 包查询，用 [95:64]
+    .ip_input(state == Receiving ? frame_in[111:80] : frame_in[95:64]),
     .mac_input(frame_in[159:112]),
     .vlan_input(frame_in[242:240]),
-    .mac_output(arp_mac_result),
-    .vlan_output(arp_vlan_result),
-    .found(arp_found)
+    .mac_output(arp_mac_result),        // arp_manager 查询结果
+    .vlan_output(arp_vlan_result),      // arp_manager 查询结果
+    .found(arp_found)                   // 是否查询到了结果
 );
 
 always_ff @ (posedge clk_internal) begin
@@ -145,7 +147,7 @@ always_ff @ (posedge clk_internal) begin
         out_ready <= 0;
         out_bytes <= 0;
         require_direct_fw <= 0;
-        direct_fw_offset <= 0;
+        stop_at <= 0;
 
         // ARP 表的信号
         arp_entry_valid <= 0;
@@ -165,7 +167,7 @@ always_ff @ (posedge clk_internal) begin
             out_ready <= 0;
             out_bytes <= 0;
             require_direct_fw <= 0;
-            direct_fw_offset <= 0;
+            stop_at <= 0;
         end
     end else begin
         case(state)
@@ -202,6 +204,7 @@ always_ff @ (posedge clk_internal) begin
                                     `BAD_EXIT("User cancelled");
                                 end else begin
                                     protocol <= ARP;
+                                    stop_at <= 46;
                                     // 如果目标 MAC 不是广播则丢包
                                     if (frame_in[367:320] != '1) begin
                                         `BAD_EXIT("Invalid Dst MAC for ARP");
@@ -211,8 +214,10 @@ always_ff @ (posedge clk_internal) begin
                             16'h0800: begin
                                 if (btn[0]) begin
                                     `BAD_EXIT("User cancelled");
-                                end else
+                                end else begin
                                     protocol <= IPv4;
+                                    stop_at <= 38;
+                                end
                             end
                             default: begin
                                 `DISPLAY_BITS(frame_in, 367, 0);
@@ -226,7 +231,7 @@ always_ff @ (posedge clk_internal) begin
                         if (protocol == IPv4 && frame_in[207:192] > 20) begin
                             // 具有 data 包，则需要 io_manager 从 header 结束之后直接转发 data
                             require_direct_fw <= 1;
-                            direct_fw_offset <= 38;
+                            stop_at <= 38;
                             fw_bytes <= frame_in[207:192] - 20;
                         end
                     end
