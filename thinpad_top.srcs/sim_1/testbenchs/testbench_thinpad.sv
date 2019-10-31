@@ -143,13 +143,6 @@ sram_model ext2(
             .LB_n(ext_ram_be_n[2]),
             .UB_n(ext_ram_be_n[3]));
 
-// 初始按一下 reset
-initial begin
-    reset_btn = 1;
-    #100;
-    reset_btn = 0;
-end
-
 // RGMII 仿真模型 这里从testbench_eth_frame的rgmmi上接过去
 rgmii_model rgmii(
     .clk_125M(clk_125M),
