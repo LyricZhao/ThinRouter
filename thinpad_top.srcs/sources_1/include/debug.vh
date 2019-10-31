@@ -8,3 +8,6 @@
     for (int _i = hi; _i > lo; _i = _i - 8) \
         $write("%x ", data[_i -: 8]); \
     $display("")
+`define WRITE_BITS(data, hi, lo) \
+    for (int _i = hi; _i > lo; _i = _i - 8) \
+        $write("%x ", data[_i -: 8]);
