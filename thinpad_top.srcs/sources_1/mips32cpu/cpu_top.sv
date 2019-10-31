@@ -19,7 +19,6 @@ wire[`InstBus] id_inst_i;
 
 
 wire[`AluOpBus] id_aluop_o;
-wire[`AluSelBus] id_alusel_o;
 wire[`RegBus] id_reg1_o;
 wire[`RegBus] id_reg2_o;
 wire id_wreg_o;
@@ -27,7 +26,6 @@ wire[`RegAddrBus] id_wd_o;
 
 
 wire[`AluOpBus] ex_aluop_i;
-wire[`AluSelBus] ex_alusel_i;
 wire[`RegBus] ex_reg1_i;
 wire[`RegBus] ex_reg2_i;
 wire ex_wreg_i;
@@ -52,8 +50,7 @@ wire wb_wreg_i;
 wire[`RegAddrBus] wb_wd_i;
 wire[`RegBus] wb_wdata_i;
 
-wire reg1_read;
-wire reg2_read;
+
 wire[`RegBus] reg1_data;
 wire[`RegBus] reg2_data;
 wire[`RegAddrBus] reg1_addr;
@@ -88,16 +85,13 @@ id id0(
 
     .reg1_data_i(reg1_data),
     .reg2_data_i(reg2_data),
-
-    .reg1_read_o(reg1_read),
-    .reg2_read_o(reg2_read), 	  
+	  
 
     .reg1_addr_o(reg1_addr),
     .reg2_addr_o(reg2_addr), 
     
 
     .aluop_o(id_aluop_o),
-    .alusel_o(id_alusel_o),
     .reg1_o(id_reg1_o),
     .reg2_o(id_reg2_o),
     .wd_o(id_wd_o),
@@ -118,10 +112,8 @@ regfile regfile1(
     .we	(wb_wreg_i),
     .waddr (wb_wd_i),
     .wdata (wb_wdata_i),
-    .re1 (reg1_read),
     .raddr1 (reg1_addr),
     .rdata1 (reg1_data),
-    .re2 (reg2_read),
     .raddr2 (reg2_addr),
     .rdata2 (reg2_data)
 );
@@ -132,7 +124,6 @@ id_ex id_ex0(
     .rst(rst),
     
     .id_aluop(id_aluop_o),
-    .id_alusel(id_alusel_o),
     .id_reg1(id_reg1_o),
     .id_reg2(id_reg2_o),
     .id_wd(id_wd_o),
@@ -140,7 +131,6 @@ id_ex id_ex0(
 
 
     .ex_aluop(ex_aluop_i),
-    .ex_alusel(ex_alusel_i),
     .ex_reg1(ex_reg1_i),
     .ex_reg2(ex_reg2_i),
     .ex_wd(ex_wd_i),
@@ -152,7 +142,6 @@ ex ex0(
     .rst(rst),
 
     .aluop_i(ex_aluop_i),
-    .alusel_i(ex_alusel_i),
     .reg1_i(ex_reg1_i),
     .reg2_i(ex_reg2_i),
     .wd_i(ex_wd_i),

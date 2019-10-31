@@ -10,11 +10,9 @@ module regfile(
 	input wire[`RegAddrBus] waddr,
 	input wire[`RegBus]	wdata,
 	
-	input wire re1,
 	input wire[`RegAddrBus] raddr1,
 	output reg[`RegBus] rdata1,
 	
-	input wire re2,
 	input wire[`RegAddrBus] raddr2,
 	output reg[`RegBus] rdata2
 	
@@ -35,12 +33,10 @@ always_comb begin
         rdata1 <= `ZeroWord;
     end else if (raddr1 == 5'h0) begin //如果读0号寄存器
         rdata1 <= `ZeroWord;
-    end else if ((raddr1 == waddr) && (we == 1'b1) && (re1 == 1'b1)) begin //如果读的寄存器正准备被写，直接读即将被写的值
-        rdata1 <= wdata;
-    end else if (re1 == 1'b1) begin
-        rdata1 <= regs[raddr1];
+    end else if ((raddr1 == waddr) && (we == 1'b1)) begin //如果读的寄存器正准备被写，直接读即将被写的值
+        rdata1 <= wdata;      
     end else begin
-        rdata1 <= `ZeroWord;
+        rdata1 <= regs[raddr1];
     end
 end
 
@@ -49,12 +45,10 @@ always_comb begin
         rdata2 <= `ZeroWord;
     end else if (raddr2 == 5'h0) begin //如果读0号寄存器
         rdata2 <= `ZeroWord;
-    end else if ((raddr2 == waddr) && (we == 1'b1) && (re2 == 1'b1)) begin //如果读的寄存器正准备被写，直接读即将被写的值（数据前传）
+    end else if ((raddr2 == waddr) && (we == 1'b1)) begin //如果读的寄存器正准备被写，直接读即将被写的值（数据前传）
         rdata2 <= wdata;
-    end else if (re2 == 1'b1) begin
-        rdata2 <= regs[raddr2];
     end else begin
-        rdata2 <= `ZeroWord;
+        rdata2 <= regs[raddr2];
     end
 end
 

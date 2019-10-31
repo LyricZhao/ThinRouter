@@ -13,18 +13,15 @@ module id(
 	input wire[`RegBus]           reg2_data_i,
 
 	
-	output reg                    reg1_read_o,//是否读寄存器1
-	output reg                    reg2_read_o,//是否读寄存器2
 	output reg[`RegAddrBus]       reg1_addr_o,//要读的寄存器1的编号
 	output reg[`RegAddrBus]       reg2_addr_o,//要读的寄存器2的编号
 	
 	
 	output reg[`AluOpBus]         aluop_o,
-	output reg[`AluSelBus]        alusel_o,
 	output reg[`RegBus]           reg1_o,//寄存器1读出来的数
-	output reg[`RegBus]           reg2_o,//寄存器2读出来的数
-	output reg[`RegAddrBus]       wd_o,
-	output reg                    wreg_o,
+	output reg[`RegBus]           reg2_o,//寄存器2读出来的数，或者立即数的值
+	output reg[`RegAddrBus]       wd_o,//需要被写入的寄存器编号
+	output reg                    wreg_o,//是否需要写入
 
     input wire ex_wreg_i,//从执行阶段是否来数据
     input wire[`RegBus] ex_wdata_i,//需写入的数据
@@ -40,16 +37,15 @@ wire[4:0] op2 = inst_i[10:6];
 wire[5:0] op3 = inst_i[5:0];
 wire[4:0] op4 = inst_i[20:16];
 reg[`RegBus]imm;
-reg instvalid;
 
+reg reg1_read_o;//是否读寄存器1
+reg reg2_read_o;//是否读寄存器2
 
 always_comb begin	
     if (rst == 1'b1) begin
         aluop_o <= `EXE_NOP_OP;
-        alusel_o <= `EXE_RES_NOP;
         wd_o <= `NOPRegAddr;
         wreg_o <= `WriteDisable;
-        instvalid <= `InstValid;
         reg1_read_o <= 1'b0;
         reg2_read_o <= 1'b0;
         reg1_addr_o <= `NOPRegAddr;
@@ -57,10 +53,8 @@ always_comb begin
         imm <= 32'h0;			
     end else begin
         aluop_o <= `EXE_NOP_OP;
-        alusel_o <= `EXE_RES_NOP;
         wd_o <= inst_i[15:11];
-        wreg_o <= `WriteDisable;
-        instvalid <= `InstInvalid;	   
+        wreg_o <= `WriteDisable;   
         reg1_read_o <= 1'b0;
         reg2_read_o <= 1'b0;
         reg1_addr_o <= inst_i[25:21];
@@ -72,14 +66,40 @@ always_comb begin
                     5'b00000:begin
                         case (op3)
                             `EXE_OR:begin
+                                wreg_o <= 1'b1;//将是否write back 的信号后传
+                                aluop_o <= `EXE_OR_OP;
+                                reg1_read_o <= 1'b1;
+                                reg2_read_o <= 1'b1;
+                                wd_o <= inst_i[15:11];
                             end
                             `EXE_AND:begin
+                                wreg_o <= 1'b1;//将是否write back 的信号后传
+                                aluop_o <= `EXE_AND_OP;
+                                reg1_read_o <= 1'b1;
+                                reg2_read_o <= 1'b1;
+                                wd_o <= inst_i[15:11];
                             end
                             `EXE_XOR:begin
+                                wreg_o <= 1'b1;//将是否write back 的信号后传
+                                aluop_o <= `EXE_XOR_OP;
+                                reg1_read_o <= 1'b1;
+                                reg2_read_o <= 1'b1;
+                                wd_o <= inst_i[15:11];
                             end
                             `EXE_NOR:begin
+                                wreg_o <= 1'b1;//将是否write back 的信号后传
+                                aluop_o <= `EXE_NOR_OP;
+                                reg1_read_o <= 1'b1;
+                                reg2_read_o <= 1'b1;
+                                wd_o <= inst_i[15:11];
                             end
-            
+                            `EXE_ADDU:begin
+                                wreg_o <= 1'b1;//将是否write back 的信号后传
+                                aluop_o <= `EXE_ADDU_OP;
+                                reg1_read_o <= 1'b1;
+                                reg2_read_o <= 1'b1;
+                                wd_o <= inst_i[15:11];
+                            end            
                         endcase
                     end
                     default:begin
@@ -88,24 +108,45 @@ always_comb begin
                 endcase
             end
 
+            `EXE_ADDIU:begin
+                wreg_o <= 1'b1;		
+                aluop_o <= `EXE_ADDU_OP;
+                reg1_read_o <= 1'b1;	
+                reg2_read_o <= 1'b0;	  	
+                imm <= {{16{inst_i[15]}}, inst_i[15:0]};		
+                wd_o <= inst_i[20:16];	
+            end 
             `EXE_ORI:begin
-                wreg_o <= `WriteEnable;		
+                wreg_o <= 1'b1;		
                 aluop_o <= `EXE_OR_OP;
-                alusel_o <= `EXE_RES_LOGIC; 
+                reg1_read_o <= 1'b1;	
+                reg2_read_o <= 1'b0;	  	
+                imm <= {16'h0, inst_i[15:0]};		
+                wd_o <= inst_i[20:16];	
+            end 			
+            `EXE_ANDI:begin
+                wreg_o <= 1'b1;		
+                aluop_o <= `EXE_AND_OP;
                 reg1_read_o <= 1'b1;	
                 reg2_read_o <= 1'b0;	  	
                 imm <= {16'h0, inst_i[15:0]};		
                 wd_o <= inst_i[20:16];
-                instvalid <= `InstValid;	
-            end 			
-            `EXE_ANDI:begin
-
             end			
             `EXE_XORI:begin
-            
+                wreg_o <= 1'b1;		
+                aluop_o <= `EXE_XOR_OP;
+                reg1_read_o <= 1'b1;	
+                reg2_read_o <= 1'b0;	  	
+                imm <= {16'h0, inst_i[15:0]};		
+                wd_o <= inst_i[20:16];            
             end	 
             `EXE_LUI:begin
-
+                wreg_o <= 1'b1;		
+                aluop_o <= `EXE_LUI_OP;
+                reg1_read_o <= 1'b1;	
+                reg2_read_o <= 1'b0;	  	
+                imm <= {inst_i[15:0], 16'h0};//左移16位，低位补0		
+                wd_o <= inst_i[20:16];     
             end
 
             default:begin
@@ -116,7 +157,7 @@ always_comb begin
 end   
 
 
-always @ (*) begin
+always_comb begin
     if (rst == 1'b1) begin
         reg1_o <= `ZeroWord;
     end else if ((reg1_read_o == 1'b1) && (ex_wreg_i == 1'b1) && (ex_wd_i == reg1_addr_o)) begin //如果要读的寄存器1与EX阶段要写的寄存器相同，则直接读入要写的值
@@ -132,7 +173,7 @@ always @ (*) begin
     end
 end
 
-always @ (*) begin
+always_comb begin
     if (rst == 1'b1) begin
         reg2_o <= `ZeroWord;
     end else if ((reg2_read_o == 1'b1) && (ex_wreg_i == 1'b1) && (ex_wd_i == reg2_addr_o)) begin //如果要读的寄存器2与EX阶段要写的寄存器相同，则直接读入要写的值
