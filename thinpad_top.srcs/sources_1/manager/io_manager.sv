@@ -153,19 +153,22 @@ always_ff @ (posedge clk_io) begin
                     if (rx_last) begin
                         packet_ended <= 1;
                         $write("frame_in completed\n\t");
-                        `DISPLAY_BITS(frame_in, 367, 360 - bytes_read * 8);
+                        `WRITE_BITS(frame_in, 367, 368 - bytes_read * 8);
+                        $display("%x", rx_data);
                         state <= Waiting;
-                    // 或者到达 packet_manager 提供的结束位置了
+                    // 或者到达 IP 包 data 前了，也暂停等待处理
                     end else if (bytes_read + 1 == stop_at) begin
                         if (require_direct_fw) begin
                             // IP 包需要转发 data
                             $write("IP header completed\n\t");
-                            `DISPLAY_BITS(frame_in, 367, 360 - bytes_read * 8);
+                            `WRITE_BITS(frame_in, 367, 368 - bytes_read * 8);
+                            $display("%x", rx_data);
                             state <= Waiting;
                         end else begin
                             // 单纯的包结束
                             $write("frame_in completed\n\t");
-                            `DISPLAY_BITS(frame_in, 367, 360 - bytes_read * 8);
+                            `WRITE_BITS(frame_in, 367, 368 - bytes_read * 8);
+                            $display("%x", rx_data);
                             state <= Waiting;
                         end
                     end
