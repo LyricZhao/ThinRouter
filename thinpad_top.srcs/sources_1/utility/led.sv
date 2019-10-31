@@ -74,6 +74,7 @@ endmodule
 // 00-99
 module digit_dec_count (
     input   wire    clk,
+    input   wire    lock,
     output  wire    [7:0] digit0,
     output  wire    [7:0] digit1
 );
@@ -82,14 +83,16 @@ bit [3:0] value1 = '0;
 digit_hex lo(value0, digit0);
 digit_hex hi(value1, digit1);
 always_ff @ (posedge clk) begin
-    if (value0 == 9) begin
-        value0 <= 0;
-        if (value1 == 9) 
-            value1 <= 0;
-        else
-            value1 <= value1 + 1;
-    end else 
-        value0 <= value0 + 1;
+    if (!lock) begin
+        if (value0 == 9) begin
+            value0 <= 0;
+            if (value1 == 9) 
+                value1 <= 0;
+            else
+                value1 <= value1 + 1;
+        end else 
+            value0 <= value0 + 1;
+    end
 end
 endmodule
 
@@ -97,9 +100,11 @@ endmodule
 module digit_loop (
     input   wire    clk,
     input   wire    rst_n,
-    output  bit     [7:0] digit
+    output  wire    [7:0] digit_out
 );
 bit [2:0] cnt = '0;
+bit [7:0] digit = 8'b11111111;
+assign digit_out = digit;
 always_comb begin
     if (~rst_n) begin
         digit = 8'b11111111;
@@ -131,20 +136,27 @@ endmodule
 // 数码管循环亮灯
 module digit_loop_alt (
     input   wire    clk,
-    output  bit     [7:0] digit
+    input   wire    rst_n,
+    output  wire    [7:0] digit_out
 );
 bit [2:0] cnt = '0;
+bit [7:0] digit = 8'b11111111;
+assign digit_out = digit;
 always_comb
-    case (cnt)
-        0: digit = 8'b00010000;
-        1: digit = 8'b00100000;
-        2: digit = 8'b01000000;
-        3: digit = 8'b10000000;
-        4: digit = 8'b00000010;
-        5: digit = 8'b00000100;
-        6: digit = 8'b00001000;
-        7: digit = 8'b10000000;
-    endcase
+    if (~rst_n) begin
+        digit = 8'b11111111;
+    end else begin
+        case (cnt)
+            0: digit = 8'b00010000;
+            1: digit = 8'b00100000;
+            2: digit = 8'b01000000;
+            3: digit = 8'b10000000;
+            4: digit = 8'b00000010;
+            5: digit = 8'b00000100;
+            6: digit = 8'b00001000;
+            7: digit = 8'b10000000;
+        endcase
+    end
 always_ff @ (posedge clk) begin
     cnt <= cnt + 1;
 end

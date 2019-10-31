@@ -286,18 +286,49 @@ led_loop debug_incoming (
     .led(led_out)
 );
 
+wire [7:0] ip_digit0, ip_digit1, arp_digit0, arp_digit1, send_digit, discard_digit;
+
+// 记录 IP 包转发数量
+digit_dec_count ip_counter (
+    .clk(debug_send_signal),
+    .lock(frame_in[239:224] != 16'h0800),
+    .digit0(ip_digit0),
+    .digit1(ip_digit1)
+);
+
+// 记录 ARP 包转发数量
+digit_dec_count arp_counter (
+    .clk(debug_send_signal),
+    .lock(frame_in[239:224] != 16'h0806),
+    .digit0(arp_digit0),
+    .digit1(arp_digit1)
+);
+
 // 正常发包显示在高位数码管
 digit_loop debug_send (
     .rst_n(rst_n),
     .clk(debug_send_signal),
-    .digit(digit1_out)
+    .digit_out(send_digit)
 );
 
 // 丢包显示在低位数码管
 digit_loop debug_discard (
     .rst_n(rst_n),
-    .clk(bad),
-    .digit(digit0_out)
+    .clk(debug_discard_signal),
+    .digit_out(discard_digit)
 );
+
+/*
+普通:
+    高位显示发送，低位显示丢弃
+按下 btn0:
+    显示 IP 包转发数量
+按下 btn1:
+    显示 ARP 包转发数量
+*/
+assign {digit0_out, digit1_out} = 
+    btn[0] ? {ip_digit0, ip_digit1} :
+    btn[1] ? {arp_digit0, arp_digit1} :
+    {discard_digit, send_digit};
 
 endmodule

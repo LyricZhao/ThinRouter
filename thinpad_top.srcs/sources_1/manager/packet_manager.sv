@@ -200,24 +200,16 @@ always_ff @ (posedge clk_internal) begin
                         // 检查协议是否为 ARP 或 IP
                         case(frame_in[239:224])
                             16'h0806: begin
-                                if (btn[1]) begin
-                                    `BAD_EXIT("User cancelled");
-                                end else begin
-                                    protocol <= ARP;
-                                    stop_at <= 46;
-                                    // 如果目标 MAC 不是广播则丢包
-                                    if (frame_in[367:320] != '1) begin
-                                        `BAD_EXIT("Invalid Dst MAC for ARP");
-                                    end
+                                protocol <= ARP;
+                                stop_at <= 46;
+                                // 如果目标 MAC 不是广播则丢包
+                                if (frame_in[367:320] != '1) begin
+                                    `BAD_EXIT("Invalid Dst MAC for ARP");
                                 end
                             end
                             16'h0800: begin
-                                if (btn[0]) begin
-                                    `BAD_EXIT("User cancelled");
-                                end else begin
-                                    protocol <= IPv4;
-                                    stop_at <= 38;
-                                end
+                                protocol <= IPv4;
+                                stop_at <= 38;
                             end
                             default: begin
                                 `DISPLAY_BITS(frame_in, 367, 0);
@@ -270,11 +262,11 @@ always_ff @ (posedge clk_internal) begin
                             frame_out[151:144] <= frame_in[151:144];
                             // IP header checksum
                             if (frame_in[143:136] == '1)
-                                frame_out[143:136] <= 8'h1;
+                                frame_out[143:128] <= frame_in[143:128] + 16'h101;
                             else
-                                frame_out[143:136] <= frame_in[143:136] + 1;
+                                frame_out[143:128] <= frame_in[143:128] + 16'h100;
                             // IP header src&dst IP
-                            frame_out[135:64] <= frame_in[135:64];
+                            frame_out[127:64] <= frame_in[127:64];
                         end
                     end
                     // ARP 结束
