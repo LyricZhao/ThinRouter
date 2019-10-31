@@ -9,15 +9,8 @@
 如果以 "expect:    " 开头，则为 hex 表示的应当返回的数据包，以 FFF 结束
 如果以 "discard"     开头，则表示前面一个数据包应当被丢弃
 
-todo: 
+todo:
 连上 IP 表、ARP 表后有对应的测例
-
-目前涉及的 MAC 都还只从以下值抽取:
-    ROUTER: a8:88:08:88:88:88   @0  10.0.4.1
-    TYX:    00:e0:4c:68:06:e2   @0  10.0.4.2
-    ZCG:    00:0e:c6:cb:3d:c0   @1  10.0.4.3
-    WZY:    a4:4c:c8:0e:e0:95   @2  10.0.4.4
-    EXT:    9c:eb:e8:b4:e7:e4   @3  10.0.4.5
 
 ARP 包:
 -8  0x55555555555555D5  Preamble
@@ -71,9 +64,6 @@ IP 包:
 
 不完整包:
 任何包在意料不到的位置中断
-
-CRC 有误包:
-CRC 有问题
 """
 from __future__ import annotations
 from typing import *
@@ -84,6 +74,7 @@ import os
 import struct
 import zlib
 import json
+import re
 
 
 def chance(c: float) -> bool:
@@ -127,66 +118,33 @@ def wrong_usage_exit():
     exit(0)
 
 
-# MAC & VLAN ID
 class MAC:
-    used: Set[MAC] = set()  # 使用过的 MAC 地址
+    @staticmethod
+    def get_broadcast() -> MAC:
+        return MAC('ff:ff:ff:ff:ff:ff')
 
     @staticmethod
-    def test():
-        mac = MAC.get_random()
-        print(mac)
-        print(mac.raw)
-        print(mac.hex)
+    def get_none() -> MAC:
+        return MAC(0)
 
     @staticmethod
-    def get_broadcast():
-        return MAC(0xff_ff_ff_ff_ff_ff, 0)
+    def get_random() -> MAC:
+        return MAC(random.randrange(16 ** 12))
 
-    @staticmethod
-    def get_none():
-        return MAC(0, 0)
-
-    @staticmethod
-    def get_random():
-        # return MAC(random.randrange(16 ** 12), random.randrange(4))
-        return MAC(*random.choice([
-            (0xa8_88_08_88_88_88, 0),
-            (0x00_e0_4c_68_06_e2, 0),
-            (0x00_0e_c6_cb_3d_c0, 1),
-            (0xa4_4c_c8_0e_e0_95, 2),
-            (0x9c_eb_e8_b4_e7_e4, 3)
-        ]))
-
-    @staticmethod
-    def get_used():
-        """
-        生成一个用过的 MAC 地址
-        """
-        if len(MAC.used) == 0:
-            return MAC.get_random()
+    def __init__(self, value: Union[str, int]):
+        if type(value) is str:
+            self.value = int(re.sub(':', '', value), base=16)
+        elif type(value) is int:
+            self.value = value
         else:
-            return random.choice(list(MAC.used))
-
-    @staticmethod
-    def get_unused():
-        """
-        生成一个没有用过的 MAC 地址
-        """
-        mac = MAC(random.randrange(16 ** 12), random.randrange(4))
-        while mac in MAC.used:
-            mac = MAC(random.randrange(16 ** 12), random.randrange(4))
-        return mac
-
-    def __init__(self, value, vlan_id):
-        self.value = value
-        self.vlan_id = vlan_id
+            raise TypeError()
 
     @property
     def hex(self) -> str:
         """
         生成保存在测例文件中的 hex 串
         """
-        return '%s%s %s%s %s%s %s%s %s%s %s%s ' % tuple('%012X' % self.value)
+        return big_hex(self.value, 6)
 
     @property
     def raw(self) -> bytearray:
@@ -212,51 +170,32 @@ class MAC:
 
 
 class IP:
-    used: Set[IP] = set()   # 使用过的 IP 地址
-
     @staticmethod
-    def test():
-        ip = IP.get_random()
-        print(ip)
-        print(ip.raw)
-        print(ip.hex)
-
-    @staticmethod
-    def get_random():
-        # return IP(random.randrange(16 ** 8))
-        return IP(random.choice([
-            0x0a000401, 0x0a000402, 0x0a000403, 0x0a000404, 0x0a000405
-        ]))
-
-    @staticmethod
-    def get_used():
+    def get_random(router: IP, mask: int) -> IP:
         """
-        生成一个用过的 IP 地址
+        返回路由器子网内但不同于路由器的 IP 地址
         """
-        if len(IP.used) == 0:
-            return IP.get_random()
+        addr = router.value
+        while addr == router.value:
+            addr &= 0xffffffff << (32 - mask)
+            addr += random.randrange(16 ** 8) & (0xffffffff >> mask)
+        return IP(addr)
+
+    def __init__(self, value: Union[str, int]):
+        if type(value) is str:
+            self.value = int(''.join('%02x' % int(v)
+                                     for v in value.split('.')), base=16)
+        elif type(value) is int:
+            self.value = value
         else:
-            return random.choice(list(IP.used))
-
-    @staticmethod
-    def get_unused():
-        """
-        生成一个没有用过的 IP 地址
-        """
-        ip = IP(random.randrange(16 ** 8))
-        while ip in IP.used:
-            ip = IP(random.randrange(16 ** 12))
-        return ip
-
-    def __init__(self, value):
-        self.value = value
+            raise TypeError()
 
     @property
-    def hex(self):
+    def hex(self) -> str:
         """
         生成保存在测例文件中的 hex 串
         """
-        return '%s%s %s%s %s%s %s%s ' % tuple('%08X' % self.value)
+        return big_hex(self.value, 4)
 
     def __str__(self):
         """
@@ -279,7 +218,7 @@ class IP:
 
 
 class ArpRequest:
-    def __init__(self, dst_ip, src_mac, src_ip):
+    def __init__(self, dst_ip: IP, src_mac: MAC, src_ip: IP):
         self.dst_mac = MAC.get_none()
         self.dst_ip = dst_ip
         self.src_mac = src_mac
@@ -306,7 +245,16 @@ class ArpRequest:
 
 
 class IpRequest:
-    def __init__(self, dst_ip, src_ip):
+    dst_ip: IP
+    src_ip: IP
+    id: int
+    ttl: int
+    ip_protocol: int
+    data: List[int]
+    ip_len: int
+    checksum: int
+
+    def __init__(self, dst_ip: IP, src_ip: IP):
         self.dst_ip = dst_ip
         self.src_ip = src_ip
         self.id = random.randrange(16**4)
@@ -366,41 +314,60 @@ class IpRequest:
 
 
 class EthFrame:
-    preamble = '55 55 55 55 55 55 55 D5 '
+    """
+    以太网帧，需要生成 Preamble, dest MAC, src MAC, VLAN TAG, CRC
+    """
+    # 四个子网，子网内第一条为路由器，会在 ARP 时添加新的记录
+    subnets: List[List[Tuple[MAC, IP]]] = [
+        [],
+        [(MAC('a8:88:08:18:88:88'), IP('10.4.1.1'))],
+        [(MAC('a8:88:08:28:88:88'), IP('10.4.2.1'))],
+        [(MAC('a8:88:08:38:88:88'), IP('10.4.3.1'))],
+        [(MAC('a8:88:08:48:88:88'), IP('10.4.4.1'))],
+    ]
 
     @staticmethod
-    def get_arp():
-        """
-        以太网帧，需要生成 Preamble, dest MAC, src MAC, VLAN TAG, CRC
-        """
-        if random.random() < 0.3:
-            dst_mac = MAC.get_used()
+    def get_preamble():
+        return '55 ' * random.randint(4, 16) + 'D5 '
+
+    @staticmethod
+    def get_arp() -> EthFrame:
+        port = random.randint(1, 4)
+        # 广播，问路由器
+        dst_mac = MAC.get_broadcast()
+        dst_ip = EthFrame.subnets[port][0][1]
+        # 来源是子网内某个 IP MAC
+        src_ip = IP.get_random(router=dst_ip, mask=24)
+        for mac, ip in EthFrame.subnets[port]:
+            if ip == src_ip:
+                src_mac = mac
         else:
-            dst_mac = MAC.get_broadcast()
-        dst_ip = IP.get_random()
-        src_mac = MAC.get_random()
-        src_ip = IP.get_random()
+            src_mac = MAC.get_random()
+            EthFrame.subnets[port].append((src_mac, src_ip,))
+
         request = ArpRequest(dst_ip, src_mac, src_ip)
-        return EthFrame(dst_mac, src_mac, request)
+        return EthFrame(dst_mac, src_mac, port, request)
 
     @staticmethod
-    def get_ip():
-        if random.random() < 0.3:
-            dst_mac = MAC.get_unused()
-        else:
-            dst_mac = MAC.get_used()
-        src_mac = MAC.get_random()
-        dst_ip = IP.get_random()
-        src_ip = IP.get_random()
+    def get_ip() -> Optional[EthFrame]:
+        port, dst_port = random.sample(range(1, 5), 2)
+        # 要求发出和接收的子网内都有路由器以外的机器
+        if len(EthFrame.subnets[port]) == 1 or len(EthFrame.subnets[dst_port]) == 1:
+            return None
+        src_mac, src_ip = random.choice(EthFrame.subnets[port][1:])
+        dst_ip = random.choice(EthFrame.subnets[dst_port][1:])[1]
+        # 发给路由器
+        dst_mac = EthFrame.subnets[port][0][0]
         request = IpRequest(dst_ip, src_ip)
-        return EthFrame(dst_mac, src_mac, request)
+        return EthFrame(dst_mac, src_mac, port, request)
 
-    def __init__(self, dst_mac: MAC, src_mac: MAC, ip_layer_data):
+    def __init__(self, dst_mac: MAC, src_mac: MAC, port: int, ip_layer_data: Union[ArpRequest, IpRequest]):
         """
         使用已有的信息包装成一个以太网帧
         """
         self.dst_mac = dst_mac
         self.src_mac = src_mac
+        self.port = port
         self.ip_layer_data = ip_layer_data
         data_len = len(ip_layer_data.raw)
         if data_len >= 44:
@@ -410,7 +377,7 @@ class EthFrame:
         raw = (
             dst_mac.raw +
             src_mac.raw +
-            b'\x81\x00' + struct.pack('>H', src_mac.vlan_id) +
+            b'\x81\x00' + struct.pack('>H', self.port) +
             ip_layer_data.raw +
             b'\x00' * self.padding_size
         )
@@ -419,10 +386,10 @@ class EthFrame:
     @property
     def hex(self) -> str:
         return (
-            EthFrame.preamble +
+            EthFrame.get_preamble() +
             self.dst_mac.hex +
             self.src_mac.hex +
-            '81 00 00 0%d ' % self.src_mac.vlan_id +
+            '81 00 00 0%d ' % self.port +
             self.ip_layer_data.hex +
             '00 ' * self.padding_size +
             self.crc
@@ -477,10 +444,12 @@ if __name__ == '__main__':
 
     output = ''
     for i in range(Config.count):
-        if chance(0.0):
-            frame = EthFrame.get_arp()
-        else:
-            frame = EthFrame.get_ip()
+        frame = None
+        while frame is None:
+            if chance(0.3):
+                frame = EthFrame.get_arp()
+            else:
+                frame = EthFrame.get_ip()
         output += 'info:      %s\neth_frame: %sFFF\n' % (frame, frame.hex)
 
     print('已生成 %d 条测试样例' %
