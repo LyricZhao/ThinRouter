@@ -31,7 +31,7 @@
     <Option Name="EnableBDX" Val="FALSE"/>
     <Option Name="DSAVendor" Val="xilinx"/>
     <Option Name="DSANumComputeUnits" Val="16"/>
-    <Option Name="WTXSimLaunchSim" Val="667"/>
+    <Option Name="WTXSimLaunchSim" Val="668"/>
     <Option Name="WTModelSimLaunchSim" Val="0"/>
     <Option Name="WTQuestaLaunchSim" Val="0"/>
     <Option Name="WTIesLaunchSim" Val="0"/>
@@ -217,57 +217,29 @@
     </FileSet>
     <FileSet Name="sim_1" Type="SimulationSrcs" RelSrcDir="$PSRCDIR/sim_1">
       <Filter Type="Srcs"/>
-      <File Path="$PSRCDIR/sim_1/imports/sim_1/modules/clock.v">
+      <File Path="$PSRCDIR/sim_1/modules/clock.v">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/modules/clock.v"/>
-          <Attr Name="ImportTime" Val="1572357259"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sim_1/imports/sim_1/modules/sram_model.v">
+      <File Path="$PSRCDIR/sim_1/modules/sram_model.v">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/modules/sram_model.v"/>
-          <Attr Name="ImportTime" Val="1572357255"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sim_1/imports/sim_1/testbenchs/testbench_eth_frame.sv">
+      <File Path="$PSRCDIR/sim_1/testbenchs/testbench_eth_frame.sv">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/testbenchs/testbench_eth_frame.sv"/>
-          <Attr Name="ImportTime" Val="1572357265"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sim_1/imports/sim_1/testbenchs/testbench_thinpad.sv">
+      <File Path="$PSRCDIR/sim_1/testbenchs/testbench_thinpad.sv">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/testbenchs/testbench_thinpad.sv"/>
-          <Attr Name="ImportTime" Val="1572357268"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/imports/sim_1/testbenchs/testbench_routing_table.sv">
-        <FileInfo>
-          <Attr Name="AutoDisabled" Val="1"/>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/testbenchs/testbench_routing_table.sv"/>
-          <Attr Name="ImportTime" Val="1572357267"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/imports/sim_1/testbenchs/testbench_arp_table.sv">
-        <FileInfo>
-          <Attr Name="AutoDisabled" Val="1"/>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/testbenchs/testbench_arp_table.sv"/>
-          <Attr Name="ImportTime" Val="1572357264"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
@@ -278,6 +250,22 @@
           <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/eth_frame_test.mem"/>
           <Attr Name="ImportTime" Val="1572536474"/>
           <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/testbenchs/testbench_arp_table.sv">
+        <FileInfo>
+          <Attr Name="AutoDisabled" Val="1"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/testbenchs/testbench_routing_table.sv">
+        <FileInfo>
+          <Attr Name="AutoDisabled" Val="1"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
