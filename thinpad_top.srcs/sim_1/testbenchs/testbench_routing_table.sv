@@ -44,19 +44,19 @@ task insert;
     input bit[7:0] mask_len;    // 掩码长度
     input bit[31:0] nexthop;    // 下一跳地址
 begin
-    $display("%0t\tinsert %0d.%0d.%0d.%0d/%0d -> %0d.%0d.%0d.%0d", $realtime,
+    int start = $realtime;
+    $display("insert %0d.%0d.%0d.%0d/%0d -> %0d.%0d.%0d.%0d",
         addr[31:24], addr[23:16], addr[15:8], addr[7:0], mask_len,
         nexthop[31:24], nexthop[23:16], nexthop[15:8], nexthop[7:0]);
     // 拷贝的之前代码
-    repeat (2) @ (posedge clk);
-    insert_valid = 1;
-    lookup_insert_addr = addr;
-    insert_nexthop = nexthop;
-    insert_mask_len = mask_len;
+    insert_valid <= 1;
+    lookup_insert_addr <= addr;
+    insert_nexthop <= nexthop;
+    insert_mask_len <= mask_len;
     repeat (1) @ (posedge clk);
-    insert_valid = 0;
+    insert_valid <= 0;
     wait_till_ready();
-    $display("%0t\tinsert done", $realtime);
+    $display("\t\tdone in %0t", $realtime - start);
 end
 endtask
 
@@ -65,23 +65,22 @@ task query;
     input bit[31:0] addr;           // 查询地址
     input bit[31:0] expect_nexthop; // 预期匹配的 nexthop，没有匹配则为 0
 begin
-    $display("%0t\tquery  %0d.%0d.%0d.%0d", $realtime,
+    int start = $realtime;
+    $write("query  %0d.%0d.%0d.%0d",
         addr[31:24], addr[23:16], addr[15:8], addr[7:0]);
     // 拷贝的之前代码
-    repeat (2) @ (posedge clk);
     lookup_valid <= 1;
     lookup_insert_addr <= addr;
     repeat (1) @ (posedge clk);
     lookup_valid <= 0;
     wait_for_lookup_output();
-    $display("%0t\tget    %0d.%0d.%0d.%0d", $realtime, 
+    $display(" -> %0d.%0d.%0d.%0d", 
         lookup_output_nexthop[31:24], lookup_output_nexthop[23:16], lookup_output_nexthop[15:8], lookup_output_nexthop[7:0]);
     if (lookup_output_nexthop == expect_nexthop)
-        $display("correct");
+        $display("\t\tcorrect in %0t", $realtime - start);
     else
-        $display("WRONG! Expecting %0d.%0d.%0d.%0d", 
+        $display("\t\tWRONG! Expecting %0d.%0d.%0d.%0d",
             expect_nexthop[31:24], expect_nexthop[23:16], expect_nexthop[15:8], expect_nexthop[7:0]);
-    wait_till_ready();
 end
 endtask
 
@@ -99,7 +98,7 @@ begin
             "insert": begin
                 // insert
                 count += 1;
-                $display("%0d.", count);
+                $write("%4d.\t", count);
                 $fscanf(file_descriptor, "%d.%d.%d.%d/%d -> %d.%d.%d.%d",
                     buffer[31:24], buffer[23:16], buffer[15:8], buffer[7:0], 
                     buffer[39:32], 
@@ -109,7 +108,7 @@ begin
             {8'h??, "query"}: begin
                 // query
                 count += 1;
-                $display("%0d.", count);
+                $write("%4d.\t", count);
                 $fscanf(file_descriptor, "%d.%d.%d.%d -> %d.%d.%d.%d", 
                     buffer[31:24], buffer[23:16], buffer[15:8], buffer[7:0],
                     buffer[71:64], buffer[63:56], buffer[55:48], buffer[47:40]);
@@ -136,10 +135,11 @@ initial begin
     #100
     rst = 0;
 
+    repeat (1) @ (posedge clk);
     run_test_entry();
 end
 
-always clk = #10 ~clk;
+always clk = #4 ~clk;
 
 routing_table routing_table_inst(
     .clk(clk),

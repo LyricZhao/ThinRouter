@@ -22,8 +22,8 @@ import json
 
 
 class Config:
-    insertion_count = 8     # how many insertions operation to make
-    query_count = 16        # how many queries operation to make
+    insertion_count = 256   # how many insertions operation to make
+    query_count = 1024      # how many queries operation to make
     miss_rate = 0.5         # the ratio of queries that would miss
     order = False           # whether all queries will be after insertions
     pressure = False        # whether inserted IP addresses are condense
