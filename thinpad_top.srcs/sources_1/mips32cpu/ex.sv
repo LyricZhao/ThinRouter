@@ -28,6 +28,18 @@ always_comb begin
             `EXE_OR_OP:begin
                 wdata_o <= reg1_i | reg2_i;
             end
+            `EXE_AND_OP:begin   
+                wdata_o <= reg1_i & reg2_i;
+            end
+            `EXE_XOR_OP:begin
+                wdata_o <= reg1_i ^ reg2_i;
+            end
+            // `EXE_NOR_OP:begin
+            //     wdata_o <= reg1_i ^ reg2_i;
+            // end
+            `EXE_ADDU_OP:begin
+                wdata_o <= reg1_i + reg2_i;
+            end
             default:begin
                 wdata_o <= `ZeroWord;
             end

@@ -44,9 +44,11 @@
 
 `define EXE_SPECIAL 6'b000000
 //AluOp
-`define EXE_OR_OP    8'b00100101
-`define EXE_ORI_OP  8'b01011010
-
+`define EXE_OR_OP    8'b00000001
+`define EXE_AND_OP   8'b00000010
+`define EXE_XOR_OP   8'b00000011
+`define EXE_NOR_OP   8'b00000100
+`define EXE_ADDU_OP  8'b00000101
 
 `define EXE_NOP_OP    8'b00000000
 

@@ -86,20 +86,29 @@ always_comb begin
                                 reg2_read_o <= 1'b1;
                                 wd_o <= inst_i[15:11];
                             end
-                            `EXE_NOR:begin
-                                wreg_o <= 1'b1;//将是否write back 的信号后传
-                                aluop_o <= `EXE_NOR_OP;
-                                reg1_read_o <= 1'b1;
-                                reg2_read_o <= 1'b1;
-                                wd_o <= inst_i[15:11];
-                            end
+                            // `EXE_NOR:begin
+                            //     wreg_o <= 1'b1;//将是否write back 的信号后传
+                            //     aluop_o <= `EXE_NOR_OP;
+                            //     reg1_read_o <= 1'b1;
+                            //     reg2_read_o <= 1'b1;
+                            //     wd_o <= inst_i[15:11];
+                            // end
                             `EXE_ADDU:begin
                                 wreg_o <= 1'b1;//将是否write back 的信号后传
                                 aluop_o <= `EXE_ADDU_OP;
                                 reg1_read_o <= 1'b1;
                                 reg2_read_o <= 1'b1;
                                 wd_o <= inst_i[15:11];
-                            end            
+                            end    
+                            // `EXE_SRL:begin
+                            //     wreg_o <= 1'b1;//将是否write back 的信号后传
+                            //     aluop_o <= `EXE_ADDU_OP;
+                            //     reg1_read_o <= 1'b0;
+                            //     reg2_read_o <= 1'b0;
+                            //     reg1_addr_o <= inst_i[25:21];
+                            //     reg2_addr_o <= inst_i[20:16];
+                            //     wd_o <= inst_i[15:11];
+                            // end       
                         endcase
                     end
                     default:begin
