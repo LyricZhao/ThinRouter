@@ -32,306 +32,49 @@ module io_manager (
     output  bit     tx_last             // 数据传出结束
 );
 
-// packet_manager 的 led 信号
-wire [15:0] pm_led;
-wire [7:0]  pm_digit0;
-wire [7:0]  pm_digit1;
+////// 接收
+logic [367:0] frame_in;         // 接收的帧
+logic [5:0]   rx_count;         // 已经接收了多少字节
+logic [5:0]   rx_size;          // 帧的大小（不包括 IP 包 payload）
 
-// 接收数据用
-bit  packet_arrive;     // 提供给 packet_manager 的一拍信号，表示收到一个新的包
-bit  [367:0] frame_in;  // 将收到的数据包从高位往低位存储
-byte bytes_read;        // 已经接受的字节数
+////// 处理（交给子模块）
+wire  [367:0] frame_out;        // 发出的帧
+wire          processing;       // 子模块正在处理帧
+wire          frame_out_valid;  // 处理完成
+wire          frame_bad;        // 被处理的帧有问题，应当丢弃
+logic         process_start;    // 开始处理信号
+logic         process_reset;    // 重置信号
 
-// packet_manager 的输出
-wire bad;               // packet_manager 在解析时随时可能置 1，此时应转丢包逻辑
-wire [367:0] frame_out; // packet_manager 处理后的需要发走的包
-wire out_ready;         // packet_manager 处理完成信号
-byte out_bytes;         // packet_manager 处理完成后，表示需要从 frame_out 发送多少字节
-wire require_direct_fw; // packet_manager 表示需要在接受了 stop_at 字节后暂停，后续的 IP 包 data 部分不走那里，直接转发
-byte stop_at;  // 
-int  fw_bytes;          // 需要直接转发的字节数
+////// 发出
+logic [5:0]   tx_count;         // 已经发出的字节数
+logic [5:0]   tx_size;          // 需要发出的字节数
 
-// 状态
-enum logic[2:0] {
-    Idle,               // 空闲，遇到 rx_valid 转下一条
-    Reading,            // 正在接收，等待 packet_manager 的 require_direct_fw 或者 rx_last，转下一条
-    Waiting,            // 等待 packet_manager 处理完，之后转下一条
-    Sending,            // 发送 packet_manager 处理后的新网帧
-    Forwarding,         // 连接 rx tx 转发 IP 包的 data
-    Discarding          // 丢包（或者是丢弃掉 trailer），等到 rx_last 转 Idle
-} state;
+////// 转发
+logic [127:0] fw_buffer;        // 转发的缓冲（循环使用）
+logic [3:0]   fw_rx_pointer;    // 接收时写入的位置
+logic [3:0]   fw_tx_pointer;    // 发送时读取的位置
+logic [15:0]  fw_size;          // 总共需要转发的字节数
+logic [15:0]  fw_count;         // 已经转发的字节数
 
-// 处理状态用到的变量
-byte bytes_sent;        // Sending 下，已经从 packet_manager 的 frame_out 发送的字节数
-int  bytes_forwarded;   // Forwarding 下，已经转发的字节数（只用于 IP 包的 data 部分）
-bit  packet_ended;      // 当前处理的包已经 last
+////// 状态
+wire  Forwarding = fw_count != 0;
+wire  Discarding = (rx_count == rx_size) && !Forwarding;
 
-packet_manager packet_manager_inst (
-    .clk_internal(clk_internal),
-
-    .rst_n(rst_n),
-    .clk_btn(clk_btn),
-    .btn(btn),
-    .led_out(pm_led),
-    .digit0_out(pm_digit0),
-    .digit1_out(pm_digit1),
-
-    .packet_arrive(packet_arrive),
-
-    .frame_in(frame_in),
-    .bytes_read(bytes_read),
-
-    .bad(bad),
-
-    .frame_out(frame_out),
-    .out_ready(out_ready),
-    .out_bytes(out_bytes),
-
-    .require_direct_fw(require_direct_fw),
-    .stop_at(stop_at),
-    .fw_bytes(fw_bytes)
-);
-
-// 驱动 rx_ready 信号
-always_comb 
-case (state)
-    Idle, Reading, Discarding: 
-        rx_ready = 1;
-    Waiting, Sending: 
-        rx_ready = 0;
-    Forwarding:
-        rx_ready = tx_ready;
-endcase
-
-always_ff @ (posedge clk_io) begin
-    // 初始化
-    if (~rst_n) begin
-        // 收包变量
-        packet_arrive <= 0;
-        bytes_read <= 0;
-        // 处理逻辑变量
-        state <= Idle;
-        bytes_sent <= 0;
-        bytes_forwarded <= 0;
-        packet_ended <= 0;
-        // 输出信号
-        tx_last <= 0;
-        tx_valid <= 0;
+always_ff @(posedge clk_io) begin
+    if (!rst_n) begin
+        // reset
+        rx_count <= 0;
+        rx_size <= 46;
+        process_start <= 0;
+        process_reset <= 1;
+        tx_count <= 0;
+        tx_size <= 0;
+        fw_rx_pointer <= 0;
+        fw_tx_pointer <= 0;
+        fw_size <= 0;
+        fw_count <= 0;
     end else begin
-        case(state)
-            Idle: begin
-                tx_last <= 0;
-                tx_valid <= 0;
-                if (rx_valid) begin
-                    // 状态
-                    state <= Reading;
-                    packet_arrive <= 1;
-                    // 记录当前收到的字节
-                    frame_in[367 -: 8] <= rx_data;
-                    bytes_read <= 1;
-                    // 变量清零
-                    bytes_sent <= 0;
-                    bytes_forwarded <= 0;
-                    packet_ended <= 0;
-                end
-            end
-
-            Reading: begin
-                // 持续接收数据
-                packet_arrive <= 0;
-                if (bad) begin
-                    if (packet_ended || (rx_valid && rx_last)) begin
-                        state <= Idle;
-                    end else begin
-                        $write("Discarding... ");
-                        state <= Discarding;
-                    end
-                end else if (rx_valid) begin
-                    frame_in[367 - bytes_read * 8 -: 8] <= rx_data;
-                    bytes_read <= bytes_read + 1;
-                    // 收到 last 后，暂停等待处理
-                    if (rx_last) begin
-                        packet_ended <= 1;
-                        $write("frame_in completed\n\t");
-                        `WRITE_BITS(frame_in, 367, 368 - bytes_read * 8);
-                        $display("%x", rx_data);
-                        state <= Waiting;
-                    // 或者到达 IP 包 data 前了，也暂停等待处理
-                    end else if (bytes_read + 1 == stop_at) begin
-                        if (require_direct_fw) begin
-                            // IP 包需要转发 data
-                            $write("IP header completed\n\t");
-                            `WRITE_BITS(frame_in, 367, 368 - bytes_read * 8);
-                            $display("%x", rx_data);
-                            state <= Waiting;
-                        end else begin
-                            // 单纯的包结束
-                            $write("frame_in completed\n\t");
-                            `WRITE_BITS(frame_in, 367, 368 - bytes_read * 8);
-                            $display("%x", rx_data);
-                            state <= Waiting;
-                        end
-                    end
-                end
-            end
-
-            Waiting: begin
-                // 此时 rx_ready 为 0
-                if (bad) begin
-                    if (packet_ended) begin
-                        state <= Idle;
-                    end else begin
-                        $write("Discarding... ");
-                        state <= Discarding;
-                    end
-                end else if (out_ready) begin
-                    $write("frame_out ready, sending...\n\t");
-                    state <= Sending;
-                end
-            end
-
-            Sending: begin
-                // 此时 rx_ready = 0，out_ready = 1，bad = 0
-                if (tx_ready) begin
-                    $write("%2x ", frame_out[367 - bytes_sent * 8 -: 8]); 
-                    tx_data <= frame_out[367 - bytes_sent * 8 -: 8];
-                    tx_valid <= 1;
-                    bytes_sent <= bytes_sent + 1;
-                    if (bytes_sent + 1 == out_bytes) begin
-                        // packet_manager 的部分转发完成（还可能有 data）
-                        if (require_direct_fw) begin
-                            $write("\nand forwarding...\n\t");
-                            state <= Forwarding;
-                        end else if (packet_ended) begin
-                            $display("LAST");
-                            tx_last <= 1;
-                            state <= Idle;
-                        end else begin
-                            tx_last <= 1;
-                            $write("Discarding... ");
-                            state <= Discarding;
-                        end
-                    end
-                end else begin
-                    tx_valid <= 0;
-                    tx_last <= 0;
-                end
-            end
-
-            Forwarding: begin
-                if (rx_valid) begin
-                    if (bytes_forwarded == fw_bytes) begin
-                        // 如果已经转发了应当转发的数量，剩下的应当丢弃
-                        tx_valid <= 0;
-                        if (rx_last) begin
-                            state <= Idle;
-                        end else
-                            state <= Discarding;
-                    end else begin
-                        bytes_forwarded <= bytes_forwarded + 1;
-                        $write("%2x ", rx_data);
-                        tx_data <= rx_data;
-                        tx_valid <= 1;
-                        if (rx_last) begin
-                            // 如果遇到 rx_last 则必须立即停止
-                            $display("LAST (EOP)");
-                            tx_last <= 1;
-                            state <= Idle;
-                        end else begin
-                            // data 包转发完毕发 last，转 Discarding
-                            if (bytes_forwarded + 1 == fw_bytes) begin
-                                $display("LAST");
-                                tx_last <= 1;
-                                packet_ended <= 1;
-                                state <= Discarding;
-                            end
-                        end
-                    end
-                end else begin
-                    // 如果 rx_valid = 0
-                    tx_valid <= 0;
-                    tx_last <= 0;
-                end
-            end
-
-            Discarding: begin
-                tx_last <= 0;
-                tx_valid <= 0;
-                if (rx_valid && rx_last) begin
-                    $display("complete");
-                    state <= Idle;
-                end
-            end
-
-            default: begin
-            end
-        endcase
     end
 end
-
-/*************
- * debug 信号
- ************/
-
-bit debug_incoming_signal;
-bit debug_discard_signal;
-bit debug_send_signal;
-
-always_ff @ (posedge clk_internal) begin
-    debug_incoming_signal <= state == Reading;
-    debug_discard_signal <= bad;
-    debug_send_signal <= state == Sending;
-end
-
-// 收到数据包显示在 led
-led_loop debug_incoming (
-    .clk(debug_incoming_signal),
-    .led(led_out)
-);
-
-wire [7:0] ip_digit0, ip_digit1, arp_digit0, arp_digit1, send_digit, discard_digit;
-
-// 记录 IP 包转发数量
-digit_dec_count ip_counter (
-    .clk(debug_send_signal),
-    .lock(frame_in[239:224] != 16'h0800),
-    .digit0(ip_digit0),
-    .digit1(ip_digit1)
-);
-
-// 记录 ARP 包转发数量
-digit_dec_count arp_counter (
-    .clk(debug_send_signal),
-    .lock(frame_in[239:224] != 16'h0806),
-    .digit0(arp_digit0),
-    .digit1(arp_digit1)
-);
-
-// 正常发包显示在高位数码管
-digit_loop debug_send (
-    .rst_n(rst_n),
-    .clk(debug_send_signal),
-    .digit_out(send_digit)
-);
-
-// 丢包显示在低位数码管
-digit_loop debug_discard (
-    .rst_n(rst_n),
-    .clk(debug_discard_signal),
-    .digit_out(discard_digit)
-);
-
-/*
-普通:
-    高位显示发送，低位显示丢弃
-按下 btn0:
-    显示 IP 包转发数量
-按下 btn1:
-    显示 ARP 包转发数量
-*/
-assign {digit0_out, digit1_out} = 
-    btn[0] ? {ip_digit0, ip_digit1} :
-    btn[1] ? {arp_digit0, arp_digit1} :
-    {discard_digit, send_digit};
 
 endmodule

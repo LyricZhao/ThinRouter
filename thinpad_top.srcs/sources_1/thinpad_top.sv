@@ -122,7 +122,7 @@ eth_conf conf(
  *********************/
 
 rgmii_manager rgmii_manager_inst (
-    .clk_rgmii(clk_125M),
+    .clk_125M(clk_125M),
     .clk_internal(clk_125M),
     .clk_ref(clk_200M),
     .rst_n(locked),
