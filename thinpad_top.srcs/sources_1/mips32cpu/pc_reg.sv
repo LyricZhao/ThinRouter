@@ -1,13 +1,17 @@
+/*
+PC(Program Counter)模块：
+    每个时钟周期地址加4，ce是使能输出（？感觉没啥用）
+    另外，之前在另一本书上见过最好用rst_n而非rst，这点后面再说，这里先保持
+*/
 
 `include "constants_cpu.vh"
-module pc_reg(
 
+module pc_reg(
 	input wire clk,
 	input wire rst,
 	
 	output reg[`InstAddrBus] pc,
 	output reg ce
-	
 );
 
 always_ff @ (posedge clk) begin
