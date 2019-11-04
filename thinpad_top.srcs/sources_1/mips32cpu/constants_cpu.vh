@@ -25,7 +25,6 @@
 `define ChipEnable 1'b1
 `define ChipDisable 1'b0
 
-
 //指令码
 `define EXE_NOP 6'b000000
 `define EXE_AND 6'b100100
