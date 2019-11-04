@@ -1,10 +1,9 @@
 RM	:= rm -f
+# 这里是交叉编译器的路径（或者命令的配置），因为三个人路径可能不太一样，所以大家在这里需要设置TOOLCHAIN_PREFIX这个环境变量为交叉编译器的前缀，比如我的是/opt/cross/mipsel-linux-musl-cross/bin/mipsel-linux-musl-
 ifeq ($(OS),Windows_NT)
-# Windows Host
-GCCPREFIX	?= mips-mti-elf-
+GCCPREFIX	?= $(TOOLCHAIN_PREFIX)
 else
-#GCCPREFIX	:= mipsel-linux-gnu-
-GCCPREFIX	?= mips-mti-elf-
+GCCPREFIX	?= $(TOOLCHAIN_PREFIX)
 endif
 QEMU := qemu-system-mipsel
 LD	:= $(GCCPREFIX)ld
@@ -54,7 +53,6 @@ $(TARGET): checkdirs $(OBJ) $(LDSCRIPT)
 
 $(OBJ): $(OBJDIR)/%.o : $(SRCDIR)/%.S $(CONFIG_FILE)
 	$(CC) -o $@ $< -c -I$(INCLUDE) $(ASFLAG)
-
 
 checkdirs: $(OBJDIR)
 
