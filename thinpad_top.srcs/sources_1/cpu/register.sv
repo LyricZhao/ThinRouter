@@ -1,12 +1,12 @@
 /*
-Regfile:
+Register:
     实现了32个32位的通用寄存器，同时可以对两个寄存器进行读操作，对一个寄存器进行写
     该模块是译码阶段的一部分
 */
 
 `include "constants_cpu.vh"
 
-module regfile(
+module register(
 	input wire clk,
 	input wire rst,
 	

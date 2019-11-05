@@ -11,7 +11,7 @@ module cpu_top(
 
 	input wire[`RegBus]   rom_data_i,
 	output wire[`RegBus]  rom_addr_o,
-	output wire           rom_ce_o	
+	output wire           rom_ce_o
 );
 
 wire[`InstAddrBus] pc;
@@ -60,7 +60,7 @@ pc_reg pc_reg0(
 
 assign rom_addr_o = pc;
 
-if_id if_id0(
+if_id if_id_inst(
     .clk(clk),
     .rst(rst),
     .if_pc(pc),
@@ -69,7 +69,7 @@ if_id if_id0(
     .id_inst(id_inst_i)
 );
 
-id id0(
+id id_inst(
     .rst(rst),
     .pc_i(id_pc_i),
     .inst_i(id_inst_i),
@@ -78,8 +78,8 @@ id id0(
     .reg2_data_i(reg2_data),
 
     .reg1_addr_o(reg1_addr),
-    .reg2_addr_o(reg2_addr), 
-    
+    .reg2_addr_o(reg2_addr),
+
     .aluop_o(id_aluop_o),
     .reg1_o(id_reg1_o),
     .reg2_o(id_reg2_o),
@@ -95,9 +95,10 @@ id id0(
     .mem_wd_i(mem_wd_o)
 );
 
-regfile regfile0(
+register register_inst(
     .clk (clk),
     .rst (rst),
+    
     .we	(wb_wreg_i),
     .waddr (wb_wd_i),
     .wdata (wb_wdata_i),
@@ -107,7 +108,7 @@ regfile regfile0(
     .rdata2 (reg2_data)
 );
 
-id_ex id_ex0(
+id_ex id_ex_inst(
     .clk(clk),
     .rst(rst),
 
@@ -124,7 +125,7 @@ id_ex id_ex0(
     .ex_wreg(ex_wreg_i)
 );
 
-ex ex0(
+ex ex_inst(
     .rst(rst),
 
     .aluop_i(ex_aluop_i),
@@ -138,7 +139,7 @@ ex ex0(
     .wdata_o(ex_wdata_o)
 );
 
-ex_mem ex_mem0(
+ex_mem ex_mem_inst(
     .clk(clk),
     .rst(rst),
 
@@ -148,10 +149,10 @@ ex_mem ex_mem0(
 
     .mem_wd(mem_wd_i),
     .mem_wreg(mem_wreg_i),
-    .mem_wdata(mem_wdata_i) 
+    .mem_wdata(mem_wdata_i)
 );
 
-mem mem0(
+mem mem_inst(
     .rst(rst),
 
     .wd_i(mem_wd_i),
@@ -163,7 +164,7 @@ mem mem0(
     .wdata_o(mem_wdata_o)
 );
 
-mem_wb mem_wb0(
+mem_wb mem_wb_inst(
     .clk(clk),
     .rst(rst),
 
@@ -173,7 +174,9 @@ mem_wb mem_wb0(
 
     .wb_wd(wb_wd_i),
     .wb_wreg(wb_wreg_i),
-    .wb_wdata(wb_wdata_i)               
+    .wb_wdata(wb_wdata_i)    
 );
+
+// TODO: 一些冗余的桥接删掉
 
 endmodule

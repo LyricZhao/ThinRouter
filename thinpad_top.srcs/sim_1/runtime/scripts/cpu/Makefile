@@ -9,7 +9,7 @@ QEMU 	 := qemu-system-mipsel
 LD		 := $(GCCPREFIX)ld
 CC		 := $(GCCPREFIX)gcc
 INCLUDE	 := ../../../../../supervisor/kernel/include
-TARGET	 := testcase
+TARGET	 := cpu_inst_test
 LDSCRIPT := ram.ld
 ASFLAG	 := -D__ASSEMBLY__ -EL -g -O0 -mips32r2 -mno-abicalls -mno-shared
 
@@ -56,7 +56,7 @@ $(TARGET).bin: $(TARGET).elf
 	@$(GCCPREFIX)objcopy -j .text -j .text.* -O binary $(TARGET).elf $(TARGET).bin
 
 $(TARGET).mem: $(TARGET).bin
-	python3 bin2mem.py $(TARGET).bin $(TARGET).mem
+	python3 bin2mem.py $(TARGET).bin ../../$(TARGET).mem
 
 clean:
-	-$(RM) -r $(TARGET).o $(TARGET).bin $(TARGET).elf $(TARGET).mem
+	-$(RM) -r $(TARGET).o $(TARGET).bin $(TARGET).elf ../../$(TARGET).mem

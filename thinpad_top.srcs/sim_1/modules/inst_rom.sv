@@ -11,15 +11,19 @@ module inst_rom(
 	output reg[`InstBus] inst
 );
 
+parameter inst_mem_file = "cpu_inst_test.mem";
+
 reg[`InstBus] inst_mem[0:`InstMemNum-1];
 
-// TODO：下面的逻辑主要面向仿真，拆出到Testbench，并编写随机化生成脚本
-initial $readmemh ("inst_rom.data", inst_mem);
-initial $display("insert done");
+initial begin
+    for (int i = 0; i < `InstMemNum; i = i + 1)
+        inst_mem[i] = 0;
+    $readmemh (inst_mem_file, inst_mem);
+    $display("file loaded");
+end
 
 always_comb begin
-    if (ce == 1'b0)
-    begin
+    if (ce == 1'b0) begin
         inst <= `ZeroWord;
     end else begin
         inst <= inst_mem[addr[`InstMemNumLog2+1:2]];

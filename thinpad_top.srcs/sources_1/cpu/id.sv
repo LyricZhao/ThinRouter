@@ -149,14 +149,14 @@ always_comb begin
                 imm <= {16'h0, inst_i[15:0]};
                 wd_o <= inst_i[20:16];
             end
-            `EXE_LUI: begin
-                wreg_o <= 1'b1;
-                aluop_o <= `EXE_LUI_OP;
-                reg1_read_o <= 1'b1;
-                reg2_read_o <= 1'b0;	  	
-                imm <= {inst_i[15:0], 16'h0}; // 左移16位，低位补0
-                wd_o <= inst_i[20:16];
-            end
+            // `EXE_LUI: begin
+            //     wreg_o <= 1'b1;
+            //     aluop_o <= `EXE_LUI_OP; // 后面这个宏暂时没被定义，整段先注释
+            //     reg1_read_o <= 1'b1;
+            //     reg2_read_o <= 1'b0;	  	
+            //     imm <= {inst_i[15:0], 16'h0}; // 左移16位，低位补0
+            //     wd_o <= inst_i[20:16];
+            // end
             default: begin end
         endcase		
     end
