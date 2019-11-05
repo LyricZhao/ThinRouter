@@ -6,16 +6,22 @@ MEM/WB模块：
 `include "constants_cpu.vh"
 
 module mem_wb(
-	input wire clk,
-	input wire rst,
+	input  logic            clk,
+	input  logic            rst,
 
-	input wire[`RegAddrBus]      mem_wd,
-	input wire                   mem_wreg,
-	input wire[`RegBus]			 mem_wdata,
+	input  reg_addr_t       mem_wd,
+	input  logic            mem_wreg,
+	input  word_t			mem_wdata,
+    input  word_t           mem_hi,
+    input  word_t           mem_lo,
+    input  logic            mem_whilo,
 
-	output reg[`RegAddrBus]      wb_wd,
-	output reg                   wb_wreg,
-	output reg[`RegBus]			 wb_wdata
+	output reg_addr_t       wb_wd,
+	output logic            wb_wreg,
+	output word_t			wb_wdata,
+    output word_t           wb_hi,
+    output word_t           wb_lo,
+    output logic            wb_whilo
 );
 
 always_ff @(posedge clk) begin
@@ -23,10 +29,14 @@ always_ff @(posedge clk) begin
         wb_wd <= `NOPRegAddr;
         wb_wreg <= 1'b0;
         wb_wdata <= `ZeroWord;
+        {wb_hi, wb_lo} <= {`ZeroWord, `ZeroWord};
+        wb_whilo <= 1'b0;
     end else begin
         wb_wd <= mem_wd;
         wb_wreg <= mem_wreg;
         wb_wdata <= mem_wdata;
+        {wb_hi, wb_lo} <= {mem_hi, mem_lo};
+        wb_whilo <= mem_whilo;
     end
 end
 

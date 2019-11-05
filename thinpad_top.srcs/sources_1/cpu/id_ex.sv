@@ -6,20 +6,20 @@ ID/EX模块：
 `include "constants_cpu.vh"
 
 module id_ex(
-	input wire                    clk,
-	input wire                    rst,
+	input  logic            clk,
+	input  logic            rst,
 
-	input aluop_t                 id_aluop,
-	input wire[`RegBus]           id_reg1,
-	input wire[`RegBus]           id_reg2,
-	input wire[`RegAddrBus]       id_wd,
-	input wire                    id_wreg,
+	input  aluop_t          id_aluop,
+	input  word_t           id_reg1,
+	input  word_t           id_reg2,
+	input  reg_addr_t       id_wd,
+	input  logic            id_wreg,
 
-	output aluop_t                ex_aluop,
-	output reg[`RegBus]           ex_reg1,
-	output reg[`RegBus]           ex_reg2,
-	output reg[`RegAddrBus]       ex_wd,
-	output reg                    ex_wreg
+	output aluop_t          ex_aluop,
+	output word_t           ex_reg1,
+	output word_t           ex_reg2,
+	output reg_addr_t       ex_wd,
+	output logic            ex_wreg
 );
 
 always_ff @ (posedge clk) begin

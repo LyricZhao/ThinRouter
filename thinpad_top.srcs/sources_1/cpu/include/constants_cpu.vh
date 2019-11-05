@@ -1,36 +1,13 @@
 /*
 一些定义：
     TODO：拆成多个文件增强可读性
+    TODO：尽可能都改成typedef增强可读性（还没改完）
 */
 
 `ifndef _CPU_CONSTANTS_VH_
 `define _CPU_CONSTANTS_VH_
 
-`define RstEnable           1'b1
-`define RstDisable          1'b0
 `define ZeroWord            32'h00000000
-`define WriteEnable         1'b1
-`define WriteDisable        1'b0
-`define ReadEnable          1'b1
-`define ReadDisable         1'b0
-`define AluOpBus            7:0
-`define AluSelBus           2:0
-`define InstValid           1'b0
-`define InstInvalid         1'b1
-`define Stop                1'b1
-`define NoStop              1'b0
-`define InDelaySlot         1'b1
-`define NotInDelaySlot      1'b0
-`define Branch              1'b1
-`define NotBranch           1'b0
-`define InterruptAssert     1'b1
-`define InterruptNotAssert  1'b0
-`define TrapAssert          1'b1
-`define TrapNotAssert       1'b0
-`define True_v              1'b1
-`define False_v             1'b0
-`define ChipEnable          1'b1
-`define ChipDisable         1'b0
 
 /*
 指令码和功能码：
@@ -44,6 +21,7 @@
 
 TODO: 改成enum，但是问题是现在有重复的
 */
+
 `define EXE_NOP             6'b000000
 `define EXE_SPECIAL         6'b000000
 
@@ -65,6 +43,13 @@ TODO: 改成enum，但是问题是现在有重复的
 `define EXE_SRA             6'b000011
 `define EXE_SRAV            6'b000111
 
+`define EXE_MOVZ            6'b001010
+`define EXE_MOVN            6'b001011
+`define EXE_MFHI            6'b010000
+`define EXE_MTHI            6'b010001
+`define EXE_MFLO            6'b010010
+`define EXE_MTLO            6'b010011
+
 `define EXE_SYNC            6'b001111
 `define EXE_PREF            6'b110011
 
@@ -76,7 +61,13 @@ typedef enum logic[`AluOpBus] {
     EXE_NOR_OP,
     EXE_SLL_OP,
     EXE_SRL_OP,
-    EXE_SRA_OP
+    EXE_SRA_OP,
+    EXE_MFHI_OP,
+    EXE_MFLO_OP,
+    EXE_MTHI_OP,
+    EXE_MTLO_OP,
+    EXE_MOVN_OP,
+    EXE_MOVZ_OP
 } aluop_t;
 
 // 指令ROM
@@ -85,14 +76,23 @@ typedef enum logic[`AluOpBus] {
 `define InstMemNum          131071
 `define InstMemNumLog2      17
 
+typedef logic[`InstAddrBus] inst_addr_t;
+// typedef logic[`InstBus]     inst_t; 指令都是一个word用word_t
+
 // 寄存器
 `define RegAddrBus          4:0
 `define RegBus              31:0
+`define WordBus             31:0
+`define DoubleWordBus       63:0
 `define RegWidth            32
 `define DoubleRegWidth      64
 `define DoubleRegBus        63:0
 `define RegNum              32
 `define RegNumLog2          5
 `define NOPRegAddr          5'b00000
+
+typedef logic[`RegAddrBus]      reg_addr_t;
+typedef logic[`WordBus]         word_t;
+typedef logic[`DoubleWordBus]   dword_t;
 
 `endif

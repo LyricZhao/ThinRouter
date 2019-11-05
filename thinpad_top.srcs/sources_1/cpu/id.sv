@@ -6,42 +6,42 @@ ID(Decode)模块：
 `include "constants_cpu.vh"
 
 module id(
-	input wire                      rst,
-	input wire[`InstAddrBus]        pc_i,
-	input wire[`InstBus]            inst_i,
+	input  logic                    rst,
+	input  inst_addr_t              pc_i,
+	input  word_t                   inst_i,
 
-	input wire[`RegBus]             reg1_data_i,
-	input wire[`RegBus]             reg2_data_i,
-
-	output reg[`RegAddrBus]         reg1_addr_o,    // 要读的寄存器1的编号
-	output reg[`RegAddrBus]         reg2_addr_o,    // 要读的寄存器2的编号
-
-	output aluop_t                  aluop_o,
-	output reg[`RegBus]             reg1_o,         // 寄存器或者立即数的值（源操作数1）
-	output reg[`RegBus]             reg2_o,         // 寄存器或者立即数的值（源操作数2）
-	output reg[`RegAddrBus]         wd_o,           // 需要被写入的寄存器编号
-	output reg                      wreg_o,         // 是否需要写入
+	input  word_t                   reg1_data_i,
+	input  word_t                   reg2_data_i,
 
     // 执行阶段传来的前传数据（解决相邻指令的冲突）
-    input wire                      ex_wreg_i,      // 执行阶段是否写目的寄存器
-    input wire[`RegBus]             ex_wdata_i,     // 需写入的数据
-    input wire[`RegAddrBus]         ex_wd_i,        // 需写入的寄存器
+    input  logic                    ex_wreg_i,      // 执行阶段是否写目的寄存器
+    input  word_t                   ex_wdata_i,     // 需写入的数据
+    input  reg_addr_t               ex_wd_i,        // 需写入的寄存器
 
     // 访存阶段传来的前传数据（解决相隔1条指令的冲突）
-    input wire                      mem_wreg_i,     // 访存阶段是否写目的寄存器
-    input wire[`RegBus]             mem_wdata_i,    // 需写入的数据
-    input wire[`RegAddrBus]         mem_wd_i        // 需写入的寄存器
+    input  logic                    mem_wreg_i,     // 访存阶段是否写目的寄存器
+    input  word_t                   mem_wdata_i,    // 需写入的数据
+    input  reg_addr_t               mem_wd_i        // 需写入的寄存器
+
+	output reg_addr_t               reg1_addr_o,    // 要读的寄存器1的编号
+	output reg_addr_t               reg2_addr_o,    // 要读的寄存器2的编号
+
+	output aluop_t                  aluop_o,
+	output word_t                   reg1_o,         // 寄存器或者立即数的值（源操作数1）
+	output word_t                   reg2_o,         // 寄存器或者立即数的值（源操作数2）
+	output reg_addr_t               wd_o,           // 需要被写入的寄存器编号
+	output logic                    wreg_o,         // 是否需要写入
 );
 
-wire[5:0] op1 = inst_i[31:26];
-wire[4:0] op2 = inst_i[10:6];
-wire[5:0] op3 = inst_i[5:0];
-wire[4:0] op4 = inst_i[20:16];
+logic[5:0] op1 = inst_i[31:26];
+logic[4:0] op2 = inst_i[10:6];
+logic[5:0] op3 = inst_i[5:0];
+logic[4:0] op4 = inst_i[20:16];
 
-reg[`RegBus] imm;
+word_t imm;
 
-reg reg1_read_o; // 是否读寄存器1
-reg reg2_read_o; // 是否读寄存器2
+logic reg1_read_o; // 是否读寄存器1
+logic reg2_read_o; // 是否读寄存器2
 
 `define INST_KIND_1_COMMON  wreg_o <= 1'b1; \
                             reg1_read_o <= 1'b1; \
@@ -58,6 +58,10 @@ reg reg2_read_o; // 是否读寄存器2
                             reg2_read_o <= 1'b1; \
                             imm[4:0] <= inst_i[10:6]; \
                             wd_o <= inst_i[15:11]
+
+`define INST_KIND_4_COMMON(w, r1, r2)   wreg_o <= w; \
+                                        reg1_read_o <= r1; \
+                                        reg2_read_o <= r2; \
 
 always_comb begin
     if (rst == 1'b1) begin
@@ -84,7 +88,7 @@ always_comb begin
                 `EXE_SPECIAL: begin
                     case (op2)
                         5'b00000: begin // op2暂时默认为0
-                            case (op3) // 功能码：or, and, xor, nor, sllv, srlv, srav, sync
+                            case (op3) // 功能码：or, and, xor, nor, sllv, srlv, srav, sync, mfhi, mflo, mthi, mtlo, movn, movz
                                 `EXE_OR: begin
                                     aluop_o <= EXE_OR_OP;
                                     `INST_KIND_1_COMMON;
@@ -113,9 +117,33 @@ always_comb begin
                                     aluop_o <= EXE_SRA_OP;
                                     `INST_KIND_1_COMMON;
                                 end
-                                `EXE_SYNC: begin
+                                `EXE_SYNC: begin // 暂时没有用就是nop
                                     aluop_o <= EXE_NOP_OP;
                                     `INST_KIND_1_COMMON;
+                                end
+                                `EXE_MFHI: begin // 把HI寄存器的值给通用寄存器
+                                    aluop_o <= EXE_MFHI_OP;
+                                    `INST_KIND_4_COMMON(1, 0, 0);
+                                end
+                                `EXE_MFLO: begin // 把LO寄存器的值给通用寄存器
+                                    aluop_o <= EXE_MFLO_OP;
+                                    `INST_KIND_4_COMMON(1, 0, 0);
+                                end
+                                `EXE_MTHI: begin // 把通用寄存器的值给HI寄存器
+                                    aluop_o <= EXE_MTHI_OP;
+                                    `INST_KIND_4_COMMON(0, 1, 0);
+                                end
+                                `EXE_MTLO: begin // 把通用寄存器的值给LO寄存器
+                                    aluop_o <= EXE_MTLO_OP;
+                                    `INST_KIND_4_COMMON(0, 1, 0);
+                                end
+                                `EXE_MOVN: begin // 如果r2不是0，把r1写入目的寄存器（目的寄存器不一定是哪个）
+                                    aluop_o <= EXE_MOVN_OP;
+                                    `INST_KIND_4_COMMON((reg2_o != `ZeroWord), 1, 1);
+                                end
+                                `EXE_MOVZ: begin // 如果r2是0，把r1写入目的寄存器（目的寄存器不一定是哪个）
+                                    aluop_o <= EXE_MOVZ_OP;
+                                    `INST_KIND_4_COMMON((reg2_o == `ZeroWord), 1, 1);
                                 end
                                 default: begin end
                             endcase

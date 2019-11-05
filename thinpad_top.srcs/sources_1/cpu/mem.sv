@@ -6,15 +6,21 @@ MEM模块：
 `include "constants_cpu.vh"
 
 module mem(
-	input wire rst,
+	input  logic            rst,
 
-	input wire[`RegAddrBus]      wd_i,
-	input wire                   wreg_i,
-	input wire[`RegBus]			 wdata_i,
+	input  reg_addr_t       wd_i,
+	input  logic            wreg_i,
+	input  word_t		    wdata_i,
+    input  word_t           hi_i,
+    input  word_t           lo_i,
+    input  logic            whilo_i,
 
-	output reg[`RegAddrBus]      wd_o,
-	output reg                   wreg_o,
-	output reg[`RegBus]			 wdata_o
+	output reg_addr_t       wd_o,
+	output logic            wreg_o,
+	output word_t			wdata_o,
+    output word_t           hi_o,
+    output word_t           lo_o,
+    output logic            whilo_o
 );
 
 always_comb begin
@@ -22,10 +28,14 @@ always_comb begin
         wd_o <= `NOPRegAddr;
         wreg_o <= 1'b0;
         wdata_o <= `ZeroWord;
+        {hi_o, lo_o} <= {`ZeroWord, `ZeroWord};
+        whilo_o <= 1'b0;
     end else begin
         wd_o <= wd_i;
         wreg_o <= wreg_i;
         wdata_o <= wdata_i;
+        {hi_o, lo_o} <= {hi_i, lo_i};
+        whilo_o <= whilo_i;
     end
 end
 

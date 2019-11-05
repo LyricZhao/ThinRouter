@@ -7,11 +7,11 @@ PC(Program Counter)模块：
 `include "constants_cpu.vh"
 
 module pc_reg(
-	input wire clk,
-	input wire rst,
+	input  logic        clk,
+	input  logic        rst,
 	
-	output reg[`InstAddrBus] pc,
-	output reg ce
+	output inst_addr_t  pc,
+	output logic        ce
 );
 
 always_ff @ (posedge clk) begin

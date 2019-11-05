@@ -6,13 +6,13 @@ IF/ID模块：
 `include "constants_cpu.vh"
 
 module if_id(
-	input wire clk,
-	input wire rst,
+	input  logic            clk,
+	input  logic            rst,
 	
-	input wire[`InstAddrBus]      if_pc,
-	input wire[`InstBus]          if_inst,
-	output reg[`InstAddrBus]      id_pc,
-	output reg[`InstBus]          id_inst
+	input  inst_addr_t      if_pc,
+	input  word_t           if_inst,
+	output inst_addr_t      id_pc,
+	output word_t           id_inst
 );
 
 always_ff @ (posedge clk) begin

@@ -1,27 +1,27 @@
 /*
-Register:
+comm_reg:
     实现了32个32位的通用寄存器，同时可以对两个寄存器进行读操作，对一个寄存器进行写
     该模块是译码阶段的一部分
 */
 
 `include "constants_cpu.vh"
 
-module register(
-	input wire clk,
-	input wire rst,
+module comm_reg(
+	input  logic            clk,
+	input  logic            rst,
 	
-	input wire we,
-	input wire[`RegAddrBus] waddr,
-	input wire[`RegBus]	wdata,
+	input  logic            we,
+	input  reg_addr_t       waddr,
+	input  word_t	        wdata,
 	
-	input wire[`RegAddrBus] raddr1,
-	output reg[`RegBus] rdata1,
-	
-	input wire[`RegAddrBus] raddr2,
-	output reg[`RegBus] rdata2
+	input  reg_addr_t       raddr1,
+	input  reg_addr_t       raddr2,
+    
+    output word_t           rdata1,
+	output word_t           rdata2
 );
 
-reg[`RegBus]  regs[0:`RegNum-1];
+word_t regs[0:`RegNum-1];
 
 // 清零逻辑
 genvar i;
