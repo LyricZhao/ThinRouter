@@ -1,6 +1,6 @@
 /*
 EX模块：
-    执行阶段，这里实际也是一个ALU
+    执行阶段，这里实际是一个ALU
 */
 
 `include "constants_cpu.vh"
@@ -8,7 +8,7 @@ EX模块：
 module ex(
 	input wire	                  rst,
 
-	input wire[`AluOpBus]         aluop_i,
+	input aluop_t                 aluop_i,
 	input wire[`RegBus]           reg1_i,
 	input wire[`RegBus]           reg2_i,
 	input wire[`RegAddrBus]       wd_i,
@@ -16,7 +16,7 @@ module ex(
 
 	output reg[`RegAddrBus]       wd_o,
 	output reg                    wreg_o,
-	output reg[`RegBus]			  wdata_o	
+	output reg[`RegBus]			  wdata_o
 );
 
 always_comb begin
@@ -24,17 +24,26 @@ always_comb begin
         wdata_o <= `ZeroWord;
     end else begin
         case (aluop_i)
-            `EXE_OR_OP: begin
+            EXE_OR_OP: begin
                 wdata_o <= reg1_i | reg2_i;
             end
-            `EXE_AND_OP: begin
+            EXE_AND_OP: begin
                 wdata_o <= reg1_i & reg2_i;
             end
-            `EXE_XOR_OP: begin
+            EXE_XOR_OP: begin
                 wdata_o <= reg1_i ^ reg2_i;
             end
-            `EXE_ADDU_OP: begin
-                wdata_o <= reg1_i + reg2_i;
+            EXE_NOR_OP: begin
+                wdata_o <= ~(reg1_i | reg2_i);
+            end
+            EXE_SLL_OP: begin // 逻辑左移
+                wdata_o <= reg2_i << reg1_i[4:0];
+            end
+            EXE_SRL_OP: begin // 逻辑右移
+                wdata_o <= reg2_i >> reg1_i[4:0];
+            end
+            EXE_SRA_OP: begin // 算术右移
+                wdata_o <= reg2_i >>> reg1_i[4:0];
             end
             default: begin
                 wdata_o <= `ZeroWord;

@@ -18,13 +18,13 @@ wire[`InstAddrBus] pc;
 wire[`InstAddrBus] id_pc_i;
 wire[`InstBus] id_inst_i;
 
-wire[`AluOpBus] id_aluop_o;
+aluop_t id_aluop_o;
 wire[`RegBus] id_reg1_o;
 wire[`RegBus] id_reg2_o;
 wire id_wreg_o;
 wire[`RegAddrBus] id_wd_o;
 
-wire[`AluOpBus] ex_aluop_i;
+aluop_t ex_aluop_i;
 wire[`RegBus] ex_reg1_i;
 wire[`RegBus] ex_reg2_i;
 wire ex_wreg_i;

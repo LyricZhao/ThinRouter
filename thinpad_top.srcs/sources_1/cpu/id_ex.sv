@@ -5,18 +5,17 @@ ID/EX模块：
 
 `include "constants_cpu.vh"
 
-// To Check: 少了alusel的两个信号
 module id_ex(
 	input wire                    clk,
 	input wire                    rst,
 
-	input wire[`AluOpBus]         id_aluop,
+	input aluop_t                 id_aluop,
 	input wire[`RegBus]           id_reg1,
 	input wire[`RegBus]           id_reg2,
 	input wire[`RegAddrBus]       id_wd,
-	input wire                    id_wreg,	
-	
-	output reg[`AluOpBus]         ex_aluop,
+	input wire                    id_wreg,
+
+	output aluop_t                ex_aluop,
 	output reg[`RegBus]           ex_reg1,
 	output reg[`RegBus]           ex_reg2,
 	output reg[`RegAddrBus]       ex_wd,
@@ -25,7 +24,7 @@ module id_ex(
 
 always_ff @ (posedge clk) begin
     if (rst == 1'b1) begin
-        ex_aluop <= `EXE_NOP_OP;
+        ex_aluop <= EXE_NOP_OP;
         ex_reg1  <= `ZeroWord;
         ex_reg2  <= `ZeroWord;
         ex_wd    <= `NOPRegAddr;
@@ -35,7 +34,7 @@ always_ff @ (posedge clk) begin
         ex_reg1  <= id_reg1;
         ex_reg2  <= id_reg2;
         ex_wd    <= id_wd;
-        ex_wreg  <= id_wreg;		
+        ex_wreg  <= id_wreg;
     end
 end
 

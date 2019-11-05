@@ -23,6 +23,18 @@ module register(
 
 reg[`RegBus]  regs[0:`RegNum-1];
 
+// 清零逻辑
+genvar i;
+generate
+    for (i = 0; i < `RegNum; i = i + 1) begin
+        always_ff @ (posedge clk) begin
+            if (rst == 1'b1) begin
+                regs[i] <= `ZeroWord;
+            end
+        end
+    end
+endgenerate
+
 always_ff @ (posedge clk) begin
     if (rst == 1'b0) begin
         if ((we == 1'b1) && (waddr != 5'h0)) begin
@@ -31,7 +43,7 @@ always_ff @ (posedge clk) begin
     end
 end
 
-// 下面两个读是异步的组合逻辑
+// 下面两个读是异步的组合逻辑，下面的数据前传解决了相隔2个指令的数据冲突
 always_comb begin
     if (rst == 1'b1) begin
         rdata1 <= `ZeroWord;
