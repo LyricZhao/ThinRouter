@@ -4,7 +4,7 @@ PC(Program Counter)模块：
     另外，之前在另一本书上见过最好用rst_n而非rst，这点后面再说，这里先保持
 */
 
-`include "constants_cpu.vh"
+`include "cpu_defs.vh"
 
 module pc_reg(
 	input  logic        clk,

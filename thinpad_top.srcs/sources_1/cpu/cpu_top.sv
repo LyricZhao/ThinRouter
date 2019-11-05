@@ -3,7 +3,7 @@ CPU顶层设计：
     把所有模块都连接起来，模块实在很多线也很多，重构了一遍，所有的命名统一以(模块_出去的线)命名
 */
 
-`include "constants_cpu.vh"
+`include "cpu_defs.vh"
 
 module cpu_top(
 	input  logic            clk,
@@ -250,7 +250,7 @@ ex_mem ex_mem_inst(
 
     .mem_wd(ex_mem_mem_wd),
     .mem_wreg(ex_mem_mem_wreg),
-    .mem_wdata(ex_mem_mem_wdata),
+    .mem_wdata(ex_mem_mem_wdata)
 );
 
 // MEM（异步的组合逻辑）

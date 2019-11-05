@@ -3,7 +3,7 @@ MEM/WB模块：
     只是把访存阶段的结果向回写阶段传递
 */
 
-`include "constants_cpu.vh"
+`include "cpu_defs.vh"
 
 module mem_wb(
 	input  logic            clk,

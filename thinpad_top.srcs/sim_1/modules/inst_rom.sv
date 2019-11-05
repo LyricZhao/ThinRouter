@@ -3,21 +3,21 @@ InstROM:
     一个简单的指令储存器
 */
 
-`include "constants_cpu.vh"
+`include "cpu_defs.vh"
 
 module inst_rom(
-	input wire ce,
-	input wire[`InstAddrBus] addr,
-	output reg[`InstBus] inst
+	input  logic            ce,
+	input  inst_addr_t      addr,
+	output word_t           inst
 );
 
 parameter inst_mem_file = "cpu_inst_test.mem";
 
-reg[`InstBus] inst_mem[0:`InstMemNum-1];
+word_t inst_mem[0:`InstMemNum-1];
 
 initial begin
     for (int i = 0; i < `InstMemNum; i = i + 1)
-        inst_mem[i] = 0;
+        inst_mem[i] = `ZeroWord;
     $readmemh (inst_mem_file, inst_mem);
     $display("file loaded");
 end

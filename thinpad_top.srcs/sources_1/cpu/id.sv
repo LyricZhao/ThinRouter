@@ -3,7 +3,7 @@ ID(Decode)模块：
     对指令进行译码，得到最终运算的类型、子类型和两个源操作数
 */
 
-`include "constants_cpu.vh"
+`include "cpu_defs.vh"
 
 module id(
 	input  logic                    rst,
@@ -21,7 +21,7 @@ module id(
     // 访存阶段传来的前传数据（解决相隔1条指令的冲突）
     input  logic                    mem_wreg_i,     // 访存阶段是否写目的寄存器
     input  word_t                   mem_wdata_i,    // 需写入的数据
-    input  reg_addr_t               mem_wd_i        // 需写入的寄存器
+    input  reg_addr_t               mem_wd_i,       // 需写入的寄存器
 
 	output reg_addr_t               reg1_addr_o,    // 要读的寄存器1的编号
 	output reg_addr_t               reg2_addr_o,    // 要读的寄存器2的编号
@@ -30,7 +30,7 @@ module id(
 	output word_t                   reg1_o,         // 寄存器或者立即数的值（源操作数1）
 	output word_t                   reg2_o,         // 寄存器或者立即数的值（源操作数2）
 	output reg_addr_t               wd_o,           // 需要被写入的寄存器编号
-	output logic                    wreg_o,         // 是否需要写入
+	output logic                    wreg_o         // 是否需要写入
 );
 
 logic[5:0] op1 = inst_i[31:26];
@@ -67,7 +67,7 @@ always_comb begin
     if (rst == 1'b1) begin
         aluop_o     <= EXE_NOP_OP;
         wd_o        <= `NOPRegAddr;
-        wreg_o      <= `WriteDisable;
+        wreg_o      <= 1'b0;
         reg1_read_o <= 1'b0;
         reg2_read_o <= 1'b0;
         reg1_addr_o <= `NOPRegAddr;
@@ -76,7 +76,7 @@ always_comb begin
     end else begin
         aluop_o     <= EXE_NOP_OP;
         wd_o        <= inst_i[15:11];
-        wreg_o      <= `WriteDisable;
+        wreg_o      <= 1'b0;
         reg1_read_o <= 1'b0;
         reg2_read_o <= 1'b0;
         reg1_addr_o <= inst_i[25:21];

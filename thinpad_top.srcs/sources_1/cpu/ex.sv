@@ -3,7 +3,7 @@ EX模块：
     执行阶段，这里实际是一个ALU
 */
 
-`include "constants_cpu.vh"
+`include "cpu_defs.vh"
 
 module ex(
 	input  logic	        rst,
@@ -27,7 +27,7 @@ module ex(
 
     output reg_addr_t       wd_o,
 	output logic            wreg_o,
-	output word_t			wdata_o
+	output word_t			wdata_o,
 
     output word_t           hi_o,
     output word_t           lo_o,

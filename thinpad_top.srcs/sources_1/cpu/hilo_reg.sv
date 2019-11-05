@@ -3,7 +3,7 @@ hilo_reg:
     实现了HI, LO两个特殊寄存器
 */
 
-`include "constants_cpu.vh"
+`include "cpu_defs.vh"
 
 module hilo_reg(
 	input  logic    clk,

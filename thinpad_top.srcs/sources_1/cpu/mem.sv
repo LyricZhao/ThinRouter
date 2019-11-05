@@ -3,7 +3,7 @@ MEM模块：
     访存阶段，现在还涉及不到RAM，只是把执行阶段的结果向回写阶段传递
 */
 
-`include "constants_cpu.vh"
+`include "cpu_defs.vh"
 
 module mem(
 	input  logic            rst,

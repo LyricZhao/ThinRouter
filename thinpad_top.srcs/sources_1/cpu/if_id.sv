@@ -3,7 +3,7 @@ IF/ID模块：
     暂时保存取指(Fetch)阶段取得的指令和地址，在下一个时钟传递给译码(Decode)阶段
 */
 
-`include "constants_cpu.vh"
+`include "cpu_defs.vh"
 
 module if_id(
 	input  logic            clk,

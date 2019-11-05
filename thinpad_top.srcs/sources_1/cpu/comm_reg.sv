@@ -4,7 +4,7 @@ comm_reg:
     该模块是译码阶段的一部分
 */
 
-`include "constants_cpu.vh"
+`include "cpu_defs.vh"
 
 module comm_reg(
 	input  logic            clk,

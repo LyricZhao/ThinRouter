@@ -3,7 +3,7 @@ ID/EX模块：
     把ID的输出连接到EX执行阶段
 */
 
-`include "constants_cpu.vh"
+`include "cpu_defs.vh"
 
 module id_ex(
 	input  logic            clk,
