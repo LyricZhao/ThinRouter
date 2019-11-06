@@ -6,10 +6,12 @@
 `timescale 1ns / 1ps
 
 `include "debug.vh"
+`include "packet.vh"
+`include "address.vh"
 
 module io_manager (
     // 由父模块提供各种时钟
-    input   wire    clk_io,             // IO 时钟
+    input   wire    clk_fifo,           // FIFO 时钟
     input   wire    clk_internal,       // 内部处理逻辑用的时钟
     input   wire    rst_n,              // rstn 逻辑
 
@@ -29,309 +31,655 @@ module io_manager (
     output  bit     [7:0] tx_data,      // 数据出口
     output  bit     tx_valid,           // 数据出口正在传输
     input   wire    tx_ready,           // 外面是否准备接收：当前不处理外部不 ready 的逻辑 （TODO）
-    output  bit     tx_last             // 数据传出结束
+    output  bit     tx_last,            // 数据传出结束
+
+    output wire [4:0] debug_state,
+    output wire [15:0] debug_countdown,
+    output wire [5:0] debug_current,
+    output wire [5:0] debug_tx,
+    output wire [5:0] debug_last,
+    output wire [6:0] debug_case
 );
 
-// packet_manager 的 led 信号
-wire [15:0] pm_led;
-wire [7:0]  pm_digit0;
-wire [7:0]  pm_digit1;
+reg [511:0] buffer;
 
-// 接收数据用
-bit  packet_arrive;     // 提供给 packet_manager 的一拍信号，表示收到一个新的包
-bit  [367:0] frame_in;  // 将收到的数据包从高位往低位存储
-byte bytes_read;        // 已经接受的字节数
+reg [5:0] current_pos;
+reg [5:0] tx_pos;
+reg [5:0] last_pos;
+reg [15:0] rx_countdown;
 
-// packet_manager 的输出
-wire bad;               // packet_manager 在解析时随时可能置 1，此时应转丢包逻辑
-wire [367:0] frame_out; // packet_manager 处理后的需要发走的包
-wire out_ready;         // packet_manager 处理完成信号
-byte out_bytes;         // packet_manager 处理完成后，表示需要从 frame_out 发送多少字节
-wire require_direct_fw; // packet_manager 表示需要在接受了 stop_at 字节后暂停，后续的 IP 包 data 部分不走那里，直接转发
-byte stop_at;  // 
-int  fw_bytes;          // 需要直接转发的字节数
+wire [47:0] target_mac = 48'haaaaaaaaaaaa;
+wire [2:0] target_vlan;
+wire process_complete = start_process;
+reg process_bad;
+reg reset_process;
+reg start_process;
 
-// 状态
-enum logic[2:0] {
-    Idle,               // 空闲，遇到 rx_valid 转下一条
-    Reading,            // 正在接收，等待 packet_manager 的 require_direct_fw 或者 rx_last，转下一条
-    Waiting,            // 等待 packet_manager 处理完，之后转下一条
-    Sending,            // 发送 packet_manager 处理后的新网帧
-    Forwarding,         // 连接 rx tx 转发 IP 包的 data
-    Discarding          // 丢包（或者是丢弃掉 trailer），等到 rx_last 转 Idle
+reg process_started;
+
+enum logic [1:0] {
+    IP,
+    ARP,
+    Other
+} packet_type;
+
+enum logic [4:0] { 
+    Idle,
+    Load_Unprocessed_Packet,
+    Load_Processing_Packet,
+    // Detrailer_Processing_Packet,
+    Discard_Packet,
+    // Processing_Loaded_Packet, // impossible
+    Send_Load_Packet,
+    Send_Detrailer_Packet,
+    Send_Packet,
+    Send_Load_Another_Unprocessed,
+    Send_Load_Another_Processing,
+    Send_Load_Another_Processed,
+    Send_Discard_Another
+    //Send_Detrailer_Another,
 } state;
 
-// 处理状态用到的变量
-byte bytes_sent;        // Sending 下，已经从 packet_manager 的 frame_out 发送的字节数
-int  bytes_forwarded;   // Forwarding 下，已经转发的字节数（只用于 IP 包的 data 部分）
-bit  packet_ended;      // 当前处理的包已经 last
+// tx_pos - 1
+wire [5:0] tx_pos_minus_one = tx_pos - 1;
+// 接收完成，还没 last（last 时会设 countdown 为 ffff）
+wire rx_complete = rx_countdown == 0;
+// 接下来接收的 rx 会是新一个包的开始
+wire rx_new = rx_countdown == '1;
+// 有缓存的数据可以发送
+wire tx_available = tx_pos != last_pos;
+// 可以发送的数据仅剩一字节（后面可能还有一个数据包准备发送）
+wire tx_one_left = tx_pos_minus_one == last_pos;
+// 正在转发 payload，且 payload 未接收完
+wire direct_forward = last_pos == 0 && !rx_complete && !rx_new;
+// 所有包都已经处理完毕（其实只能有一个包）
+wire all_processed = current_pos == 0;
+// 应当移动 buffer
+wire shifting = rx_valid && !rx_complete;
+// rx_countdown 只剩一个字节
+wire last_byte = rx_countdown == 1;
 
-packet_manager packet_manager_inst (
-    .clk_internal(clk_internal),
+task tx_none; begin
+    tx_valid <= 0;
+    tx_last <= 0;
+    if (shifting) begin
+        tx_pos <= tx_pos + 1;
+        last_pos <= last_pos + 1;
+    end
+end
+endtask
 
-    .rst_n(rst_n),
-    .clk_btn(clk_btn),
-    .btn(btn),
-    .led_out(pm_led),
-    .digit0_out(pm_digit0),
-    .digit1_out(pm_digit1),
+task tx_default; begin
+    tx_data <= buffer[8 * tx_pos_minus_one +: 8];
+    tx_valid <= 1;
+    tx_last <= tx_one_left;
+    if (!shifting) begin
+        tx_pos <= tx_pos_minus_one;
+    end
+end
+endtask
 
-    .packet_arrive(packet_arrive),
+task tx_no_last; begin
+    tx_data <= buffer[8 * tx_pos_minus_one +: 8];
+    tx_valid <= 1;
+    tx_last <= 0;
+    if (!shifting) begin
+        tx_pos <= tx_pos_minus_one;
+    end
+end
+endtask
 
-    .frame_in(frame_in),
-    .bytes_read(bytes_read),
+task rx_default; begin
+    buffer <= {buffer[0 +: 504], rx_data};
+    current_pos <= current_pos + 1;
+    last_pos <= last_pos + 1;
+    rx_countdown <= rx_countdown - 1;
+end
+endtask
 
-    .bad(bad),
+task rx_keep_pos; begin
+    buffer <= {buffer[0 +: 504], rx_data};
+    rx_countdown <= rx_countdown - 1;
+end
+endtask
 
-    .frame_out(frame_out),
-    .out_ready(out_ready),
-    .out_bytes(out_bytes),
+// 此时的 ARP 帧应该对齐 buffer 末尾
+task process_arp; begin
+    case (buffer[368`ETH_VLAN_ID])
+        1: begin
+            if (buffer[368`ARP_DST_IP] == `ROUTER_IP_1) begin
+                buffer[368`ETH_DST_MAC] = buffer[368`ETH_SRC_MAC];
+                buffer[368`ETH_SRC_MAC] = `ROUTER_MAC_1;
+                buffer[368`ARP_DST_MAC] = buffer[368`ARP_SRC_MAC];
+                buffer[368`ARP_DST_IP] = buffer[368`ARP_SRC_IP];
+                buffer[368`ARP_SRC_MAC] = `ROUTER_MAC_1;
+                buffer[368`ARP_SRC_IP] = `ROUTER_IP_1;
+            end else begin
+                process_bad <= 1;
+            end
+        end
+        2: begin
+            if (buffer[368`ARP_DST_IP] == `ROUTER_IP_2) begin
+                buffer[368`ETH_DST_MAC] = buffer[368`ETH_SRC_MAC];
+                buffer[368`ETH_SRC_MAC] = `ROUTER_MAC_2;
+                buffer[368`ARP_DST_MAC] = buffer[368`ARP_SRC_MAC];
+                buffer[368`ARP_DST_IP] = buffer[368`ARP_SRC_IP];
+                buffer[368`ARP_SRC_MAC] = `ROUTER_MAC_2;
+                buffer[368`ARP_SRC_IP] = `ROUTER_IP_2;
+            end else begin
+                process_bad <= 1;
+            end
+        end
+        3: begin
+            if (buffer[368`ARP_DST_IP] == `ROUTER_IP_3) begin
+                buffer[368`ETH_DST_MAC] = buffer[368`ETH_SRC_MAC];
+                buffer[368`ETH_SRC_MAC] = `ROUTER_MAC_3;
+                buffer[368`ARP_DST_MAC] = buffer[368`ARP_SRC_MAC];
+                buffer[368`ARP_DST_IP] = buffer[368`ARP_SRC_IP];
+                buffer[368`ARP_SRC_MAC] = `ROUTER_MAC_3;
+                buffer[368`ARP_SRC_IP] = `ROUTER_IP_3;
+            end else begin
+                process_bad <= 1;
+            end
+        end
+        4: begin
+            if (buffer[368`ARP_DST_IP] == `ROUTER_IP_4) begin
+                buffer[368`ETH_DST_MAC] = buffer[368`ETH_SRC_MAC];
+                buffer[368`ETH_SRC_MAC] = `ROUTER_MAC_4;
+                buffer[368`ARP_DST_MAC] = buffer[368`ARP_SRC_MAC];
+                buffer[368`ARP_DST_IP] = buffer[368`ARP_SRC_IP];
+                buffer[368`ARP_SRC_MAC] = `ROUTER_MAC_4;
+                buffer[368`ARP_SRC_IP] = `ROUTER_IP_4;
+            end else begin
+                process_bad <= 1;
+            end
+        end
+        default: begin
+            process_bad <= 1;
+        end
+    endcase
+end
+endtask
 
-    .require_direct_fw(require_direct_fw),
-    .stop_at(stop_at),
-    .fw_bytes(fw_bytes)
-);
-
-// 驱动 rx_ready 信号
-always_comb 
-case (state)
-    Idle, Reading, Discarding: 
-        rx_ready = 1;
-    Waiting, Sending: 
-        rx_ready = 0;
-    Forwarding:
-        rx_ready = tx_ready;
-endcase
-
-always_ff @ (posedge clk_io) begin
-    // 初始化
-    if (~rst_n) begin
-        // 收包变量
-        packet_arrive <= 0;
-        bytes_read <= 0;
-        // 处理逻辑变量
-        state <= Idle;
-        bytes_sent <= 0;
-        bytes_forwarded <= 0;
-        packet_ended <= 0;
-        // 输出信号
-        tx_last <= 0;
-        tx_valid <= 0;
+// 预处理 IP 帧，此时帧应该对齐 buffer 末尾
+task preprocess_ip; begin
+    if (buffer[304`IP_TTL] != 0 && (
+        (buffer[304`ETH_DST_MAC] == `ROUTER_MAC_1 &&
+         buffer[304`ETH_VLAN_ID] == 1) ||
+        (buffer[304`ETH_DST_MAC] == `ROUTER_MAC_2 &&
+         buffer[304`ETH_VLAN_ID] == 2) ||
+        (buffer[304`ETH_DST_MAC] == `ROUTER_MAC_3 &&
+         buffer[304`ETH_VLAN_ID] == 3) ||
+        (buffer[304`ETH_DST_MAC] == `ROUTER_MAC_4 &&
+         buffer[304`ETH_VLAN_ID] == 4)
+    )) begin
+        buffer[304`IP_TTL] = buffer[304`IP_TTL] - 1;
+        if (buffer[304`IP_CHECKSUM] >= 16'hfeff) begin
+            buffer[304`IP_CHECKSUM] = buffer[304`IP_CHECKSUM] + 16'h101;
+        end else begin
+            buffer[304`IP_CHECKSUM] = buffer[304`IP_CHECKSUM] + 16'h100;
+        end
     end else begin
-        case(state)
-            Idle: begin
-                tx_last <= 0;
-                tx_valid <= 0;
-                if (rx_valid) begin
-                    // 状态
-                    state <= Reading;
-                    packet_arrive <= 1;
-                    // 记录当前收到的字节
-                    frame_in[367 -: 8] <= rx_data;
-                    bytes_read <= 1;
-                    // 变量清零
-                    bytes_sent <= 0;
-                    bytes_forwarded <= 0;
-                    packet_ended <= 0;
-                end
-            end
+        process_bad <= 1;
+    end
+end
+endtask
 
-            Reading: begin
-                // 持续接收数据
-                packet_arrive <= 0;
-                if (bad) begin
-                    if (packet_ended || (rx_valid && rx_last)) begin
-                        state <= Idle;
-                    end else begin
-                        $write("Discarding... ");
-                        state <= Discarding;
+// 用处理结果修改帧（IP 包）
+task apply_ip_process; begin
+    buffer[(8 * current_pos)`ETH_DST_MAC] = target_mac;
+    buffer[(8 * current_pos)`ETH_VLAN_ID] = target_vlan;
+end
+endtask
+
+assign rx_ready = tx_ready;
+
+task get_idle; begin
+    current_pos <= 0;
+    last_pos <= 0;
+    tx_pos <= 0;
+    reset_process <= 1;
+    start_process <= 0;
+    process_bad <= 0;
+    rx_countdown <= '1;
+    state <= Idle;
+end
+endtask
+
+always_ff @(posedge clk_fifo) begin
+    if (!rst_n) begin
+        // reset
+        get_idle();
+        tx_valid <= 0;
+        tx_last <= 0;
+    end else begin
+        unique casez ({state,
+            rx_valid, rx_last, tx_ready,
+            last_byte, process_complete, process_bad,
+            tx_available
+        })
+            /******************************
+             * Idle
+             * 空闲，遇到包转 LUP
+             *****************************/
+            {Idle, 7'b00?_???_?}: begin
+                tx_none();
+            end
+            {Idle, 7'b10?_???_?}: begin
+                tx_none();
+                rx_default();
+                state <= Load_Unprocessed_Packet;
+            end
+            /******************************
+             * Load Unprocessed Packet
+             * 加载包，到一定长度开始处理
+             * rx 一定不会 last 或 complete
+             *****************************/
+            {Load_Unprocessed_Packet, 7'b00?_???_0}: begin
+                tx_none();
+            end
+            {Load_Unprocessed_Packet, 7'b10?_???_0}: begin
+                case (current_pos)
+                    // 22: 确定了包的大小
+                    22: begin
+                        tx_none();
+                        buffer <= {buffer[0 +: 504], rx_data};
+                        current_pos <= current_pos + 1;
+                        last_pos <= last_pos + 1;
+                        case (buffer[32 +: 16])
+                            16'h0806: begin
+                                packet_type <= ARP;
+                                rx_countdown <= 37;
+                            end
+                            16'h0800: begin
+                                packet_type <= IP;
+                                if (buffer[0 +: 16] > 42) begin
+                                    rx_countdown <= buffer[0 +: 16] - 5;
+                                end else begin
+                                    rx_countdown <= 37;
+                                end
+                            end
+                            default: begin
+                                packet_type <= Other;
+                                rx_countdown <= 37;
+                            end
+                        endcase
                     end
-                end else if (rx_valid) begin
-                    frame_in[367 - bytes_read * 8 -: 8] <= rx_data;
-                    bytes_read <= bytes_read + 1;
-                    // 收到 last 后，暂停等待处理
-                    if (rx_last) begin
-                        packet_ended <= 1;
-                        $write("frame_in completed\n\t");
-                        `WRITE_BITS(frame_in, 367, 368 - bytes_read * 8);
-                        $display("%x", rx_data);
-                        state <= Waiting;
-                    // 或者到达 IP 包 data 前了，也暂停等待处理
-                    end else if (bytes_read + 1 == stop_at) begin
-                        if (require_direct_fw) begin
-                            // IP 包需要转发 data
-                            $write("IP header completed\n\t");
-                            `WRITE_BITS(frame_in, 367, 368 - bytes_read * 8);
-                            $display("%x", rx_data);
-                            state <= Waiting;
-                        end else begin
-                            // 单纯的包结束
-                            $write("frame_in completed\n\t");
-                            `WRITE_BITS(frame_in, 367, 368 - bytes_read * 8);
-                            $display("%x", rx_data);
-                            state <= Waiting;
+                    // 开始处理 IP 包
+                    38: begin
+                        if (packet_type == IP) begin
+                            preprocess_ip();
+                            // todo process
+                            start_process <= 1;
+                            reset_process <= 0;
+                            state <= Load_Processing_Packet;
                         end
+                        tx_none();
+                        rx_default();
                     end
-                end
-            end
-
-            Waiting: begin
-                // 此时 rx_ready 为 0
-                if (bad) begin
-                    if (packet_ended) begin
-                        state <= Idle;
-                    end else begin
-                        $write("Discarding... ");
-                        state <= Discarding;
-                    end
-                end else if (out_ready) begin
-                    $write("frame_out ready, sending...\n\t");
-                    state <= Sending;
-                end
-            end
-
-            Sending: begin
-                // 此时 rx_ready = 0，out_ready = 1，bad = 0
-                if (tx_ready) begin
-                    $write("%2x ", frame_out[367 - bytes_sent * 8 -: 8]); 
-                    tx_data <= frame_out[367 - bytes_sent * 8 -: 8];
-                    tx_valid <= 1;
-                    bytes_sent <= bytes_sent + 1;
-                    if (bytes_sent + 1 == out_bytes) begin
-                        // packet_manager 的部分转发完成（还可能有 data）
-                        if (require_direct_fw) begin
-                            $write("\nand forwarding...\n\t");
-                            state <= Forwarding;
-                        end else if (packet_ended) begin
-                            $display("LAST");
-                            tx_last <= 1;
-                            state <= Idle;
-                        end else begin
-                            tx_last <= 1;
-                            $write("Discarding... ");
-                            state <= Discarding;
-                        end
-                    end
-                end else begin
-                    tx_valid <= 0;
-                    tx_last <= 0;
-                end
-            end
-
-            Forwarding: begin
-                if (rx_valid) begin
-                    if (bytes_forwarded == fw_bytes) begin
-                        // 如果已经转发了应当转发的数量，剩下的应当丢弃
+                    // 处理 ARP 包
+                    46: begin
                         tx_valid <= 0;
-                        if (rx_last) begin
-                            state <= Idle;
-                        end else
-                            state <= Discarding;
-                    end else begin
-                        bytes_forwarded <= bytes_forwarded + 1;
-                        $write("%2x ", rx_data);
-                        tx_data <= rx_data;
-                        tx_valid <= 1;
-                        if (rx_last) begin
-                            // 如果遇到 rx_last 则必须立即停止
-                            $display("LAST (EOP)");
-                            tx_last <= 1;
-                            state <= Idle;
+                        tx_last <= 0;
+                        tx_pos <= tx_pos + 1;
+                        if (packet_type == ARP) begin
+                            process_arp();
+                            rx_keep_pos();
+                            current_pos = 0;
+                            last_pos = 0;
+                            state <= Send_Load_Packet;
                         end else begin
-                            // data 包转发完毕发 last，转 Discarding
-                            if (bytes_forwarded + 1 == fw_bytes) begin
-                                $display("LAST");
-                                tx_last <= 1;
-                                packet_ended <= 1;
-                                state <= Discarding;
+                            // 不是 ARP 就是无法处理的包，丢弃
+                            state <= Discard_Packet;
+                        end
+                    end
+                    default: begin
+                        tx_none();
+                        rx_default();
+                    end
+                endcase
+            end
+            /******************************
+             * Load Processing Packet
+             * 加载包，且在处理
+             * rx 一定不会 last 或 complete
+             *****************************/
+            {Load_Processing_Packet, 7'b00?_000_0}: begin
+                start_process <= 0;
+                tx_none();
+            end
+            {Load_Processing_Packet, 7'b?0?_0?1_0}: begin
+                // 坏包
+                start_process <= 0;
+                tx_none();
+                state <= Discard_Packet;
+            end
+            {Load_Processing_Packet, 7'b?0?_010_0}: begin
+                // 处理完成
+                start_process <= 0;
+                reset_process <= 1;
+                apply_ip_process();
+                current_pos = 0;
+                last_pos = 0;
+                tx_none();
+                state <= Send_Load_Packet;
+                if (rx_valid)
+                    rx_keep_pos();
+            end
+            {Load_Processing_Packet, 7'b10?_000_0}: begin
+                // 继续加载，继续处理
+                start_process <= 0;
+                tx_none();
+                rx_default();
+            end
+            /******************************
+             * Discard Packet
+             * 丢包，忽略一切，直到 rx_last
+             *****************************/
+            {Discard_Packet, 7'b?0?_????}: begin
+                tx_none();
+            end
+            {Discard_Packet, 7'b11?_????}: begin
+                get_idle();
+            end
+            /******************************
+             * Send Load Packet
+             * 发送包且该包未接收完
+             * 接收完转 SDP
+             *****************************/
+            {Send_Load_Packet, 7'b001_???0},
+            {Send_Load_Packet, 7'b000_????}: begin
+                // 无可发送数据 或 tx_ready = 0
+                tx_none();
+            end
+            {Send_Load_Packet, 7'b001_???1}: begin
+                // 从缓冲区里面发送已处理的数据，同时等待更多输入
+                tx_data <= buffer[8 * tx_pos_minus_one +: 8];
+                tx_valid <= 1;
+                tx_last <= 0;
+                tx_pos <= tx_pos - 1;
+            end
+            {Send_Load_Packet, 7'b10?_???1}: begin
+                // 从缓冲区里面发送已处理的数据，同时有新数据进入
+                rx_keep_pos();
+                tx_no_last();
+                if (last_byte) begin
+                    state <= Send_Detrailer_Packet;
+                end
+            end
+            {Send_Load_Packet, 7'b10?_???0}: begin
+                // 缓冲区已空，接一个发一个
+                tx_data <= rx_data;
+                tx_valid <= 1;
+                tx_last <= last_byte;
+                if (last_byte) begin
+                    // 没有该发的了，丢弃 trailer
+                    state <= Discard_Packet;
+                end
+            end
+            /******************************
+             * Send Detrailer Packet
+             * 从缓冲区发送
+             * 同时丢弃输入直到 rx_last
+             *****************************/
+            {Send_Detrailer_Packet, 7'b000_????}: begin
+                // tx_ready = 0
+                tx_none();
+            end
+            {Send_Detrailer_Packet, 7'b??1_????}: begin
+                tx_default();
+                if (tx_one_left) begin
+                    if (rx_valid && rx_last) begin
+                        // 发完同时 last
+                        get_idle();
+                    end else begin
+                        // 发完，剩余 Trailer
+                        state <= Discard_Packet;
+                    end
+                end else if (rx_valid && rx_last) begin
+                    // last 但未发完
+                    rx_countdown <= '1;
+                    current_pos <= 0;
+                    last_pos <= 0;
+                    state <= Send_Packet;
+                end
+            end
+            /******************************
+             * Send Packet
+             * 从缓冲区发送
+             * 同时等待新的包进入
+             *****************************/
+            {Send_Packet, 7'b000_???_?}: begin
+                tx_none();
+            end
+            {Send_Packet, 7'b001_???_?}: begin
+                tx_default();
+                if (tx_one_left) begin
+                    // 发完了
+                    get_idle();
+                end
+            end
+            {Send_Packet, 7'b101_???_?}: begin
+                tx_default();
+                rx_default();
+                if (tx_one_left) begin
+                    // 发完了
+                    state <= Load_Unprocessed_Packet;
+                end else begin
+                    state <= Send_Load_Another_Unprocessed;
+                end
+            end
+            /******************************
+             * Send Load Another Unprocessed
+             * 从缓冲区发送前一个包
+             * 同时收取后一个未处理包
+             *****************************/
+            {Send_Load_Another_Unprocessed, 7'b000_000_1}: begin
+                tx_none();
+            end
+            {Send_Load_Another_Unprocessed, 7'b001_000_1}: begin
+                tx_default();
+                if (tx_one_left) begin
+                    // 前一个包发送完毕
+                    state <= Load_Unprocessed_Packet;
+                end
+            end
+            {Send_Load_Another_Unprocessed, 7'b101_000_1}: begin
+                tx_default();
+                case (current_pos)
+                    // 22: 确定了包的大小
+                    22: begin
+                        buffer <= {buffer[0 +: 504], rx_data};
+                        current_pos <= current_pos + 1;
+                        last_pos <= last_pos + 1;
+                        case (buffer[32 +: 16])
+                            16'h0806: begin
+                                packet_type <= ARP;
+                                rx_countdown <= 37;
+                            end
+                            16'h0800: begin
+                                packet_type <= IP;
+                                if (buffer[0 +: 16] > 42) begin
+                                    rx_countdown <= buffer[0 +: 16] - 5;
+                                end else begin
+                                    rx_countdown <= 37;
+                                end
+                            end
+                            default: begin
+                                packet_type <= Other;
+                                rx_countdown <= 37;
+                            end
+                        endcase
+                        if (tx_one_left) begin
+                            state <= Load_Unprocessed_Packet;
+                        end
+                    end
+                    // 开始处理 IP 包
+                    38: begin
+                        if (packet_type == IP) begin
+                            preprocess_ip();
+                            // todo process
+                            start_process <= 1;
+                            reset_process <= 0;
+                            if (tx_one_left) begin
+                                state <= Load_Processing_Packet;
+                            end else begin
+                                state <= Send_Load_Another_Processing;
+                            end
+                        end else begin
+                            if (tx_one_left) begin
+                                state <= Load_Unprocessed_Packet;
+                            end
+                        end
+                        rx_default();
+                    end
+                    // 处理 ARP 包
+                    46: begin
+                        if (packet_type == ARP) begin
+                            process_arp();
+                            rx_keep_pos();
+                            current_pos <= 0;
+                            last_pos <= last_pos + 1;
+                            if (tx_one_left) begin
+                                state <= Send_Load_Packet;
+                            end else begin
+                                state <= Send_Load_Another_Processed;
+                            end
+                        end else begin
+                            // 不是 ARP 就是无法处理的包，丢弃
+                            if (tx_one_left) begin
+                                state <= Discard_Packet;
+                            end else begin
+                                state <= Send_Discard_Another;
                             end
                         end
                     end
+                    default: begin
+                        rx_default();
+                        if (tx_one_left) begin
+                            state <= Load_Unprocessed_Packet;
+                        end
+                    end
+                endcase
+            end
+            /******************************
+             * Send Load Another Processing
+             * 从缓冲区发送前一个包
+             * 同时收取后一个处理中的包
+             * rx 一定不会 last 或 complete
+             *****************************/
+            {Send_Load_Another_Processing, 7'b000_0??_1}: begin
+                // tx_ready = 0
+                start_process <= 0;
+                tx_none();
+                if (process_bad) begin
+                    state <= Send_Discard_Another;
+                end
+            end
+            {Send_Load_Another_Processing, 7'b?01_000_1}: begin
+                // 处理中
+                start_process <= 0;
+                tx_default();
+                if (rx_valid) begin
+                    rx_default();
+                end
+                if (tx_one_left) begin
+                    // 发送完
+                    state <= Load_Processing_Packet;
+                end
+            end
+            {Send_Load_Another_Processing, 7'b?01_0?1_1}: begin
+                // bad
+                start_process <= 0;
+                tx_default();
+                if (tx_one_left) begin
+                    // 发送完
+                    state <= Discard_Packet;
                 end else begin
-                    // 如果 rx_valid = 0
-                    tx_valid <= 0;
-                    tx_last <= 0;
+                    state <= Send_Discard_Another;
                 end
             end
-
-            Discarding: begin
-                tx_last <= 0;
-                tx_valid <= 0;
-                if (rx_valid && rx_last) begin
-                    $display("complete");
-                    state <= Idle;
+            {Send_Load_Another_Processing, 7'b?01_010_1}: begin
+                // 处理完毕
+                start_process <= 0;
+                reset_process <= 1;
+                apply_ip_process();
+                tx_default();
+                if (tx_one_left) begin
+                    // 发送完
+                    current_pos = 0;
+                    last_pos = 0;
+                    state <= Send_Load_Packet;
+                    if (rx_valid)
+                        rx_keep_pos();
+                end else begin
+                    current_pos <= 0;
+                    state <= Send_Load_Another_Processed;
+                    if (rx_valid) begin
+                        rx_keep_pos();
+                        last_pos <= last_pos + 1;
+                    end
                 end
             end
-
+            /******************************
+             * Send Load Another Processed
+             * 前一个包还未发完，当前包处理完
+             *****************************/
+            {Send_Load_Another_Processed, 7'b000_???_1}: begin
+                // tx_ready = 0
+                tx_none();
+            end
+            {Send_Load_Another_Processed, 7'b001_???_1}: begin
+                // 从缓冲区里面发送已处理的数据，同时等待更多输入
+                tx_default();
+                if (tx_one_left) begin
+                    state <= Send_Load_Packet;
+                end
+            end
+            {Send_Load_Another_Processed, 7'b10?_0??_1}: begin
+                // 从缓冲区里面发送已处理的数据，同时有新数据进入
+                rx_keep_pos();
+                tx_default();
+                if (tx_one_left) begin
+                    state <= Send_Load_Packet;
+                    last_pos <= 0;
+                end else begin
+                    last_pos <= last_pos + 1;
+                end
+            end
+            /******************************
+             * Send Discard Another
+             * 前一个包还未发完，当前包要丢掉
+             *****************************/
+            {Send_Discard_Another, 7'b000_???_?}: begin
+                tx_none();
+            end
+            {Send_Discard_Another, 7'b?01_???_?}: begin
+                tx_default();
+                if (tx_one_left) begin
+                    state <= Discard_Packet;
+                end
+            end
             default: begin
+                $display("!!!%x %d%d%d%d%d%d%d", state,
+            rx_valid, rx_last, tx_ready,
+            last_byte, process_complete, process_bad,
+            tx_available);
             end
         endcase
     end
 end
 
-/*************
- * debug 信号
- ************/
 
-bit debug_incoming_signal;
-bit debug_discard_signal;
-bit debug_send_signal;
-
-always_ff @ (posedge clk_internal) begin
-    debug_incoming_signal <= state == Reading;
-    debug_discard_signal <= bad;
-    debug_send_signal <= state == Sending;
-end
-
-// 收到数据包显示在 led
-led_loop debug_incoming (
-    .clk(debug_incoming_signal),
-    .led(led_out)
-);
-
-wire [7:0] ip_digit0, ip_digit1, arp_digit0, arp_digit1, send_digit, discard_digit;
-
-// 记录 IP 包转发数量
-digit_dec_count ip_counter (
-    .clk(debug_send_signal),
-    .lock(frame_in[239:224] != 16'h0800),
-    .digit0(ip_digit0),
-    .digit1(ip_digit1)
-);
-
-// 记录 ARP 包转发数量
-digit_dec_count arp_counter (
-    .clk(debug_send_signal),
-    .lock(frame_in[239:224] != 16'h0806),
-    .digit0(arp_digit0),
-    .digit1(arp_digit1)
-);
-
-// 正常发包显示在高位数码管
-digit_loop debug_send (
-    .rst_n(rst_n),
-    .clk(debug_send_signal),
-    .digit_out(send_digit)
-);
-
-// 丢包显示在低位数码管
-digit_loop debug_discard (
-    .rst_n(rst_n),
-    .clk(debug_discard_signal),
-    .digit_out(discard_digit)
-);
-
-/*
-普通:
-    高位显示发送，低位显示丢弃
-按下 btn0:
-    显示 IP 包转发数量
-按下 btn1:
-    显示 ARP 包转发数量
-*/
-assign {digit0_out, digit1_out} = 
-    btn[0] ? {ip_digit0, ip_digit1} :
-    btn[1] ? {arp_digit0, arp_digit1} :
-    {discard_digit, send_digit};
+assign debug_state = state;
+assign debug_countdown = rx_countdown;
+assign debug_current = current_pos;
+assign debug_tx = tx_pos;
+assign debug_last = last_pos;
+assign debug_case = {
+    rx_valid, rx_last, tx_ready,
+    last_byte, process_complete, process_bad,
+    tx_available
+};
 
 endmodule
