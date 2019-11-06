@@ -26,13 +26,11 @@ module id_ex(
 
 // 同步写入
 always_ff @ (posedge clk) begin
-    if ((rst == 1'b1) || (stall[2] == 1'b1 && stall[3] == 1'b0)) begin // id暂停ex阶段没暂停就给ex空指令
+    if ((rst == 1) || (stall[2] == 1 && stall[3] == 0)) begin // id暂停ex阶段没暂停就给ex空指令
         ex_aluop <= EXE_NOP_OP;
-        ex_reg1  <= `ZeroWord;
-        ex_reg2  <= `ZeroWord;
         ex_wd    <= `NOP_REG_ADDR;
-        ex_wreg  <= 1'b0;
-    end else if (stall[2] == 1'b0) begin
+        {ex_reg1, ex_reg2, ex_wreg} <= 0;
+    end else if (stall[2] == 0) begin
         ex_aluop <= id_aluop;
         ex_reg1  <= id_reg1;
         ex_reg2  <= id_reg2;

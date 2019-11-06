@@ -9,25 +9,24 @@ PC(Program Counter)模块：
 module pc_reg(
     input  logic        clk,
     input  logic        rst,
-    input  stall_t      stall,
+    input  stall_t      stall,              // 流水线暂停状态
+
+    input  logic        branch_flag,        // 是否跳转
+    input  inst_addr_t  branch_target_addr, // 要跳到的位置
 	
-    output inst_addr_t  pc,     // 程序计数器
-    output logic        ce      // 指令rom的使能
+    output inst_addr_t  pc,                 // 程序计数器
+    output logic        ce                  // 指令rom的使能
 );
 
-always_ff @ (posedge clk) begin
-    if (ce == 1'b0) begin
-        pc <= 32'h00000000;
-    end else if (stall[0] == 1'b0) begin
-        pc <= pc + 4'h4;
-    end
-end
+assign branch_flag = 0;
+
+assign ce = ~rst;
 
 always_ff @ (posedge clk) begin
-    if (rst == 1'b1) begin
-        ce <= 1'b0;
-    end else begin
-        ce <= 1'b1;
+    if (ce == 0) begin
+        pc <= 0;
+    end else if (stall[0] == 0) begin
+        pc <= branch_flag ? branch_target_addr : (pc + 4);
     end
 end
 

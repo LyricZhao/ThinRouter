@@ -18,10 +18,9 @@ module if_id(
 );
 
 always_ff @ (posedge clk) begin
-    if ((rst == 1'b1) || (stall[1] == 1'b1 && stall[2] == 1'b0)) begin // 译码阶段在继续传一个nop给id
-        id_pc <= `ZeroWord;
-        id_inst <= `ZeroWord;
-    end else if (stall[1] == 1'b0) begin
+    if ((rst == 1) || (stall[1] == 1 && stall[2] == 0)) begin // 译码阶段在继续传一个nop给id
+        {id_pc, id_inst} <= 0;
+    end else if (stall[1] == 0) begin
         id_pc <= if_pc;
         id_inst <= if_inst;
     end

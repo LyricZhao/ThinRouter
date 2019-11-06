@@ -24,12 +24,12 @@ module mem(
 );
 
 always_comb begin
-    if (rst == 1'b1) begin
+    if (rst == 1) begin
         wd_o <= `NOP_REG_ADDR;
-        wreg_o <= 1'b0;
-        wdata_o <= `ZeroWord;
-        {hi_o, lo_o} <= {`ZeroWord, `ZeroWord};
-        whilo_o <= 1'b0;
+        wreg_o <= 0;
+        wdata_o <= 0;
+        {hi_o, lo_o} <= 0;
+        whilo_o <= 0;
     end else begin
         wd_o <= wd_i;
         wreg_o <= wreg_i;

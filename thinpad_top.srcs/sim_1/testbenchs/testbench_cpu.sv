@@ -8,7 +8,7 @@ logic clk_50M;
 logic rst;
 
 initial begin
-    clk_50M = 1'b0;
+    clk_50M = 0;
     forever #10 clk_50M = ~clk_50M;
 end
  
@@ -33,8 +33,8 @@ inst_rom #("cpu_inst_test.mem") inst_rom0(
 );
 
 initial begin
-    rst = 1'b1;
-    #195 rst= 1'b0;
+    rst = 1;
+    #195 rst = 0;
 end
 
 endmodule

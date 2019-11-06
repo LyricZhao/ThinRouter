@@ -28,13 +28,10 @@ module mem_wb(
 
 // 同步传递
 always_ff @(posedge clk) begin
-    if ((rst == 1'b1) || (stall[4] == 1'b1 && stall[5] == 1'b0)) begin
+    if ((rst == 1) || (stall[4] == 1 && stall[5] == 0)) begin
         wb_wd <= `NOP_REG_ADDR;
-        wb_wreg <= 1'b0;
-        wb_wdata <= `ZeroWord;
-        {wb_hi, wb_lo} <= {`ZeroWord, `ZeroWord};
-        wb_whilo <= 1'b0;
-    end else if (stall[4] == 1'b0) begin
+        {wb_wreg, wb_wdata, wb_hi, wb_lo, wb_whilo} <= 0;
+    end else if (stall[4] == 0) begin
         wb_wd <= mem_wd;
         wb_wreg <= mem_wreg;
         wb_wdata <= mem_wdata;

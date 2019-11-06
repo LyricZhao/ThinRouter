@@ -77,7 +77,7 @@ assign hilo_temp = opdata1_mult * opdata2_mult;
 // 乘法结果
 always_comb begin
     if (rst == 1'b1) begin
-        result_mul <= {`ZeroWord, `ZeroWord};
+        result_mul <= 0;
     end else begin
         case (aluop_i)
             EXE_MULT_OP, EXE_MUL_OP: begin
@@ -93,7 +93,7 @@ end
 // 运算结果（要写入寄存器的值）
 always_comb begin
     if (rst == 1'b1) begin
-        wdata_o <= `ZeroWord;
+        wdata_o <= 0;
     end else begin
         case (aluop_i)
             EXE_OR_OP: begin
@@ -145,7 +145,7 @@ always_comb begin
                 wdata_o <= reg1_i;
             end
             default: begin // EXE_NOP_OP, EXE_MTHI_OP, EXE_MTLO_OP
-                wdata_o <= `ZeroWord;
+                wdata_o <= 0;
             end
         endcase
     end
@@ -154,10 +154,10 @@ end
 // 当前最新的hilo的值，这里有mem和wb的数据前传
 always_comb begin
     if (rst == 1'b1) begin
-        {hi, lo} <= {`ZeroWord, `ZeroWord};
-    end else if (mem_whilo_i == 1'b1) begin
+        {hi, lo} <= 0;
+    end else if (mem_whilo_i == 1) begin
         {hi, lo} <= {mem_hi_i, mem_lo_i};
-    end else if (wb_whilo_i == 1'b1) begin
+    end else if (wb_whilo_i == 1) begin
         {hi, lo} <= {wb_hi_i, wb_lo_i};
     end else begin
         {hi, lo} <= {hi_i, lo_i};
@@ -166,26 +166,24 @@ end
 
 // 将要写入的hi, lo的值
 always_comb begin
-    if (rst == 1'b1) begin
-        whilo_o <= 1'b0;
-        {hi_o, lo_o} <= {`ZeroWord, `ZeroWord};
+    if (rst == 1) begin
+        {whilo_o, hi_o, lo_o} <= 0;
     end else begin
         case (aluop_i)
             EXE_MULT_OP, EXE_MULTU_OP: begin // EXE_MUL_OP写寄存器，不写hilo寄存器
-                whilo_o <= 1'b1;
+                whilo_o <= 1;
                 {hi_o, lo_o} <= result_mul;
             end
             EXE_MTHI_OP: begin
-                whilo_o <= 1'b1;
+                whilo_o <= 1;
                 {hi_o, lo_o} <= {reg1_i, lo};
             end
             EXE_MTLO_OP: begin
-                whilo_o <= 1'b1;
+                whilo_o <= 1;
                 {hi_o, lo_o} <= {hi, reg1_i};
             end
             default: begin
-                whilo_o <= 1'b0;
-                {hi_o, lo_o} <= {`ZeroWord, `ZeroWord};
+                {whilo_o, hi_o, lo_o} <= 0;
             end
         endcase
     end

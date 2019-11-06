@@ -29,12 +29,10 @@ module ex_mem(
 
 // 同步数据传递
 always_ff @ (posedge clk) begin
-    if ((rst == 1'b1) || (stall[3] == 1'b1 && stall[4] == 1'b0)) begin
+    if ((rst == 1) || (stall[3] == 1 && stall[4] == 0)) begin
         mem_wd <= `NOP_REG_ADDR;
-        mem_wreg <= 1'b0;
-        {mem_wdata, mem_hi, mem_lo} <= {`ZeroWord, `ZeroWord, `ZeroWord};
-        mem_whilo <= 1'b0;
-    end else if (stall[3] == 1'b0) begin
+        {mem_wreg, mem_wdata, mem_hi, mem_lo, mem_whilo} <= 0;
+    end else if (stall[3] == 0) begin
         mem_wd <= ex_wd;
         mem_wreg <= ex_wreg;
         mem_wdata <= ex_wdata;

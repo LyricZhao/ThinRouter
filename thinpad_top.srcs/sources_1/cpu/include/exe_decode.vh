@@ -54,4 +54,17 @@
 `define EXE_SYNC            6'b001111 // 当成空指令对待
 `define EXE_PREF            6'b110011 // 当成空指令对待
 
+`define EXE_J               6'b000010
+`define EXE_JAL             6'b000011
+`define EXE_JALR            6'b001001
+`define EXE_JR              6'b001000
+`define EXE_BEQ             6'b000100
+`define EXE_BGEZ            5'b00001
+`define EXE_BGEZAL          5'b10001
+`define EXE_BGTZ            6'b000111
+`define EXE_BLEZ            6'b000110
+`define EXE_BLTZ            5'b00000
+`define EXE_BLTZAL          5'b10000
+`define EXE_BNE             6'b000101
+
 `endif

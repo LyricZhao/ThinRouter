@@ -15,7 +15,7 @@ module ctrl(
 );
 
 always_comb begin
-    if (rst == 1'b1) begin
+    if (rst == 1) begin
         stall <= 6'b000000;
     end else if (stallreq_from_ex) begin
         stall <= 6'b001111; // pc保持, 取值暂停, 译码暂停, 执行暂停
