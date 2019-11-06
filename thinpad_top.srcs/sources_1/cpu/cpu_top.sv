@@ -11,7 +11,7 @@ module cpu_top(
 
     input  word_t           rom_data_i,
     output inst_addr_t      rom_addr_o,
-    output logic            rom_ce_o
+    output logic        rom_ce_o
 );
 
 /*---------------- 模块出线 -----------------*/

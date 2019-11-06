@@ -9,7 +9,7 @@
 `define WORD_BUS            31:0
 `define DWORD_BUS           63:0
 
-typedef logic[`WORD_BUS]         word_t;
+typedef logic[`WORD_BUS]        word_t;
 typedef logic[`DWORD_BUS]       dword_t;
 
 `endif

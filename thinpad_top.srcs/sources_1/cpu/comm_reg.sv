@@ -12,7 +12,7 @@ module comm_reg(
 	
     input  logic            we,
     input  reg_addr_t       waddr,
-    input  word_t	        wdata,
+    input  word_t           wdata,
 	
     input  reg_addr_t       raddr1,
     input  reg_addr_t       raddr2,

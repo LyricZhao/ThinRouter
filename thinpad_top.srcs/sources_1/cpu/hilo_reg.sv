@@ -10,7 +10,7 @@ module hilo_reg(
     input  logic    rst,
        
     input  logic    we,
-    input  word_t	hi_i,
+    input  word_t   hi_i,
     input  word_t   lo_i,
 	
     output word_t   hi_o,

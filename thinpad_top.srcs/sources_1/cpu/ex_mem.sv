@@ -6,12 +6,12 @@ EX/MEM模块：
 `include "cpu_defs.vh"
 
 module ex_mem(
-    input logic	                clk,
-    input logic	                rst,
+    input logic                 clk,
+    input logic                 rst,
 	
     input reg_addr_t            ex_wd,
     input logic                 ex_wreg,
-    input word_t			    ex_wdata,
+    input word_t                ex_wdata,
     input word_t                ex_hi,
     input word_t                ex_lo,
     input logic                 ex_whilo,
@@ -22,7 +22,7 @@ module ex_mem(
 
     output reg_addr_t           mem_wd,
     output logic                mem_wreg,
-    output word_t			    mem_wdata
+    output word_t               mem_wdata
 );
 
 always_ff @ (posedge clk) begin

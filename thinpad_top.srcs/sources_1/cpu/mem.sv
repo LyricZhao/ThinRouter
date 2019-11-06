@@ -10,14 +10,14 @@ module mem(
 
     input  reg_addr_t       wd_i,
     input  logic            wreg_i,
-    input  word_t		    wdata_i,
+    input  word_t           wdata_i,
     input  word_t           hi_i,
     input  word_t           lo_i,
     input  logic            whilo_i,
 
     output reg_addr_t       wd_o,
     output logic            wreg_o,
-    output word_t			wdata_o,
+    output word_t           wdata_o,
     output word_t           hi_o,
     output word_t           lo_o,
     output logic            whilo_o
