@@ -8,42 +8,43 @@ EX模块：
 module ex(
     input  logic            rst,
 
-    input  aluop_t          aluop_i,
-    input  word_t           reg1_i,
-    input  word_t           reg2_i,
-    input  reg_addr_t       wd_i,
-    input  logic            wreg_i,
+    input  aluop_t          aluop_i,    // ALU运算类型
+    input  word_t           reg1_i,     // 源操作数1
+    input  word_t           reg2_i,     // 源操作数2
+    input  reg_addr_t       wd_i,       // 要写入的寄存器编号
+    input  logic            wreg_i,     // 是否要写寄存器
 
-    input  word_t           hi_i,
-    input  word_t           lo_i,
+    input  word_t           hi_i,       // hilo寄存器中的hi值
+    input  word_t           lo_i,       // hilo寄存器中的lo值
 
-    input  word_t           wb_hi_i,
-    input  word_t           wb_lo_i,
-    input  logic            wb_whilo_i,
+    input  word_t           mem_hi_i,   // mem阶段的可能更新的hi值（数据回传）
+    input  word_t           mem_lo_i,   // mem阶段的可能更新的lo值（数据回传）
+    input  logic            mem_whilo_i,// mem阶段要不要写hilo（数据回传）
 
-    input  word_t           mem_hi_i,
-    input  word_t           mem_lo_i,
-    input  logic            mem_whilo_i,
+    input  word_t           wb_hi_i,    // wb阶段的可能更新的hi值（数据回传）
+    input  word_t           wb_lo_i,    // wb阶段的可能更新的lo值（数据回传）
+    input  logic            wb_whilo_i, // wb阶段要不要写hilo（数据回传）
 
-    output reg_addr_t       wd_o,
-    output logic            wreg_o,
-    output word_t           wdata_o,
+    output reg_addr_t       wd_o,       // 要写入的寄存器的编号
+    output logic            wreg_o,     // 是否要写入寄存器
+    output word_t           wdata_o,    // 要写入的数据
 
-    output word_t           hi_o,
-    output word_t           lo_o,
-    output logic            whilo_o
+    output word_t           hi_o,       // 要写入的hi值
+    output word_t           lo_o,       // 要写入的lo值
+    output logic            whilo_o     // 是否要写入hilo寄存器
 );
 
 // 最新的hi, lo寄存器的值
 word_t hi, lo;
 
+// 一些结果线
 logic overflow, reg1_lt_reg2;
 word_t reg2_i_mux, result_sum, opdata1_mult, opdata2_mult;
 dword_t hilo_temp, result_mul;
 logic [`WORD_WIDTH_LOG2:0] result_clz, result_clo; // 注意这里的长度是6位的，前导零可能有32个
 
-// 如果是减法或者有符号比较则reg2取相反数，否则不变
-assign reg2_i_mux = ((aluop_i == EXE_SUB_OP) || (aluop_i == EXE_SUBU_OP) || (aluop_i == EXE_SLT_OP)) ? (~reg2_i + 1) : reg2_i;
+// 如果是减法或者有符号比较则reg2取相反数，否则不变（目的是转换成加法）
+assign reg2_i_mux = ((aluop_i == EXE_SUB_OP) || (aluop_i == EXE_SUBU_OP) || (aluop_i == EXE_SLT_OP)) ? ((~reg2_i) + 1) : reg2_i;
 assign result_sum = reg1_i + reg2_i_mux;
 
 // 正正和为负，或者负负和为正，则溢出（有符号）
@@ -51,37 +52,40 @@ assign overflow = ((!reg1_i[31] && !reg2_i_mux[31]) && result_sum[31]) || ((reg1
 
 /*
 reg1是否小于reg2：
-    第一个情况是SLT有符号比较时：A 1为负2为正 B 1为正2为正但是减一下为负 C 都为负减一下为负
+    第一个情况是SLT有符号比较时：A 1为负2为正 B 同号并且相减为负
     第二个情况是无符号比较：直接比
 */
 assign reg1_lt_reg2 = (aluop_i == EXE_SLT_OP) ?
-                        ((reg1_i[31] && !reg2_i[31]) || (!reg1_i[31] && !reg2_i[31] && result_sum[31]) || (reg1_i[31] && reg2_i[31] && result_sum[31])):
+                        ((reg1_i[31] && !reg2_i[31]) || ((reg1_i[31] == reg2_i[31]) && result_sum[31])):
                         (reg1_i < reg2_i);
 
-// 前导零和前导一
-count_lead_zero clz_inst( .in( reg1_i), .out(result_clz) );
-count_lead_zero clo_inst( .in(~reg1_i), .out(result_clo) );
+// 前导零和前导一，这里调了文件最下面的两个模块
+count_lead_zero clz_inst(.in( reg1_i), .out(result_clz) );
+count_lead_zero clo_inst(.in(~reg1_i), .out(result_clo) );
 
 // 乘法：如果是负数先取相反数
-assign opdata1_mult = (((aluop_i == EXE_MUL_OP) || (aluop_i == EXE_MULT_OP)) && reg1_i[31]) ? (~reg1_i + 1) : reg1_i;
-assign opdata2_mult = (((aluop_i == EXE_MUL_OP) || (aluop_i == EXE_MULT_OP)) && reg2_i[31]) ? (~reg2_i + 1) : reg2_i;
+// TODO：流水线暂停
+assign opdata1_mult = (((aluop_i == EXE_MUL_OP) || (aluop_i == EXE_MULT_OP)) && reg1_i[31]) ? ((~reg1_i) + 1) : reg1_i;
+assign opdata2_mult = (((aluop_i == EXE_MUL_OP) || (aluop_i == EXE_MULT_OP)) && reg2_i[31]) ? ((~reg2_i) + 1) : reg2_i;
 assign hilo_temp = opdata1_mult * opdata2_mult;
 
+// 乘法结果
 always_comb begin
     if (rst == 1'b1) begin
         result_mul <= {`ZeroWord, `ZeroWord};
     end else begin
         case (aluop_i)
             EXE_MULT_OP, EXE_MUL_OP: begin
-                result_mul <= (reg1_i[31] ^ reg2_i[31]) ? (~hilo_temp + 1) : hilo_temp;
+                result_mul <= (reg1_i[31] ^ reg2_i[31]) ? ((~hilo_temp) + 1) : hilo_temp; // 结果修正
             end
-            default: begin
+            default: begin // EXE_MULTU_OP
                 result_mul <= hilo_temp;
             end
         endcase
     end
 end
 
+// 运算结果（要写入寄存器的值）
 always_comb begin
     if (rst == 1'b1) begin
         wdata_o <= `ZeroWord;
@@ -135,13 +139,14 @@ always_comb begin
             EXE_MOVN_OP: begin
                 wdata_o <= reg1_i;
             end
-            default: begin
+            default: begin // EXE_NOP_OP, EXE_MTHI_OP, EXE_MTLO_OP
                 wdata_o <= `ZeroWord;
             end
         endcase
     end
 end
 
+// 当前最新的hilo的值，这里有mem和wb的数据前传
 always_comb begin
     if (rst == 1'b1) begin
         {hi, lo} <= {`ZeroWord, `ZeroWord};
@@ -161,7 +166,7 @@ always_comb begin
         {hi_o, lo_o} <= {`ZeroWord, `ZeroWord};
     end else begin
         case (aluop_i)
-            EXE_MULT_OP, EXE_MULTU_OP: begin
+            EXE_MULT_OP, EXE_MULTU_OP: begin // EXE_MUL_OP写寄存器，不写hilo寄存器
                 whilo_o <= 1'b1;
                 {hi_o, lo_o} <= result_mul;
             end
@@ -181,6 +186,7 @@ always_comb begin
     end
 end
 
+// 是否写入寄存器和要写入的寄存器编号
 always_comb begin
     wd_o <= wd_i;	 	 	
     case (aluop_i)
@@ -220,7 +226,7 @@ end else begin
         .out(half_count)
     );
 
-    assign out = half_count + (left_empty ? 0 : (in_width / 2));
+    assign out = half_count + (left_empty ? (in_width / 2) : 0);
 end
 endgenerate
 

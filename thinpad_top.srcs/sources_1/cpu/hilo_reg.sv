@@ -9,14 +9,15 @@ module hilo_reg(
     input  logic    clk,
     input  logic    rst,
        
-    input  logic    we,
-    input  word_t   hi_i,
-    input  word_t   lo_i,
+    input  logic    we,     // 是否写hilo寄存器
+    input  word_t   hi_i,   // 要写入的hi的值
+    input  word_t   lo_i,   // 要写入的lo的值
 	
-    output word_t   hi_o,
-    output word_t   lo_o
+    output word_t   hi_o,   // 保存的hi值
+    output word_t   lo_o    // 保存的lo值
 );
 
+// 同步写入
 always_ff @(posedge clk) begin
     if (rst == 1'b1) begin
         {hi_o, lo_o} <= {`ZeroWord, `ZeroWord};

@@ -7,47 +7,55 @@ ID(Decode)模块：
 
 module id(
     input  logic                    rst,
-    input  inst_addr_t              pc_i,
-    input  word_t                   inst_i,
+    
+    input  inst_addr_t              pc_i,           // pc计数
+    input  word_t                   inst_i,         // 指令
 
-    input  word_t                   reg1_data_i,
-    input  word_t                   reg2_data_i,
+    input  word_t                   reg1_data_i,    // 读寄存器
+    input  word_t                   reg2_data_i,    // 读寄存器
 
     // 执行阶段传来的前传数据（解决相邻指令的冲突）
-    input  logic                    ex_wreg_i,      // 执行阶段是否写目的寄存器
-    input  word_t                   ex_wdata_i,     // 需写入的数据
-    input  reg_addr_t               ex_wd_i,        // 需写入的寄存器
+    input  logic                    ex_wreg_i,      // ex是否写目的寄存器
+    input  word_t                   ex_wdata_i,     // ex需写入的数据
+    input  reg_addr_t               ex_wd_i,        // ex需写入的寄存器
 
     // 访存阶段传来的前传数据（解决相隔1条指令的冲突）
-    input  logic                    mem_wreg_i,     // 访存阶段是否写目的寄存器
-    input  word_t                   mem_wdata_i,    // 需写入的数据
-    input  reg_addr_t               mem_wd_i,       // 需写入的寄存器
+    input  logic                    mem_wreg_i,     // mem是否写目的寄存器
+    input  word_t                   mem_wdata_i,    // mem需写入的数据
+    input  reg_addr_t               mem_wd_i,       // mem需写入的寄存器
 
     output reg_addr_t               reg1_addr_o,    // 要读的寄存器1的编号
     output reg_addr_t               reg2_addr_o,    // 要读的寄存器2的编号
 
-    output aluop_t                  aluop_o,
+    output aluop_t                  aluop_o,        // 要ex执行的alu操作
     output word_t                   reg1_o,         // 寄存器或者立即数的值（源操作数1）
     output word_t                   reg2_o,         // 寄存器或者立即数的值（源操作数2）
     output reg_addr_t               wd_o,           // 需要被写入的寄存器编号
     output logic                    wreg_o          // 是否需要写入
 );
 
+// 四段码，参见书的121页，需要根据这个来判断指令类型
 logic[5:0] op1; assign op1 = inst_i[31:26];
 logic[4:0] op2; assign op2 = inst_i[10:6];
 logic[5:0] op3; assign op3 = inst_i[5:0];
 logic[4:0] op4; assign op4 = inst_i[20:16];
 
+// 指令中的立即数
 word_t imm;
 
-logic reg1_read_o; // 是否读寄存器1
-logic reg2_read_o; // 是否读寄存器2
+// 是否读寄存器
+logic reg1_read_o; 
+logic reg2_read_o;
 
+// 把指令划分为3类，可以归纳出这样的宏函数，下面每个指令一行，可读性就好一些
+// 备注：sll, sllv的区别是sll是用立即数，sllv用寄存器
+// 第一类：逻辑/算术/移动（不涉及立即数和移位）
 `define INST_KIND_1_COMMON(exe,w,r1,r2)         aluop_o <= exe; \
                                                 wreg_o <= w; \
                                                 reg1_read_o <= r1; \
                                                 reg2_read_o <= r2
 
+// 第二类：涉及立即数（不涉及移位）
 `define INST_KIND_2_COMMON(exe,immi,w,r1,r2)    aluop_o <= exe; \
                                                 imm <= immi; \
                                                 wreg_o <= w; \
@@ -55,6 +63,7 @@ logic reg2_read_o; // 是否读寄存器2
                                                 reg2_read_o <= r2; \
                                                 wd_o <= inst_i[20:16]
 
+// 第三类：涉及移位和立即数，立即数只有5位
 `define INST_KIND_3_COMMON(exe,w,r1,r2)         aluop_o <= exe; \
                                                 wreg_o <= w; \
                                                 reg1_read_o <= r1; \
@@ -70,8 +79,9 @@ always_comb begin
         reg2_read_o <= 1'b0;
         reg1_addr_o <= `NOP_REG_ADDR;
         reg2_addr_o <= `NOP_REG_ADDR;
-        imm <= 32'h0;
+        imm <= `ZeroWord;
     end else begin
+        // 默认情况
         aluop_o     <= EXE_NOP_OP;
         wd_o        <= inst_i[15:11];
         wreg_o      <= 1'b0;
@@ -81,7 +91,7 @@ always_comb begin
         reg2_addr_o <= inst_i[20:16];
         imm <= `ZeroWord;
         // 下面这部分判断详情见造CPU一书的121页
-        if (inst_i[31:21] != 11'b00000000000) begin
+        if (inst_i[31:21] != 11'b00000000000) begin // 不是sll, srl, sra
             case (op1) // 指令码
                 `EXE_SPECIAL_INST: begin
                     case (op2)
@@ -94,36 +104,36 @@ always_comb begin
                                 `EXE_SLLV:  begin `INST_KIND_1_COMMON(EXE_SLL_OP,   1,                      1, 1);  end
                                 `EXE_SRLV:  begin `INST_KIND_1_COMMON(EXE_SRL_OP,   1,                      1, 1);  end
                                 `EXE_SRAV:  begin `INST_KIND_1_COMMON(EXE_SRA_OP,   1,                      1, 1);  end
-                                `EXE_SYNC:  begin `INST_KIND_1_COMMON(EXE_NOP_OP,   1,                      1, 1);  end
+                                `EXE_SYNC:  begin `INST_KIND_1_COMMON(EXE_NOP_OP,   0,                      0, 0);  end // 书上这里写了读第二个寄存器，暂时先不读
                                 `EXE_SLT:   begin `INST_KIND_1_COMMON(EXE_SLT_OP,   1,                      1, 1);  end
                                 `EXE_SLTU:  begin `INST_KIND_1_COMMON(EXE_SLTU_OP,  1,                      1, 1);  end
                                 `EXE_ADD:   begin `INST_KIND_1_COMMON(EXE_ADD_OP,   1,                      1, 1);  end
                                 `EXE_ADDU:  begin `INST_KIND_1_COMMON(EXE_ADDU_OP,  1,                      1, 1);  end
                                 `EXE_SUB:   begin `INST_KIND_1_COMMON(EXE_SUB_OP,   1,                      1, 1);  end
                                 `EXE_SUBU:  begin `INST_KIND_1_COMMON(EXE_SUBU_OP,  1,                      1, 1);  end
-                                `EXE_MULT:  begin `INST_KIND_1_COMMON(EXE_MULT_OP,  0,                      1, 1);  end
-                                `EXE_MULTU: begin `INST_KIND_1_COMMON(EXE_MULTU_OP, 0,                      1, 1);  end
-                                `EXE_MFHI:  begin `INST_KIND_1_COMMON(EXE_MFHI_OP,  1,                      0, 0);  end
-                                `EXE_MFLO:  begin `INST_KIND_1_COMMON(EXE_MFLO_OP,  1,                      0, 0);  end
-                                `EXE_MTHI:  begin `INST_KIND_1_COMMON(EXE_MTHI_OP,  0,                      1, 0);  end
-                                `EXE_MTLO:  begin `INST_KIND_1_COMMON(EXE_MTLO_OP,  0,                      1, 0);  end
-                                `EXE_MOVN:  begin `INST_KIND_1_COMMON(EXE_MOVN_OP,  (reg2_o != `ZeroWord),  1, 1);  end
-                                `EXE_MOVZ:  begin `INST_KIND_1_COMMON(EXE_MOVZ_OP,  (reg2_o == `ZeroWord),  1, 1);  end
+                                `EXE_MULT:  begin `INST_KIND_1_COMMON(EXE_MULT_OP,  0,                      1, 1);  end // 这里写到hilo寄存器，不写通用
+                                `EXE_MULTU: begin `INST_KIND_1_COMMON(EXE_MULTU_OP, 0,                      1, 1);  end // 这里写到hilo寄存器，不写通用
+                                `EXE_MFHI:  begin `INST_KIND_1_COMMON(EXE_MFHI_OP,  1,                      0, 0);  end // 从hi读并写到寄存器
+                                `EXE_MFLO:  begin `INST_KIND_1_COMMON(EXE_MFLO_OP,  1,                      0, 0);  end // 从lo读并写到寄存器
+                                `EXE_MTHI:  begin `INST_KIND_1_COMMON(EXE_MTHI_OP,  0,                      1, 0);  end // 从寄存器读并写到hi
+                                `EXE_MTLO:  begin `INST_KIND_1_COMMON(EXE_MTLO_OP,  0,                      1, 0);  end // 从寄存器读并写到lo
+                                `EXE_MOVN:  begin `INST_KIND_1_COMMON(EXE_MOVN_OP,  (reg2_o != `ZeroWord),  1, 1);  end // 如果非0就写
+                                `EXE_MOVZ:  begin `INST_KIND_1_COMMON(EXE_MOVZ_OP,  (reg2_o == `ZeroWord),  1, 1);  end // 如果是0就写
                                 default: begin end
                             endcase
                         end
                         default: begin end
                     endcase
                 end //                                ALUOP         立即数                             是否写入寄存器/是否读1/2
-                `EXE_ORI:   begin `INST_KIND_2_COMMON(EXE_OR_OP,    {16'h0, inst_i[15:0]},            1, 1, 0);   end
-                `EXE_ANDI:  begin `INST_KIND_2_COMMON(EXE_AND_OP,   {16'h0, inst_i[15:0]},            1, 1, 0);   end
-                `EXE_XORI:  begin `INST_KIND_2_COMMON(EXE_XOR_OP,   {16'h0, inst_i[15:0]},            1, 1, 0);   end
-                `EXE_LUI:   begin `INST_KIND_2_COMMON(EXE_OR_OP,    {inst_i[15:0], 16'h0},            1, 1, 0);   end
+                `EXE_ORI:   begin `INST_KIND_2_COMMON(EXE_OR_OP,    {16'h0, inst_i[15:0]},            1, 1, 0);   end // 高位补0
+                `EXE_ANDI:  begin `INST_KIND_2_COMMON(EXE_AND_OP,   {16'h0, inst_i[15:0]},            1, 1, 0);   end // 高位补0
+                `EXE_XORI:  begin `INST_KIND_2_COMMON(EXE_XOR_OP,   {16'h0, inst_i[15:0]},            1, 1, 0);   end // 高位补0
+                `EXE_LUI:   begin `INST_KIND_2_COMMON(EXE_OR_OP,    {inst_i[15:0], 16'h0},            1, 1, 0);   end // 高位load，低位保持
                 `EXE_PREF:  begin `INST_KIND_2_COMMON(EXE_NOP_OP,   0,                                0, 0, 0);   end
-                `EXE_SLTI:  begin `INST_KIND_2_COMMON(EXE_SLT_OP,   {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end
-                `EXE_SLTIU: begin `INST_KIND_2_COMMON(EXE_SLTU_OP,  {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end
-                `EXE_ADDI:  begin `INST_KIND_2_COMMON(EXE_ADDI_OP,  {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end
-                `EXE_ADDIU: begin `INST_KIND_2_COMMON(EXE_ADDIU_OP, {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end
+                `EXE_SLTI:  begin `INST_KIND_2_COMMON(EXE_SLT_OP,   {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展
+                `EXE_SLTIU: begin `INST_KIND_2_COMMON(EXE_SLTU_OP,  {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展（并不是0扩展，参加MIPS32文档）
+                `EXE_ADDI:  begin `INST_KIND_2_COMMON(EXE_ADDI_OP,  {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展
+                `EXE_ADDIU: begin `INST_KIND_2_COMMON(EXE_ADDIU_OP, {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展（并不是0扩展，参加MIPS32文档）
                 `EXE_SPECIAL2_INST: begin
                     case (op3) //                              ALUOP        是否写入寄存器/是否读1/2
                         `EXE_CLZ:    begin `INST_KIND_1_COMMON(EXE_CLZ_OP,  1, 1, 0);  end
@@ -145,6 +155,7 @@ always_comb begin
     end
 end
 
+// 下面两段是传递什么数据给ex阶段，如果不读寄存器就用立即数
 always_comb begin
     if (rst == 1'b1) begin
         reg1_o <= `ZeroWord;

@@ -9,10 +9,10 @@ module if_id(
     input  logic            clk,
     input  logic            rst,
 	
-    input  inst_addr_t      if_pc,
-    input  word_t           if_inst,
-    output inst_addr_t      id_pc,
-    output word_t           id_inst
+    input  inst_addr_t      if_pc,      // if得到的pc
+    input  word_t           if_inst,    // if得到的地址
+    output inst_addr_t      id_pc,      // 传给id的pc
+    output word_t           id_inst     // 传给id的指令
 );
 
 always_ff @ (posedge clk) begin

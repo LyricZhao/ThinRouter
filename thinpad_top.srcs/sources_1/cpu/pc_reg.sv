@@ -10,8 +10,8 @@ module pc_reg(
     input  logic        clk,
     input  logic        rst,
 	
-    output inst_addr_t  pc,
-    output logic        ce
+    output inst_addr_t  pc,     // 程序计数器
+    output logic        ce      // 指令rom的使能
 );
 
 always_ff @ (posedge clk) begin

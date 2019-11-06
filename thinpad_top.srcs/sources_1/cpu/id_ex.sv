@@ -9,19 +9,20 @@ module id_ex(
     input  logic            clk,
     input  logic            rst,
 
-    input  aluop_t          id_aluop,
-    input  word_t           id_reg1,
-    input  word_t           id_reg2,
-    input  reg_addr_t       id_wd,
-    input  logic            id_wreg,
+    input  aluop_t          id_aluop,   // id要执行的alu操作
+    input  word_t           id_reg1,    // id拿到的源操作数1
+    input  word_t           id_reg2,    // id拿到的源操作数2
+    input  reg_addr_t       id_wd,      // id要写入的寄存器编号
+    input  logic            id_wreg,    // id是否要写入寄存器
 
-    output aluop_t          ex_aluop,
-    output word_t           ex_reg1,
-    output word_t           ex_reg2,
-    output reg_addr_t       ex_wd,
-    output logic            ex_wreg
+    output aluop_t          ex_aluop,   // 传给ex要执行的alu操作
+    output word_t           ex_reg1,    // 传给ex源操作数1
+    output word_t           ex_reg2,    // 传给ex源操作数2
+    output reg_addr_t       ex_wd,      // 传给ex要写入的寄存器编号
+    output logic            ex_wreg     // 传给ex是否要写入寄存器
 );
 
+// 同步写入
 always_ff @ (posedge clk) begin
     if (rst == 1'b1) begin
         ex_aluop <= EXE_NOP_OP;

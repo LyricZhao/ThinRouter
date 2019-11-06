@@ -9,22 +9,23 @@ module ex_mem(
     input logic                 clk,
     input logic                 rst,
 	
-    input reg_addr_t            ex_wd,
-    input logic                 ex_wreg,
-    input word_t                ex_wdata,
-    input word_t                ex_hi,
-    input word_t                ex_lo,
-    input logic                 ex_whilo,
+    input reg_addr_t            ex_wd,      // ex要写的寄存器编号
+    input logic                 ex_wreg,    // ex是否要写寄存器
+    input word_t                ex_wdata,   // ex要写入的数据
+    input word_t                ex_hi,      // ex要写入的hi数据
+    input word_t                ex_lo,      // ex要写入的lo数据
+    input logic                 ex_whilo,   // ex是否要写hilo寄存器
 
-    output word_t               mem_hi,
-    output word_t               mem_lo,
-    output logic                mem_whilo,
+    output reg_addr_t           mem_wd,     // 传给mem要写的寄存器编号
+    output logic                mem_wreg,   // 传给mem是否要写寄存器
+    output word_t               mem_wdata,  // 传给mem要写的数据
 
-    output reg_addr_t           mem_wd,
-    output logic                mem_wreg,
-    output word_t               mem_wdata
+    output word_t               mem_hi,     // 传给mem的hi数据
+    output word_t               mem_lo,     // 传给mem的lo数据
+    output logic                mem_whilo   // 传给mem是否要写hilo寄存器
 );
 
+// 同步数据传递
 always_ff @ (posedge clk) begin
     if (rst == 1'b1) begin
         mem_wd <= `NOP_REG_ADDR;
