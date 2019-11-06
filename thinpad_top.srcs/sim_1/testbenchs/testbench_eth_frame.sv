@@ -20,6 +20,8 @@ int fd = 0;                 // file descriptor
 string buffer;
 bit [15:0] data;
 
+string packet_info;
+string rx_stream;
 always_ff @ (posedge clk_125M) begin
     if (fd) case (state)
         READ_LABEL: begin
@@ -29,8 +31,7 @@ always_ff @ (posedge clk_125M) begin
                 $fscanf(fd, "%s", buffer);
                 case (buffer)
                     "info:": begin
-                        $fgets(buffer, fd);
-                        // $write("Info:\t%s", buffer);
+                        $fgets(packet_info, fd);
                     end
                     "eth_frame:": begin
                         state = state + 1;
@@ -45,13 +46,15 @@ always_ff @ (posedge clk_125M) begin
                 // end of line
                 state = WAIT;
                 trans = 0;
-                // $display("");
+                $write("Info:\t%s", packet_info);
+                $display("Router IN:\t%s\n", rx_stream);
+                rx_stream = "";
             end else begin
                 trans = 1;
                 data1 = data[3:0];
                 data2 = data[7:4];
+                $sformat(rx_stream, "%s %02x", data[7:0]);
                 $fscanf(fd, "%x", data);
-                // $write("%02x ", data[7:0]);
             end
         end
         default:

@@ -12,7 +12,7 @@
 
 `include "debug.vh"
 
-module arp_manager (
+module simple_arp_table (
     input   wire    clk_internal,       // 父模块同步时钟
     input   wire    rst_n,              // rst_n 逻辑
 
@@ -63,6 +63,7 @@ always_ff @ (posedge clk_internal) begin
         $write("\tMAC:\t");
         `DISPLAY_MAC(mac_input);
         $display("\tVLAN ID:\t%d", vlan_input);
+        $display("");
         
         ip_entries[write_head] <= ip_input;
         mac_entries[write_head] <= mac_input;

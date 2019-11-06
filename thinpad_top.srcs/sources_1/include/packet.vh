@@ -12,6 +12,8 @@ ARP/IP 包的各种位置
 // 类型 ARP / ID
 `define ETH_TYPE        -144 +: 16
 
+// ARP Request / Reply
+`define ARP_TYPE        -208 +: 16
 // ARP 来源 MAC
 `define ARP_SRC_MAC     -256 +: 48
 // ARP 来源 IP

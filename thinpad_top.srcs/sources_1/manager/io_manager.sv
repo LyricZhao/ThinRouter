@@ -38,7 +38,8 @@ module io_manager (
     output wire [5:0] debug_current,
     output wire [5:0] debug_tx,
     output wire [5:0] debug_last,
-    output wire [6:0] debug_case
+    output wire [6:0] debug_case,
+    output wire [3:0] debug_process
 );
 
 reg [511:0] buffer;
@@ -48,14 +49,39 @@ reg [5:0] tx_pos;
 reg [5:0] last_pos;
 reg [15:0] rx_countdown;
 
-wire [47:0] target_mac = 48'haaaaaaaaaaaa;
+wire [47:0] target_mac;
 wire [2:0] target_vlan;
-wire process_complete = start_process;
+wire process_complete;
 reg process_bad;
 reg reset_process;
 reg start_process;
 
 reg process_started;
+
+reg [31:0] ip_input;
+reg [31:0] nexthop_input;
+reg [47:0] mac_input;
+reg [2:0]  vlan_input;
+wire process_bad_ret;
+reg add_arp;
+reg add_routing;
+
+packet_processor packet_processor_inst (
+    .clk(clk_fifo),
+    .rst_n,
+    .reset_process,
+    .add_arp,
+    .add_routing,
+    .process_ip(start_process),
+    .ip_input,
+    .nexthop(nexthop_input),
+    .mac_input,
+    .vlan_input,
+    .done(process_complete),
+    .bad(process_bad_ret),
+    .dst_mac(target_mac),
+    .dst_vlan(target_vlan)
+);
 
 enum logic [1:0] {
     IP,
@@ -155,7 +181,7 @@ task process_arp; begin
                 buffer[368`ARP_SRC_MAC] = `ROUTER_MAC_1;
                 buffer[368`ARP_SRC_IP] = `ROUTER_IP_1;
             end else begin
-                process_bad <= 1;
+                process_bad = 1;
             end
         end
         2: begin
@@ -167,7 +193,7 @@ task process_arp; begin
                 buffer[368`ARP_SRC_MAC] = `ROUTER_MAC_2;
                 buffer[368`ARP_SRC_IP] = `ROUTER_IP_2;
             end else begin
-                process_bad <= 1;
+                process_bad = 1;
             end
         end
         3: begin
@@ -179,7 +205,7 @@ task process_arp; begin
                 buffer[368`ARP_SRC_MAC] = `ROUTER_MAC_3;
                 buffer[368`ARP_SRC_IP] = `ROUTER_IP_3;
             end else begin
-                process_bad <= 1;
+                process_bad = 1;
             end
         end
         4: begin
@@ -191,13 +217,21 @@ task process_arp; begin
                 buffer[368`ARP_SRC_MAC] = `ROUTER_MAC_4;
                 buffer[368`ARP_SRC_IP] = `ROUTER_IP_4;
             end else begin
-                process_bad <= 1;
+                process_bad = 1;
             end
         end
         default: begin
-            process_bad <= 1;
+            process_bad = 1;
         end
     endcase
+    if (!process_bad) begin
+        buffer[368`ARP_TYPE] = 16'h0002;
+        ip_input <= buffer[368`ARP_DST_IP];
+        mac_input <= buffer[368`ARP_DST_MAC];
+        vlan_input <= buffer[368`ETH_VLAN_ID];
+        reset_process <= 0;
+        add_arp <= 1;
+    end
 end
 endtask
 
@@ -219,6 +253,7 @@ task preprocess_ip; begin
         end else begin
             buffer[304`IP_CHECKSUM] = buffer[304`IP_CHECKSUM] + 16'h100;
         end
+        ip_input = buffer[304`IP_DST_IP];
     end else begin
         process_bad <= 1;
     end
@@ -229,19 +264,32 @@ endtask
 task apply_ip_process; begin
     buffer[(8 * current_pos)`ETH_DST_MAC] = target_mac;
     buffer[(8 * current_pos)`ETH_VLAN_ID] = target_vlan;
+    case (target_vlan)
+        1: buffer[(8 * current_pos)`ETH_SRC_MAC] = `ROUTER_MAC_1;
+        2: buffer[(8 * current_pos)`ETH_SRC_MAC] = `ROUTER_MAC_2;
+        3: buffer[(8 * current_pos)`ETH_SRC_MAC] = `ROUTER_MAC_3;
+        4: buffer[(8 * current_pos)`ETH_SRC_MAC] = `ROUTER_MAC_4;
+    endcase
 end
 endtask
 
 assign rx_ready = tx_ready;
 
-task get_idle; begin
+task get_ready_for_new_packet; begin
     current_pos <= 0;
-    last_pos <= 0;
-    tx_pos <= 0;
     reset_process <= 1;
     start_process <= 0;
-    process_bad <= 0;
     rx_countdown <= '1;
+    process_bad <= 0;
+    add_routing <= 0;
+    add_arp <= 0;
+end
+endtask
+
+task get_idle; begin
+    get_ready_for_new_packet();
+    last_pos <= 0;
+    tx_pos <= 0;
     state <= Idle;
 end
 endtask
@@ -255,7 +303,7 @@ always_ff @(posedge clk_fifo) begin
     end else begin
         unique casez ({state,
             rx_valid, rx_last, tx_ready,
-            last_byte, process_complete, process_bad,
+            last_byte, process_complete, process_bad | process_bad_ret,
             tx_available
         })
             /******************************
@@ -309,7 +357,6 @@ always_ff @(posedge clk_fifo) begin
                     38: begin
                         if (packet_type == IP) begin
                             preprocess_ip();
-                            // todo process
                             start_process <= 1;
                             reset_process <= 0;
                             state <= Load_Processing_Packet;
@@ -356,8 +403,6 @@ always_ff @(posedge clk_fifo) begin
             end
             {Load_Processing_Packet, 7'b?0?_010_0}: begin
                 // 处理完成
-                start_process <= 0;
-                reset_process <= 1;
                 apply_ip_process();
                 current_pos = 0;
                 last_pos = 0;
@@ -438,8 +483,7 @@ always_ff @(posedge clk_fifo) begin
                     end
                 end else if (rx_valid && rx_last) begin
                     // last 但未发完
-                    rx_countdown <= '1;
-                    current_pos <= 0;
+                    get_ready_for_new_packet();
                     last_pos <= 0;
                     state <= Send_Packet;
                 end
@@ -518,7 +562,6 @@ always_ff @(posedge clk_fifo) begin
                     38: begin
                         if (packet_type == IP) begin
                             preprocess_ip();
-                            // todo process
                             start_process <= 1;
                             reset_process <= 0;
                             if (tx_one_left) begin
@@ -572,7 +615,7 @@ always_ff @(posedge clk_fifo) begin
                 // tx_ready = 0
                 start_process <= 0;
                 tx_none();
-                if (process_bad) begin
+                if (process_bad | process_bad_ret) begin
                     state <= Send_Discard_Another;
                 end
             end
@@ -601,8 +644,6 @@ always_ff @(posedge clk_fifo) begin
             end
             {Send_Load_Another_Processing, 7'b?01_010_1}: begin
                 // 处理完毕
-                start_process <= 0;
-                reset_process <= 1;
                 apply_ip_process();
                 tx_default();
                 if (tx_one_left) begin
@@ -660,6 +701,15 @@ always_ff @(posedge clk_fifo) begin
                     state <= Discard_Packet;
                 end
             end
+            {Send_Discard_Another, 7'b111_???_?}: begin
+                tx_default();
+                if (tx_one_left) begin
+                    get_idle();
+                end else begin
+                    get_ready_for_new_packet();
+                    state <= Send_Packet;
+                end
+            end
             default: begin
                 $display("!!!%x %d%d%d%d%d%d%d", state,
             rx_valid, rx_last, tx_ready,
@@ -680,6 +730,9 @@ assign debug_case = {
     rx_valid, rx_last, tx_ready,
     last_byte, process_complete, process_bad,
     tx_available
+};
+assign debug_process = {
+    start_process, reset_process, process_complete, process_bad
 };
 
 endmodule
