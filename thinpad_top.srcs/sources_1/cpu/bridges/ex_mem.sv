@@ -9,6 +9,8 @@ module ex_mem(
     input logic                 clk,
     input logic                 rst,
 	
+    input stall_t               stall,      // 流水线暂停状态
+
     input reg_addr_t            ex_wd,      // ex要写的寄存器编号
     input logic                 ex_wreg,    // ex是否要写寄存器
     input word_t                ex_wdata,   // ex要写入的数据
@@ -27,12 +29,12 @@ module ex_mem(
 
 // 同步数据传递
 always_ff @ (posedge clk) begin
-    if (rst == 1'b1) begin
+    if ((rst == 1'b1) || (stall[3] == 1'b1 && stall[4] == 1'b0)) begin
         mem_wd <= `NOP_REG_ADDR;
         mem_wreg <= 1'b0;
         {mem_wdata, mem_hi, mem_lo} <= {`ZeroWord, `ZeroWord, `ZeroWord};
         mem_whilo <= 1'b0;
-    end else begin
+    end else if (stall[3] == 1'b0) begin
         mem_wd <= ex_wd;
         mem_wreg <= ex_wreg;
         mem_wdata <= ex_wdata;

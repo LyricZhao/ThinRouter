@@ -9,6 +9,8 @@ module id_ex(
     input  logic            clk,
     input  logic            rst,
 
+    input  stall_t          stall,      // 暂停状态
+
     input  aluop_t          id_aluop,   // id要执行的alu操作
     input  word_t           id_reg1,    // id拿到的源操作数1
     input  word_t           id_reg2,    // id拿到的源操作数2
@@ -24,13 +26,13 @@ module id_ex(
 
 // 同步写入
 always_ff @ (posedge clk) begin
-    if (rst == 1'b1) begin
+    if ((rst == 1'b1) || (stall[2] == 1'b1 && stall[3] == 1'b0)) begin // id暂停ex阶段没暂停就给ex空指令
         ex_aluop <= EXE_NOP_OP;
         ex_reg1  <= `ZeroWord;
         ex_reg2  <= `ZeroWord;
         ex_wd    <= `NOP_REG_ADDR;
         ex_wreg  <= 1'b0;
-    end else begin
+    end else if (stall[2] == 1'b0) begin
         ex_aluop <= id_aluop;
         ex_reg1  <= id_reg1;
         ex_reg2  <= id_reg2;

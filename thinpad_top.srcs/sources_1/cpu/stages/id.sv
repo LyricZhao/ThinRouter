@@ -31,8 +31,13 @@ module id(
     output word_t                   reg1_o,         // 寄存器或者立即数的值（源操作数1）
     output word_t                   reg2_o,         // 寄存器或者立即数的值（源操作数2）
     output reg_addr_t               wd_o,           // 需要被写入的寄存器编号
-    output logic                    wreg_o          // 是否需要写入
+    output logic                    wreg_o,         // 是否需要写入
+
+    output logic                    stallreq        // 暂停请求
 );
+
+// 暂停请求，目前设置为0
+assign stallreq = 0;
 
 // 四段码，参见书的121页，需要根据这个来判断指令类型
 logic[5:0] op1; assign op1 = inst_i[31:26];

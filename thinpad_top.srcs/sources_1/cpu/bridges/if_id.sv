@@ -8,6 +8,7 @@ IF/ID模块：
 module if_id(
     input  logic            clk,
     input  logic            rst,
+    input  stall_t          stall,
 	
     input  inst_addr_t      if_pc,      // if得到的pc
     input  word_t           if_inst,    // if得到的地址
@@ -16,10 +17,10 @@ module if_id(
 );
 
 always_ff @ (posedge clk) begin
-    if (rst == 1'b1) begin
+    if ((rst == 1'b1) || (stall[1] == 1'b1 && stall[2] == 1'b0)) begin // 译码阶段在继续传一个nop给id
         id_pc <= `ZeroWord;
         id_inst <= `ZeroWord;
-    end else begin
+    end else if (stall[1] == 1'b0) begin
         id_pc <= if_pc;
         id_inst <= if_inst;
     end

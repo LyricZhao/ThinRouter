@@ -9,6 +9,8 @@ module mem_wb(
     input  logic            clk,
     input  logic            rst,
 
+    input  stall_t          stall,      // 流水线暂停情况
+
     input  reg_addr_t       mem_wd,     // mem要写入的寄存器编号
     input  logic            mem_wreg,   // mem是否要写入寄存器
     input  word_t           mem_wdata,  // mem要写入的数据
@@ -26,13 +28,13 @@ module mem_wb(
 
 // 同步传递
 always_ff @(posedge clk) begin
-    if (rst == 1'b1) begin
+    if ((rst == 1'b1) || (stall[4] == 1'b1 && stall[5] == 1'b0)) begin
         wb_wd <= `NOP_REG_ADDR;
         wb_wreg <= 1'b0;
         wb_wdata <= `ZeroWord;
         {wb_hi, wb_lo} <= {`ZeroWord, `ZeroWord};
         wb_whilo <= 1'b0;
-    end else begin
+    end else if (stall[4] == 1'b0) begin
         wb_wd <= mem_wd;
         wb_wreg <= mem_wreg;
         wb_wdata <= mem_wdata;
