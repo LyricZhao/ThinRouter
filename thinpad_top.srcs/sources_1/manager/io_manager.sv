@@ -12,16 +12,16 @@
 module io_manager (
     // 由父模块提供各种时钟
     input   wire    clk_fifo,           // FIFO 时钟
-    //input   wire    clk_internal,       // 内部处理逻辑用的时钟
+    input   wire    clk_internal,       // 内部处理逻辑用的时钟
     input   wire    rst_n,              // rstn 逻辑
 
     // top 硬件
-    //input   wire    clk_btn,            // 硬件 clk 按键
-    //input   wire    [3:0] btn,          // 硬件按钮
-//
-    //output  wire    [15:0] led_out,     // 硬件 led 指示灯
-    //output  wire    [7:0]  digit0_out,  // 硬件低位数码管
-    //output  wire    [7:0]  digit1_out,  // 硬件高位数码管
+    input   wire    clk_btn,            // 硬件 clk 按键
+    input   wire    [3:0] btn,          // 硬件按钮
+
+    output  wire    [15:0] led_out,     // 硬件 led 指示灯
+    output  wire    [7:0]  digit0_out,  // 硬件低位数码管
+    output  wire    [7:0]  digit1_out,  // 硬件高位数码管
 
     // 目前先接上 eth_mac_fifo_block
     input   wire    [7:0] rx_data,      // 数据入口
@@ -227,7 +227,6 @@ endtask
 
 // 用处理结果修改帧（IP 包）
 task apply_ip_process; begin
-    $display("%t applying", $realtime);
     buffer[(8 * current_pos)`ETH_DST_MAC] = target_mac;
     buffer[(8 * current_pos)`ETH_VLAN_ID] = target_vlan;
 end

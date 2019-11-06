@@ -111,6 +111,13 @@ always_comb case (debug_state)
     10: io_state = "Send_Discard_Another";
 endcase
 
+logic clk_internal;
+logic clk_btn;
+logic [3:0]  btn;
+logic [15:0] led_out;
+logic [7:0]  digit0_out;
+logic [7:0]  digit1_out;
+
 io_manager inst (
     .clk_fifo(clk_125M),
     .*

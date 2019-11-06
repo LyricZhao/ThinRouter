@@ -43,14 +43,14 @@ wire axis_tx_ready;
 
 io_manager io_manager_inst (
     .clk_fifo(clk_125M),
-    .clk_internal(clk_internal),
+    // .clk_internal(clk_internal),
 
     .rst_n(rst_n),
-    .clk_btn(clk_btn),
-    .btn(btn),
-    .led_out(led_out),
-    .digit0_out(digit0_out),
-    .digit1_out(digit1_out),
+    // .clk_btn(clk_btn),
+    // .btn(btn),
+    // .led_out(led_out),
+    // .digit0_out(digit0_out),
+    // .digit1_out(digit1_out),
 
     .rx_data(axis_rx_data),
     .rx_valid(axis_rx_valid),
