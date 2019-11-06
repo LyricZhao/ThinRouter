@@ -27,7 +27,7 @@ module ex_mem(
 
 always_ff @ (posedge clk) begin
     if (rst == 1'b1) begin
-        mem_wd <= `NOPRegAddr;
+        mem_wd <= `NOP_REG_ADDR;
         mem_wreg <= 1'b0;
         {mem_wdata, mem_hi, mem_lo} <= {`ZeroWord, `ZeroWord, `ZeroWord};
         mem_whilo <= 1'b0;

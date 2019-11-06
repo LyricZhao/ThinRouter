@@ -26,7 +26,7 @@ module mem_wb(
 
 always_ff @(posedge clk) begin
     if (rst == 1'b1) begin
-        wb_wd <= `NOPRegAddr;
+        wb_wd <= `NOP_REG_ADDR;
         wb_wreg <= 1'b0;
         wb_wdata <= `ZeroWord;
         {wb_hi, wb_lo} <= {`ZeroWord, `ZeroWord};

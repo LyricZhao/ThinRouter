@@ -66,12 +66,12 @@ logic reg2_read_o; // 是否读寄存器2
 always_comb begin
     if (rst == 1'b1) begin
         aluop_o     <= EXE_NOP_OP;
-        wd_o        <= `NOPRegAddr;
+        wd_o        <= `NOP_REG_ADDR;
         wreg_o      <= 1'b0;
         reg1_read_o <= 1'b0;
         reg2_read_o <= 1'b0;
-        reg1_addr_o <= `NOPRegAddr;
-        reg2_addr_o <= `NOPRegAddr;
+        reg1_addr_o <= `NOP_REG_ADDR;
+        reg2_addr_o <= `NOP_REG_ADDR;
         imm <= 32'h0;
     end else begin
         aluop_o     <= EXE_NOP_OP;

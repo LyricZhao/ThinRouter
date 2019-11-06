@@ -5,9 +5,9 @@ ALU操作码相关的定义
 `ifndef _ALUOP_VH_
 `define _ALUOP_VH_
 
-`define AluOpBus 7:0
+`define ALUOP_BUS 7:0
 
-typedef enum logic[`AluOpBus] {
+typedef enum logic[`ALUOP_BUS] {
     EXE_NOP_OP,
     EXE_OR_OP,
     EXE_AND_OP,

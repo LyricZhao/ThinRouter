@@ -27,7 +27,7 @@ always_ff @ (posedge clk) begin
         ex_aluop <= EXE_NOP_OP;
         ex_reg1  <= `ZeroWord;
         ex_reg2  <= `ZeroWord;
-        ex_wd    <= `NOPRegAddr;
+        ex_wd    <= `NOP_REG_ADDR;
         ex_wreg  <= 1'b0;
     end else begin
         ex_aluop <= id_aluop;

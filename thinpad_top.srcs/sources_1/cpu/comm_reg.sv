@@ -21,12 +21,12 @@ module comm_reg(
 	output word_t           rdata2
 );
 
-word_t regs[0:`RegNum-1];
+word_t regs[0:`REG_NUM-1];
 
 // 清零逻辑
 genvar i;
 generate
-    for (i = 0; i < `RegNum; i = i + 1) begin
+    for (i = 0; i < `REG_NUM; i = i + 1) begin
         always_ff @ (posedge clk) begin
             if (rst == 1'b1) begin
                 regs[i] <= `ZeroWord;
