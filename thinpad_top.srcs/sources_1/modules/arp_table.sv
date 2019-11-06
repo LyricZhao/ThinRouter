@@ -65,12 +65,12 @@ module arp_table(
 
 
 enum logic [1:0] {S3,S2,S1,S0} StateA;
-logic 
-assign data_addra = {lookup_ip[31], lookup_ip[30], lookup_ip[29], }
+logic [`ARP_ITEM_NUM_WIDTH-1:0] data_addra_s;//other parts of data_addra, other than hash part.
+assign data_addra = {lookup_ip[2] ^ lookup_ip[26], lookup_ip[1] ^ lookup_ip[17], lookup_ip[0] ^ [8], data_addra_s}; //smallest 3 bits for hash
 
 always_ff @ (posedge clk) begin
     if (rst) begin
-        data_addra <= 0;
+        data_addra_s <= 0;
         lookup_mac_found <= 0;
         lookup_mac_not_found <= 0;
         lookup_mac <= 0;
@@ -80,7 +80,7 @@ always_ff @ (posedge clk) begin
         case (StateA)
             S0: begin
                 if (lookup_ip_valid) begin
-                    data_addra <= 0;
+                    data_addra_s <= 0;
                     lookup_mac_found <= 0;
                     lookup_mac_not_found <= 0;       
                     StateA <= S1;                 
@@ -92,11 +92,11 @@ always_ff @ (posedge clk) begin
                     lookup_mac <= data_douta[`MAC_WIDTH+`PORT_WIDTH-1:`PORT_WIDTH];
                     lookup_port <= data_douta[`PORT_WIDTH-1:0];
                     StateA <= S0;
-                end else if (data_addra==`ARP_ITEM_NUM-1) begin
+                end else if (data_addra_s==`ARP_ITEM_NUM-1) begin
                     lookup_mac_not_found <= 1;
                     StateA <= S0;
                 end else begin
-                    data_addra <= data_addra + 1;
+                    data_addra_s <= data_addra_s + 1;
                     StateA <= S1;
                 end
             end
@@ -112,10 +112,13 @@ logic [`MAC_WIDTH-1:0] saved_insert_mac;
 logic [`PORT_WIDTH-1:0] saved_insert_port;
 logic [`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH-1:0] saved_data_doutb;
 enum logic [1:0] {S3B,S2B,S1B,S0B} StateB;
-logic [`ARP_ITEM_NUM_WIDTH-1:0] writing_addr;
+logic [`ARP_ITEM_NUM_WIDTH-1:0] writing_addr;//regularly randomly overide apr table
+
+logic [`ARP_ITEM_NUM_WIDTH-1:0] data_addrb_s;//other parts of data_addra, other than hash part.
+assign data_addrb = {saved_insert_ip[2] ^ saved_insert_ip[26], saved_insert_ip[1] ^ saved_insert_ip[17], saved_insert_ip[0] ^ saved_insert_ip[8], data_addrb_s}; //
 always_ff @ (posedge clk) begin
     if (rst) begin
-        data_addrb <= 0;
+        data_addrb_s <= 0;
         saved_insert_ip <= 0;
         saved_insert_mac <= 0;
         saved_insert_port <= 0;
@@ -127,7 +130,7 @@ always_ff @ (posedge clk) begin
         case (StateB)
             S0B: begin
                 if (insert_valid) begin
-                    data_addrb <= 0;
+                    data_addrb_s <= 0;
                     insert_ready <= 0;
                     StateB <= S3B;    
                     data_web <= 0; 
@@ -144,14 +147,14 @@ always_ff @ (posedge clk) begin
                     data_web <= 1;
                     data_dinb <= {saved_insert_ip,saved_insert_mac,saved_insert_port};
                     StateB <= S2B;
-                end else if (data_addrb==`ARP_ITEM_NUM-1) begin
-                    data_addrb <= writing_addr;
+                end else if (data_addrb_s==`ARP_ITEM_NUM-1) begin
+                    data_addrb_s <= writing_addr;
                     writing_addr <= writing_addr + 1;
                     data_web <= 1;
                     data_dinb <= {saved_insert_ip,saved_insert_mac,saved_insert_port};
                     StateB <= S2B;
                 end else begin
-                    data_addrb <= data_addrb + 1;
+                    data_addrb_s <= data_addrb_s + 1;
                     StateB <= S1B;
                 end
             end
