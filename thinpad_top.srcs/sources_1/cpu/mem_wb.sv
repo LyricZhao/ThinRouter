@@ -6,19 +6,19 @@ MEM/WB模块：
 `include "cpu_defs.vh"
 
 module mem_wb(
-	input  logic            clk,
-	input  logic            rst,
+    input  logic            clk,
+    input  logic            rst,
 
-	input  reg_addr_t       mem_wd,
-	input  logic            mem_wreg,
-	input  word_t			mem_wdata,
+    input  reg_addr_t       mem_wd,
+    input  logic            mem_wreg,
+    input  word_t           mem_wdata,
     input  word_t           mem_hi,
     input  word_t           mem_lo,
     input  logic            mem_whilo,
 
-	output reg_addr_t       wb_wd,
-	output logic            wb_wreg,
-	output word_t			wb_wdata,
+    output reg_addr_t       wb_wd,
+    output logic            wb_wreg,
+    output word_t           wb_wdata,
     output word_t           wb_hi,
     output word_t           wb_lo,
     output logic            wb_whilo
