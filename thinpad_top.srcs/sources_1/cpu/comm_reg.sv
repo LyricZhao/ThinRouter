@@ -7,18 +7,18 @@ comm_reg:
 `include "cpu_defs.vh"
 
 module comm_reg(
-	input  logic            clk,
-	input  logic            rst,
+    input  logic            clk,
+    input  logic            rst,
 	
-	input  logic            we,
-	input  reg_addr_t       waddr,
-	input  word_t	        wdata,
+    input  logic            we,
+    input  reg_addr_t       waddr,
+    input  word_t	        wdata,
 	
-	input  reg_addr_t       raddr1,
-	input  reg_addr_t       raddr2,
+    input  reg_addr_t       raddr1,
+    input  reg_addr_t       raddr2,
     
     output word_t           rdata1,
-	output word_t           rdata2
+    output word_t           rdata2
 );
 
 word_t regs[0:`REG_NUM-1];

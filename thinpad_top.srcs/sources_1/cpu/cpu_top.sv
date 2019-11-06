@@ -6,12 +6,12 @@ CPU顶层设计：
 `include "cpu_defs.vh"
 
 module cpu_top(
-	input  logic            clk,
-	input  logic            rst,
+    input  logic            clk,
+    input  logic            rst,
 
-	input  word_t           rom_data_i,
-	output inst_addr_t      rom_addr_o,
-	output logic            rom_ce_o
+    input  word_t           rom_data_i,
+    output inst_addr_t      rom_addr_o,
+    output logic            rom_ce_o
 );
 
 /*---------------- 模块出线 -----------------*/

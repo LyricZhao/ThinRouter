@@ -6,13 +6,13 @@ IF/ID模块：
 `include "cpu_defs.vh"
 
 module if_id(
-	input  logic            clk,
-	input  logic            rst,
+    input  logic            clk,
+    input  logic            rst,
 	
-	input  inst_addr_t      if_pc,
-	input  word_t           if_inst,
-	output inst_addr_t      id_pc,
-	output word_t           id_inst
+    input  inst_addr_t      if_pc,
+    input  word_t           if_inst,
+    output inst_addr_t      id_pc,
+    output word_t           id_inst
 );
 
 always_ff @ (posedge clk) begin

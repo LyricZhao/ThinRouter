@@ -7,11 +7,11 @@ PC(Program Counter)模块：
 `include "cpu_defs.vh"
 
 module pc_reg(
-	input  logic        clk,
-	input  logic        rst,
+    input  logic        clk,
+    input  logic        rst,
 	
-	output inst_addr_t  pc,
-	output logic        ce
+    output inst_addr_t  pc,
+    output logic        ce
 );
 
 always_ff @ (posedge clk) begin

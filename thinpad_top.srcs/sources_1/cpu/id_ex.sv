@@ -6,20 +6,20 @@ ID/EX模块：
 `include "cpu_defs.vh"
 
 module id_ex(
-	input  logic            clk,
-	input  logic            rst,
+    input  logic            clk,
+    input  logic            rst,
 
-	input  aluop_t          id_aluop,
-	input  word_t           id_reg1,
-	input  word_t           id_reg2,
-	input  reg_addr_t       id_wd,
-	input  logic            id_wreg,
+    input  aluop_t          id_aluop,
+    input  word_t           id_reg1,
+    input  word_t           id_reg2,
+    input  reg_addr_t       id_wd,
+    input  logic            id_wreg,
 
-	output aluop_t          ex_aluop,
-	output word_t           ex_reg1,
-	output word_t           ex_reg2,
-	output reg_addr_t       ex_wd,
-	output logic            ex_wreg
+    output aluop_t          ex_aluop,
+    output word_t           ex_reg1,
+    output word_t           ex_reg2,
+    output reg_addr_t       ex_wd,
+    output logic            ex_wreg
 );
 
 always_ff @ (posedge clk) begin

@@ -6,12 +6,12 @@ ID(Decode)模块：
 `include "cpu_defs.vh"
 
 module id(
-	input  logic                    rst,
-	input  inst_addr_t              pc_i,
-	input  word_t                   inst_i,
+    input  logic                    rst,
+    input  inst_addr_t              pc_i,
+    input  word_t                   inst_i,
 
-	input  word_t                   reg1_data_i,
-	input  word_t                   reg2_data_i,
+    input  word_t                   reg1_data_i,
+    input  word_t                   reg2_data_i,
 
     // 执行阶段传来的前传数据（解决相邻指令的冲突）
     input  logic                    ex_wreg_i,      // 执行阶段是否写目的寄存器
@@ -23,14 +23,14 @@ module id(
     input  word_t                   mem_wdata_i,    // 需写入的数据
     input  reg_addr_t               mem_wd_i,       // 需写入的寄存器
 
-	output reg_addr_t               reg1_addr_o,    // 要读的寄存器1的编号
-	output reg_addr_t               reg2_addr_o,    // 要读的寄存器2的编号
+    output reg_addr_t               reg1_addr_o,    // 要读的寄存器1的编号
+    output reg_addr_t               reg2_addr_o,    // 要读的寄存器2的编号
 
-	output aluop_t                  aluop_o,
-	output word_t                   reg1_o,         // 寄存器或者立即数的值（源操作数1）
-	output word_t                   reg2_o,         // 寄存器或者立即数的值（源操作数2）
-	output reg_addr_t               wd_o,           // 需要被写入的寄存器编号
-	output logic                    wreg_o         // 是否需要写入
+    output aluop_t                  aluop_o,
+    output word_t                   reg1_o,         // 寄存器或者立即数的值（源操作数1）
+    output word_t                   reg2_o,         // 寄存器或者立即数的值（源操作数2）
+    output reg_addr_t               wd_o,           // 需要被写入的寄存器编号
+    output logic                    wreg_o         // 是否需要写入
 );
 
 logic[5:0] op1; assign op1 = inst_i[31:26];
