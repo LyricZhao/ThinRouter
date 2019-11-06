@@ -1,6 +1,8 @@
 /*
 CPU顶层设计：
     把所有模块都连接起来，模块实在很多线也很多，重构了一遍，所有的命名统一以(模块_出去的线)命名
+    如果想知道有谁接入了某个模块，可以搜索：给xx模块，如：搜索“给if_id”可搜到所有到if_id的连线
+    每个线是干嘛的请翻阅对于模块的定义
 */
 
 `include "cpu_defs.vh"
@@ -14,26 +16,27 @@ module cpu_top(
     output logic            rom_ce_o
 );
 
-/*---------------- 模块出线 -----------------*/
+/* ---------------- 模块出线 ----------------- */
 
-/** PC的出线 **/
-// PC给指令ROM和if_id的连线
-inst_addr_t pc_reg_pc;  // 程序计数器，这里这样写是为了命名统一，这根线也给了if_id
-logic pc_reg_ce;        // 指令ROM的使能
+/** pc_reg的出线 **/
+// pc_reg给rom和给if_id的连线
+inst_addr_t pc_reg_pc;
+// pc_reg给rom的连线
+logic pc_reg_ce;
 
 
-/** 指令ROM的出线 **/
-// 指令ROM给if_id的连线: 
+/** rom的出线 **/
+// rom给if_id的连线: 
 // rom_data_i，也就是ROM读进来的指令，在接口处已经声明了
 
 
-/** 通用寄存器的出线 **/
-// 通用寄存器给id的连线
+/** comm_reg的出线 **/
+// comm_reg给id的连线
 word_t comm_reg_rdata1, comm_reg_rdata2;
 
 
-/** hilo寄存器的出线 **/
-// hilo寄存器给ex的连线
+/** hilo_reg的出线 **/
+// hilo_reg给ex的连线
 word_t hilo_reg_hi_o, hilo_reg_lo_o;
 
 
@@ -44,7 +47,7 @@ word_t if_id_id_inst;
 
 
 /** id的出线 **/
-// id给通用寄存器的连线
+// id给comm_reg的连线
 reg_addr_t id_reg1_addr_o, id_reg2_addr_o;
 // id给id_ex的连线
 aluop_t id_aluop_o;
@@ -62,11 +65,11 @@ logic id_ex_ex_wreg;
 
 
 /** ex的出线 **/
-// ex给id（数据回传）和ex_mem的连线
+// ex给id（数据回传）和给ex_mem的连线
 reg_addr_t ex_wd_o;
 logic ex_wreg_o;
 word_t ex_wdata_o;
-// ex只给ex_mem的连线
+// ex给ex_mem的连线
 word_t ex_hi_o, ex_lo_o;
 logic ex_whilo_o;
 
@@ -81,32 +84,32 @@ word_t ex_mem_mem_wdata;
 
 
 /** mem的出线 **/
-// mem给id（数据回传）和mem_wb的连线
+// mem给id（数据回传）和给mem_wb的连线
 reg_addr_t mem_wd_o;
 logic mem_wreg_o;
 word_t mem_wdata_o;
-// mem给ex（hilo数据回传）和mem_wb的连线
+// mem给ex（hilo数据回传）和给mem_wb的连线
 word_t mem_hi_o, mem_lo_o;
 logic mem_whilo_o;
 
 
 /** mem_wb的出线 **/
-// mem_wb给通用寄存器的连线
+// mem_wb给hilo_reg的连线
 reg_addr_t mem_wb_wb_wd;
 logic mem_wb_wb_wreg;
 word_t mem_wb_wb_wdata;
-// mem_wb给ex（hilo数据回传）和hilo寄存器的连线
+// mem_wb给ex（hilo数据回传）和给hilo_reg的连线
 word_t mem_wb_wb_hi, mem_wb_wb_lo;
 logic mem_wb_wb_whilo;
 
 
 /** cpu_top的两个出线 **/
-// cpu_top连接指令ROM
+// cpu_top给rom的连线
 assign rom_addr_o = pc_reg_pc;
 assign rom_ce_o = pc_reg_ce;
 
 
-/*---------------- 模块声明 -----------------*/
+/* ---------------- 模块声明 ----------------- */
 
 // PC（同步地址线加一）
 pc_reg pc_reg_inst(

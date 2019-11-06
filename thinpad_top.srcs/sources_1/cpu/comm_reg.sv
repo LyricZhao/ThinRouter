@@ -10,15 +10,15 @@ module comm_reg(
     input  logic            clk,
     input  logic            rst,
 	
-    input  logic            we,
-    input  reg_addr_t       waddr,
-    input  word_t           wdata,
+    input  logic            we,     // 写寄存器使能
+    input  reg_addr_t       waddr,  // 写寄存器的编号
+    input  word_t           wdata,  // 写入的数据
 	
-    input  reg_addr_t       raddr1,
-    input  reg_addr_t       raddr2,
+    input  reg_addr_t       raddr1, // 读寄存器1的地址
+    input  reg_addr_t       raddr2, // 读寄存器2的地址
     
-    output word_t           rdata1,
-    output word_t           rdata2
+    output word_t           rdata1, // 读出来1的数据
+    output word_t           rdata2  // 读出来2的数据
 );
 
 word_t regs[0:`REG_NUM-1];
@@ -35,6 +35,7 @@ generate
     end
 endgenerate
 
+// 同步写入
 always_ff @ (posedge clk) begin
     if (rst == 1'b0) begin
         if ((we == 1'b1) && (waddr != 5'h0)) begin

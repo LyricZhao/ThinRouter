@@ -1,23 +1,15 @@
 /*
 指令码和功能码：
-    对于一条指令inst：
-    inst[31:26]为指令码，如果是EXE_SPECIAL类型，继续判断后面，否则直接执行（ori, andi, lui, pref）
-    inst[10:6]暂时默认为0，TODO：读一下手册
-    inst[5:0]是功能码，可以是（or, and, xor, nor, sllv, srlv, srav, sync）
-
-    如果inst[31:21]直接是0，根据inst[5:0]判断是（sll, srl, sra）中的一个
     见动手造CPU一书的121页
-
-TODO: 改成enum，但是问题是现在有重复的
+    TODO：不保证这里没有抄错，检查
 */
 
 `ifndef _EXE_DECODE_VH_
 `define _EXE_DECODE_VH_
 
 `define EXE_NOP             6'b000000
-`define EXE_SPECIAL_INST    6'b000000
-`define EXE_REGIMM_INST     6'b000001
-`define EXE_SPECIAL2_INST   6'b011100
+`define EXE_SPECIAL_INST    6'b000000 // 两类指令的前缀
+`define EXE_SPECIAL2_INST   6'b011100 // 两类指令的前缀
 
 `define EXE_AND             6'b100100
 `define EXE_OR              6'b100101
@@ -59,7 +51,7 @@ TODO: 改成enum，但是问题是现在有重复的
 `define EXE_MFLO            6'b010010
 `define EXE_MTLO            6'b010011
 
-`define EXE_SYNC            6'b001111
-`define EXE_PREF            6'b110011
+`define EXE_SYNC            6'b001111 // 当成空指令对待
+`define EXE_PREF            6'b110011 // 当成空指令对待
 
 `endif

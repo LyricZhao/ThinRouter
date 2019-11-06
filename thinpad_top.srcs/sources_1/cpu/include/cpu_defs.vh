@@ -1,6 +1,5 @@
 /*
-一些定义：
-    TODO：尽可能都改成typedef增强可读性（还没改完）
+一些定义包含了下面几个头文件
 */
 
 `ifndef _CPU_CONSTANTS_VH_
