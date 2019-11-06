@@ -342,6 +342,7 @@ class EthFrame:
         for mac, ip in EthFrame.subnets[port]:
             if ip == src_ip:
                 src_mac = mac
+                break
         else:
             src_mac = MAC.get_random()
             EthFrame.subnets[port].append((src_mac, src_ip,))
@@ -356,7 +357,11 @@ class EthFrame:
         if len(EthFrame.subnets[port]) == 1 or len(EthFrame.subnets[dst_port]) == 1:
             return None
         src_mac, src_ip = random.choice(EthFrame.subnets[port][1:])
-        dst_ip = random.choice(EthFrame.subnets[dst_port][1:])[1]
+        # 有一定概率发送给随机 IP
+        if chance(.2):
+            dst_ip = IP.get_random(IP(0), 0)
+        else:
+            dst_ip = random.choice(EthFrame.subnets[dst_port][1:])[1]
         # 发给路由器
         dst_mac = EthFrame.subnets[port][0][0]
         request = IpRequest(dst_ip, src_ip)

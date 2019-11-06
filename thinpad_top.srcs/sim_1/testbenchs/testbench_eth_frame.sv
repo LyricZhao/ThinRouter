@@ -53,7 +53,7 @@ always_ff @ (posedge clk_125M) begin
                 trans = 1;
                 data1 = data[3:0];
                 data2 = data[7:4];
-                $sformat(rx_stream, "%s %02x", data[7:0]);
+                $sformat(rx_stream, "%s %02x", rx_stream, data[7:0]);
                 $fscanf(fd, "%x", data);
             end
         end

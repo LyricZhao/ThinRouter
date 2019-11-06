@@ -60,6 +60,7 @@ reg process_started;
 
 reg [31:0] ip_input;
 reg [31:0] nexthop_input;
+reg [7:0]  mask_input;
 reg [47:0] mac_input;
 reg [2:0]  vlan_input;
 wire process_bad_ret;
@@ -74,7 +75,8 @@ packet_processor packet_processor_inst (
     .add_routing,
     .process_ip(start_process),
     .ip_input,
-    .nexthop(nexthop_input),
+    .mask_input,
+    .nexthop_input,
     .mac_input,
     .vlan_input,
     .done(process_complete),
@@ -102,7 +104,9 @@ enum logic [4:0] {
     Send_Load_Another_Unprocessed,
     Send_Load_Another_Processing,
     Send_Load_Another_Processed,
-    Send_Discard_Another
+    Send_Discard_Another,
+    Routing_Demo,
+    Routing_Demo2
     //Send_Detrailer_Another,
 } state;
 
@@ -273,7 +277,7 @@ task apply_ip_process; begin
 end
 endtask
 
-assign rx_ready = tx_ready;
+assign rx_ready = tx_ready && state != Routing_Demo && state != Routing_Demo2;
 
 task get_ready_for_new_packet; begin
     current_pos <= 0;
@@ -297,7 +301,9 @@ endtask
 always_ff @(posedge clk_fifo) begin
     if (!rst_n) begin
         // reset
-        get_idle();
+        //get_idle();
+        get_ready_for_new_packet();
+        state <= Routing_Demo;
         tx_valid <= 0;
         tx_last <= 0;
     end else begin
@@ -708,6 +714,19 @@ always_ff @(posedge clk_fifo) begin
                 end else begin
                     get_ready_for_new_packet();
                     state <= Send_Packet;
+                end
+            end
+            {Routing_Demo, 7'b???_???_?}: begin
+                ip_input <= 32'h80000000;
+                mask_input <= 1;
+                nexthop_input <= 32'h0a040180;
+                reset_process <= 0;
+                add_routing <= 1;
+                state <= Routing_Demo2;
+            end
+            {Routing_Demo2, 7'b???_???_?}: begin
+                if (process_complete) begin
+                    get_idle();
                 end
             end
             default: begin

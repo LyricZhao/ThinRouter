@@ -86,7 +86,7 @@ always_ff @ (negedge clk_125M) begin
             state = state + 1;
     endcase
     else
-        fd = $fopen("eth_frame_test.mem", "r");
+        fd = #100 $fopen("io_manager_test.mem", "r");
 end
 
 
