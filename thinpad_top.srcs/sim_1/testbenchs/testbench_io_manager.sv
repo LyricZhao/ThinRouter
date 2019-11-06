@@ -35,13 +35,13 @@ always_ff @ (negedge clk_125M) begin
     if (tx_valid) begin
         $sformat(tx_packet, "%s %02x", tx_packet, tx_data);
         if (tx_last) begin
-            $display("LAST");
-            $display("TX:%s", tx_packet);
+            $display("Router OUT:\t%s\n", tx_packet);
             tx_packet = "";
         end
     end
 end
 
+string packet_info = "";
 string rx_packet = "";
 always_ff @ (negedge clk_125M) begin
     if (fd) case (state)
@@ -52,8 +52,8 @@ always_ff @ (negedge clk_125M) begin
                 $fscanf(fd, "%s", buffer);
                 case (buffer)
                     "info:": begin
-                        $fgets(buffer, fd);
-                        $write("Info:\t%s", buffer);
+                        packet_info = "";
+                        $fgets(packet_info, fd);
                     end
                     "eth_frame:": begin
                         state = state + 1;
@@ -70,7 +70,8 @@ always_ff @ (negedge clk_125M) begin
                 state = WAIT;
                 rx_valid = 0;
                 rx_last = 0;
-                $display("RX:%s", rx_packet);
+                $write("Info:\t%s", packet_info);
+                $display("Router IN:\t%s\n", rx_packet);
                 // $display("");
             end else begin
                 rx_valid = 1;
@@ -85,7 +86,7 @@ always_ff @ (negedge clk_125M) begin
             state = state + 1;
     endcase
     else
-        fd = $fopen("eth_frame_test.mem", "r");
+        fd = #100 $fopen("io_manager_test.mem", "r");
 end
 
 
@@ -95,6 +96,7 @@ wire [5:0] debug_current;
 wire [5:0] debug_tx;
 wire [5:0] debug_last;
 wire [6:0] debug_case;
+wire [3:0] debug_process;
 string io_state;
 
 always_comb case (debug_state)
