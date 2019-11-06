@@ -19,5 +19,7 @@
 /* ARP */
 `define MAC_WIDTH 48
 `define ARP_ITEM_NUM_WIDTH 3
-`define ARP_ITEM_NUM 8
+`define ARP_ITEM_NUM 8 //==2^{ARP_ITEM_NUM_WIDTH}
+`define ARP_BUCKET_NUM_WIDTH 3
+`define ARP_BUCKET_NUM 8 //==2^{ARP_BUCKET_NUM_WIDTH}
 `define PORT_WIDTH 2

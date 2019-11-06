@@ -66,7 +66,7 @@ module arp_table(
 
 enum logic [1:0] {S3,S2,S1,S0} StateA;
 logic [`ARP_ITEM_NUM_WIDTH-1:0] data_addra_s;//other parts of data_addra, other than hash part.
-assign data_addra = {lookup_ip[2] ^ lookup_ip[26], lookup_ip[1] ^ lookup_ip[17], lookup_ip[0] ^ [8], data_addra_s}; //smallest 3 bits for hash
+assign data_addra = {lookup_ip[2] ^ lookup_ip[26], lookup_ip[1] ^ lookup_ip[17], lookup_ip[0] ^ lookup_ip[8], data_addra_s}; //smallest 3 bits for hash
 
 always_ff @ (posedge clk) begin
     if (rst) begin
