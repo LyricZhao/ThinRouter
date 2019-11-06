@@ -21,7 +21,7 @@ always_comb begin
         stall <= 6'b001111; // pc保持, 取值暂停, 译码暂停, 执行暂停
     end else if (stallreq_from_id) begin
         stall <= 6'b000111; // pc保持, 取值暂停, 译码暂停
-    end else
+    end else begin
         stall <= 6'b000000;
     end
 end

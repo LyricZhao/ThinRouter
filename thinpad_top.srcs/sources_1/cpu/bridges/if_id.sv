@@ -8,6 +8,7 @@ IF/ID模块：
 module if_id(
     input  logic            clk,
     input  logic            rst,
+    
     input  stall_t          stall,
 	
     input  inst_addr_t      if_pc,      // if得到的pc

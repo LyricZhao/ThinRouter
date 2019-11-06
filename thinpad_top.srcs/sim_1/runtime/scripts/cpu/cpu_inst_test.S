@@ -8,6 +8,7 @@
 .global _start    // 定义一个全局符号_start
 .set noat         // 同意自由使用寄存器$1 
 _start:
+/*
     lui $1, 0x0000 // $1 = 0x00000000
     lui $2, 0xffff // $2 = 0xffff0000
     lui $3, 0x0505 // $3 = 0x05050000
@@ -26,3 +27,8 @@ _start:
     mtlo $2 // lo = 0xffff0000
     mtlo $1 // lo = 0x00000000
     mflo $4 // $4 = 0x00000000
+*/
+    ori $1, $0, 0x0001
+    ori $2, $0, 0x0002
+    ori $3, $0, 0x0003
+    ori $4, $0, 0x0004

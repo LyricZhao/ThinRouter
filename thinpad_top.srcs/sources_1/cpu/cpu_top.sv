@@ -40,6 +40,11 @@ word_t comm_reg_rdata1, comm_reg_rdata2;
 word_t hilo_reg_hi_o, hilo_reg_lo_o;
 
 
+/** ctrl的出线 **/
+// ctrl给ex_mem、给id_ex、给if_id、给mem_wb、给pc_reg的连线
+stall_t ctrl_stall;
+
+
 /** if_id的出线 **/
 // if_id给id的连线
 inst_addr_t if_id_id_pc;
@@ -54,6 +59,8 @@ aluop_t id_aluop_o;
 word_t id_reg1_o, id_reg2_o;
 reg_addr_t id_wd_o;
 logic id_wreg_o;
+// id给ctrl的连线
+logic id_stallreq;
 
 
 /** id_ex的出线 **/
@@ -72,6 +79,8 @@ word_t ex_wdata_o;
 // ex给ex_mem的连线
 word_t ex_hi_o, ex_lo_o;
 logic ex_whilo_o;
+// ex给ctrl的连线
+logic ex_stallreq;
 
 
 /** ex_mem的出线 **/
@@ -115,6 +124,7 @@ assign rom_ce_o = pc_reg_ce;
 pc_reg pc_reg_inst(
     .clk(clk),
     .rst(rst),
+    .stall(ctrl_stall),
 
     .pc(pc_reg_pc),
     .ce(pc_reg_ce)
@@ -149,10 +159,22 @@ hilo_reg hilo_reg_inst(
     .lo_o(hilo_reg_lo_o)
 );
 
+// ctrl暂停控制器
+ctrl ctrl_inst(
+    .rst(rst),
+
+    .stallreq_from_id(id_stallreq),
+    .stallreq_from_ex(ex_stallreq),
+
+    .stall(ctrl_stall)
+);
+
 // IF到ID的连接（IF相当于在这里实现了，同步把数据传给ID）
 if_id if_id_inst(
     .clk(clk),
     .rst(rst),
+    
+    .stall(ctrl_stall),
 
     .if_pc(pc_reg_pc),
     .if_inst(rom_data_i),
@@ -184,13 +206,17 @@ id id_inst(
     .reg1_o(id_reg1_o),
     .reg2_o(id_reg2_o),
     .wd_o(id_wd_o),
-    .wreg_o(id_wreg_o)
+    .wreg_o(id_wreg_o),
+
+    .stallreq(id_stallreq)
 );
 
 // ID到EX的连接（同步把数据传给EX）
 id_ex id_ex_inst(
     .clk(clk),
     .rst(rst),
+
+    .stall(ctrl_stall),
 
     .id_aluop(id_aluop_o),
     .id_reg1(id_reg1_o),
@@ -232,13 +258,17 @@ ex ex_inst(
 
     .hi_o(ex_hi_o),
     .lo_o(ex_lo_o),
-    .whilo_o(ex_whilo_o)
+    .whilo_o(ex_whilo_o),
+
+    .stallreq(ex_stallreq)
 );
 
 // EX到MEM的连接（同步把数据给MEM）
 ex_mem ex_mem_inst(
     .clk(clk),
     .rst(rst),
+
+    .stall(ctrl_stall),
 
     .ex_wd(ex_wd_o),
     .ex_wreg(ex_wreg_o),
@@ -279,6 +309,8 @@ mem mem_inst(
 mem_wb mem_wb_inst(
     .clk(clk),
     .rst(rst),
+
+    .stall(ctrl_stall),
 
     .mem_wd(mem_wd_o),
     .mem_wreg(mem_wreg_o),
