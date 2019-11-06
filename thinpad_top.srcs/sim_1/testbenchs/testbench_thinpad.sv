@@ -6,8 +6,8 @@ wire clk_50M, clk_11M0592, clk_125M, clk_125M_90deg;
 reg clock_btn = 0;          // BTN5手动时钟按钮开关，带消抖电路，按下时为1
 reg reset_btn = 0;          // BTN6手动复位按钮开关，带消抖电路，按下时为1
 
-reg[3:0]  touch_btn;        // BTN1~BTN4，按钮开关，按下时为1
-reg[31:0] dip_sw;           // 32位拨码开关，拨到“ON”时为1
+reg[3:0]  touch_btn = '0;   // BTN1~BTN4，按钮开关，按下时为1
+reg[31:0] dip_sw = '0;      // 32位拨码开关，拨到“ON”时为1
 
 wire[15:0] leds;            // 16位LED，输出时1点亮
 wire[7:0]  dpy0;            // 数码管低位信号，包括小数点，输出1点亮
@@ -142,13 +142,6 @@ sram_model ext2(
             .WE_n(ext_ram_we_n),
             .LB_n(ext_ram_be_n[2]),
             .UB_n(ext_ram_be_n[3]));
-
-// 初始按一下 reset
-initial begin
-    reset_btn = 1;
-    #100;
-    reset_btn = 0;
-end
 
 // RGMII 仿真模型 这里从testbench_eth_frame的rgmmi上接过去
 rgmii_model rgmii(

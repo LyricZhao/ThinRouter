@@ -14,8 +14,8 @@ todo: 处理错误格式的包
     对于 IP 包，会提前计算头长度，让 io_manager 从那里开始自己直接转发
     -   发现是 IP 包后（且后面有 data 需要直接转发）：
         require_direct_fw 置 1
-        direct_fw_offset 置 data 开始的位置
-    -   io_manager 停在 direct_fw_offset 的位置
+        stop_at 置 data 开始的位置
+    -   io_manager 停在 stop_at 的位置
         rx_ready 置 0，等待此模块处理完
     -   此模块生成新的 header 在 frame_out
         其长度在 out_bytes （默认 20）
@@ -97,7 +97,7 @@ module packet_manager (
     output  byte    out_bytes,          // 输出网帧大小（字节）
 
     output  bit     require_direct_fw,  // 要求父模块进行直接转发
-    output  byte    direct_fw_offset,   // 从哪里开始直接转发
+    output  byte    stop_at,            // 从哪里停止（结束或需要转发）
     output  int     fw_bytes            // 转发大小（字节）
 );
 
@@ -119,6 +119,26 @@ enum logic {
     IPv4
 } protocol;     // 目前读取的网帧采用的协议，在读取 18 字节后确定
 
+bit  arp_entry_valid;           // 让 arp_manager 写记录的信号，可能拉高不止一拍
+wire [47:0] arp_mac_result;     // arp_manager 查询结果
+wire [2:0]  arp_vlan_result;    // arp_manager 查询结果
+wire arp_found;                 // 是否查询到了结果
+// 处理 ARP 表
+arp_manager arp_manager_inst (
+    .clk_internal(clk_internal),
+    .rst_n(rst_n),
+
+    .valid(arp_entry_valid),            // 让 arp_manager 写记录的信号，可能拉高不止一拍
+    // 给 arp_manager 提供写入 / 查询的 IP 地址
+    // 对于 ARP 包写入，用 [111:80]；对于 IP 包查询，用 [95:64]
+    .ip_input(state == Receiving ? frame_in[111:80] : frame_in[95:64]),
+    .mac_input(frame_in[159:112]),
+    .vlan_input(frame_in[242:240]),
+    .mac_output(arp_mac_result),        // arp_manager 查询结果
+    .vlan_output(arp_vlan_result),      // arp_manager 查询结果
+    .found(arp_found)                   // 是否查询到了结果
+);
+
 always_ff @ (posedge clk_internal) begin
     if (~rst_n) begin
         // 复位
@@ -127,7 +147,10 @@ always_ff @ (posedge clk_internal) begin
         out_ready <= 0;
         out_bytes <= 0;
         require_direct_fw <= 0;
-        direct_fw_offset <= 0;
+        stop_at <= 0;
+
+        // ARP 表的信号
+        arp_entry_valid <= 0;
 
         // test
         // state <= Test;
@@ -144,7 +167,7 @@ always_ff @ (posedge clk_internal) begin
             out_ready <= 0;
             out_bytes <= 0;
             require_direct_fw <= 0;
-            direct_fw_offset <= 0;
+            stop_at <= 0;
         end
     end else begin
         case(state)
@@ -153,29 +176,40 @@ always_ff @ (posedge clk_internal) begin
             end
             Receiving: begin
                 case(bytes_read)
-                    6:  begin
-                        // todo: 检查目标 MAC，若不是广播任何已知地址则丢包
-                        // case(frame_in[367:320])
-                        //     `ROUTER_MAC, '1: ;
-                        //     default: begin
-                        //         `BAD_EXIT("MAC not matched");
-                        //     end
-                        // endcase
+                    // 接受了 VLAN ID
+                    16: begin
+                        // 根据端口设置 frame_out 的 MAC
+                        case(frame_in[251:240])
+                            1: begin
+                                frame_out[319:272] <= `ROUTER_MAC_1;
+                            end
+                            2: begin
+                                frame_out[319:272] <= `ROUTER_MAC_2;
+                            end
+                            3: begin
+                                frame_out[319:272] <= `ROUTER_MAC_3;
+                            end
+                            4: begin
+                                frame_out[319:272] <= `ROUTER_MAC_4;
+                            end
+                        endcase
+                        // todo 检查目标 MAC 和 VLAN ID 是否匹配
                     end
+                    // 接受了协议编号
                     18: begin
                         // 检查协议是否为 ARP 或 IP
                         case(frame_in[239:224])
                             16'h0806: begin
-                                if (btn[1]) begin
-                                    `BAD_EXIT("User cancelled");
-                                end else
-                                    protocol <= ARP;
+                                protocol <= ARP;
+                                stop_at <= 46;
+                                // 如果目标 MAC 不是广播则丢包
+                                if (frame_in[367:320] != '1) begin
+                                    `BAD_EXIT("Invalid Dst MAC for ARP");
+                                end
                             end
                             16'h0800: begin
-                                if (btn[0]) begin
-                                    `BAD_EXIT("User cancelled");
-                                end else
-                                    protocol <= IPv4;
+                                protocol <= IPv4;
+                                stop_at <= 38;
                             end
                             default: begin
                                 `DISPLAY_BITS(frame_in, 367, 0);
@@ -183,92 +217,124 @@ always_ff @ (posedge clk_internal) begin
                             end
                         endcase
                     end
+                    // 对于 IP 包接受了 IP 包长度
                     22: begin
                         // 检查是否是 IP 且具有 data 包
                         if (protocol == IPv4 && frame_in[207:192] > 20) begin
                             // 具有 data 包，则需要 io_manager 从 header 结束之后直接转发 data
                             require_direct_fw <= 1;
-                            direct_fw_offset <= 38;
+                            stop_at <= 38;
                             fw_bytes <= frame_in[207:192] - 20;
                         end
                     end
+                    // 对于 IP 包接受了 TTL
                     27: begin
-                        // 对于 IP 包，如果 TTL 为零则丢弃
+                        // 如果 TTL 为零则丢弃
                         if (protocol == IPv4 && frame_in[159:152] == '0) begin
                             `BAD_EXIT("TTL = 0");
                         end
                     end
+                    // 对于 ARP 接受了来源 MAC 和 IP
+                    36: begin
+                        // 让 arp_manager 记录
+                        if (protocol == ARP)
+                            arp_entry_valid <= 1;
+                    end
+                    37: begin
+                        if (protocol == ARP)
+                            arp_entry_valid <= 0;
+                    end
+                    // IP header 结束
                     38: begin
-                        // todo: 把赋值操作摊到之前的时候
                         // 如果是 IP 包，这里要开始处理
                         if (protocol == IPv4) begin
                             state <= IpRunning;
-                            // 一些东西可以直接填充
-                            frame_out[319:272] <= `ROUTER_MAC;
+                            // [367:320]    目标 MAC    等待处理
+                            // [319:272]    来源 MAC    已经在 16 处理
+                            // VLAN
                             frame_out[271:252] <= frame_in[271:252];
-                            // [251:240]    查表 VLAN ID
+                            // [251:240]    VLAN ID     需要后面查表
+                            // IP header
                             frame_out[239:160] <= frame_in[239:160];
+                            // TTL -= 1
                             frame_out[159:152] <= frame_in[159:152] - 1;
+                            // IP header
                             frame_out[151:144] <= frame_in[151:144];
+                            // IP header checksum
                             if (frame_in[143:136] == '1)
-                                frame_out[143:136] <= 8'h1;
+                                frame_out[143:128] <= frame_in[143:128] + 16'h101;
                             else
-                                frame_out[143:136] <= frame_in[143:136] + 1;
-                            frame_out[135:64] <= frame_in[135:64];
+                                frame_out[143:128] <= frame_in[143:128] + 16'h100;
+                            // IP header src&dst IP
+                            frame_out[127:64] <= frame_in[127:64];
                         end
                     end
+                    // ARP 结束
                     46: begin
                         // 如果是 ARP 包，这里要开始处理
                         if (protocol == ARP) begin
                             state <= ArpRunning;
-                            // 一些东西可以直接填充
+                            // 目标 MAC     直接回复发出者
                             frame_out[367:320] <= frame_in[319:272];
-                            frame_out[319:272] <= `ROUTER_MAC;
+                            // [319:272]    来源 MAC    已经在 16 处理
+                            // ARP 各种内容
                             frame_out[271:176] <= frame_in[271:176];
+                            // ARP Reply
                             frame_out[175:160] <= 16'h2;
-                            // [159:112]    查表 MAC
+                            // [159:112]    来源 MAC    需要后面处理
                             frame_out[111:80] <= frame_in[31:0];
-                            frame_out[79:32] <= frame_in[159:112];
-                            frame_out[31:0] <= frame_in[111:80];
+                            // 返回给 MAC 和 IP
+                            frame_out[79:0] <= frame_in[159:80];
+                        end else begin
+                            // ？？？
+                            // todo 添加一种硬件报错方法
+                            `BAD_EXIT("???");
                         end
                     end
                 endcase
             end
+            // 正在处理 IP 包
             IpRunning: begin
-                case(frame_in[95:64])
-                    `TYX_IP: begin
-                        frame_out[367:320] <= `TYX_MAC;
-                        frame_out[251:240] <= `TYX_PORT;
-                    end
-                    `ZCG_IP: begin
-                        frame_out[367:320] <= `ZCG_MAC;
-                        frame_out[251:240] <= `ZCG_PORT;
-                    end
-                    `WZY_IP: begin
-                        frame_out[367:320] <= `WZY_MAC;
-                        frame_out[251:240] <= `WZY_PORT;
-                    end
-                    `EXT_IP: begin
-                        frame_out[367:320] <= `EXT_MAC;
-                        frame_out[251:240] <= `EXT_PORT;
-                    end
-                    // default是直接原路返回
-                    default: begin
-                        frame_out[367:320] <= frame_in[319:272];
-                        frame_out[251:240] <= frame_in[251:240];
-                    end
-                endcase
-                out_ready <= 1;
-                out_bytes <= 38;
-                state <= Idle;
+                if (!arp_found) begin
+                    // ARP 表没有找到匹配，不知道从哪里发走
+                    `BAD_EXIT("No match found in ARP");
+                    // todo 发 ARP 询问
+                end else begin
+                    frame_out[367:320] <= arp_mac_result;
+                    frame_out[251:240] <= arp_vlan_result;
+                    out_ready <= 1;
+                    out_bytes <= 38;
+                    state <= Idle;
+                end
             end
+            // 正在处理 ARP 包
             ArpRunning: begin
-                case(frame_in[31:0])
-                    `TYX_IP:    frame_out[159:112] <= `TYX_MAC;
-                    `ZCG_IP:    frame_out[159:112] <= `ZCG_MAC;
-                    `WZY_IP:    frame_out[159:112] <= `WZY_MAC;
-                    `EXT_IP:    frame_out[159:112] <= `EXT_MAC;
-                    `ROUTER_IP: frame_out[159:112] <= `ROUTER_MAC;
+                // 检查 VLAN ID 与目标 IP 是否匹配，匹配则填上 MAC 结果
+                case (frame_in[242:240])
+                    1: begin
+                        if (frame_in[31:0] == `ROUTER_IP_1)
+                            frame_out[159:112] <= `ROUTER_MAC_1;
+                        else
+                            bad <= 1;
+                    end
+                    2: begin
+                        if (frame_in[31:0] == `ROUTER_IP_2)
+                            frame_out[159:112] <= `ROUTER_MAC_2;
+                        else
+                            bad <= 1;
+                    end
+                    3: begin
+                        if (frame_in[31:0] == `ROUTER_IP_3)
+                            frame_out[159:112] <= `ROUTER_MAC_3;
+                        else
+                            bad <= 1;
+                    end
+                    4: begin
+                        if (frame_in[31:0] == `ROUTER_IP_4)
+                            frame_out[159:112] <= `ROUTER_MAC_4;
+                        else
+                            bad <= 1;
+                    end
                     default:    bad <= 1;
                 endcase
                 out_ready <= 1;
