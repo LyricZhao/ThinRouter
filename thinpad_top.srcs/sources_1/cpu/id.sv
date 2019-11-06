@@ -33,10 +33,10 @@ module id(
 	output logic                    wreg_o         // 是否需要写入
 );
 
-logic[5:0] op1 = inst_i[31:26];
-logic[4:0] op2 = inst_i[10:6];
-logic[5:0] op3 = inst_i[5:0];
-logic[4:0] op4 = inst_i[20:16];
+logic[5:0] op1; assign op1 = inst_i[31:26];
+logic[4:0] op2; assign op2 = inst_i[10:6];
+logic[5:0] op3; assign op3 = inst_i[5:0];
+logic[4:0] op4; assign op4 = inst_i[20:16];
 
 word_t imm;
 
@@ -59,9 +59,9 @@ logic reg2_read_o; // 是否读寄存器2
                             imm[4:0] <= inst_i[10:6]; \
                             wd_o <= inst_i[15:11]
 
-`define INST_KIND_4_COMMON(w, r1, r2)   wreg_o <= w; \
+`define INST_KIND_4_COMMON(w,r1,r2)     wreg_o <= w; \
                                         reg1_read_o <= r1; \
-                                        reg2_read_o <= r2; \
+                                        reg2_read_o <= r2
 
 always_comb begin
     if (rst == 1'b1) begin

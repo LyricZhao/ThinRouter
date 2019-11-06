@@ -50,7 +50,7 @@ always_comb begin
     end else if (raddr1 == 5'h0) begin // 如果读0号寄存器
         rdata1 <= `ZeroWord;
     end else if ((raddr1 == waddr) && (we == 1'b1)) begin // 如果读的寄存器正准备被写，直接读即将被写的值（数据前传）
-        rdata1 <= wdata;      
+        rdata1 <= wdata;
     end else begin
         rdata1 <= regs[raddr1];
     end

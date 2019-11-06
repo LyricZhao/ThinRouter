@@ -9,6 +9,6 @@
 `define RegNum              32
 `define NOPRegAddr          5'b00000
 
-typedef logic[`RegAddrBus]      reg_addr_t;
+typedef logic[`RegAddrBus]  reg_addr_t;
 
 `endif
