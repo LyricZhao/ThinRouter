@@ -24,24 +24,24 @@ module arp_table(
     // a for lookup, b for insert
     logic [`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH-1:0] data_dina;
     logic [`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH-1:0] data_douta;
-    logic [`ARP_ITEM_NUM_WIDTH-1:0] data_addra;
+    logic [`ARP_BUCKET_NUM_WIDTH+`ARP_ITEM_NUM_WIDTH-1:0] data_addra;
     logic [`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH-1:0] data_dinb;
     logic [`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH-1:0] data_doutb;
-    logic [`ARP_ITEM_NUM_WIDTH-1:0] data_addrb;
+    logic [`ARP_BUCKET_NUM_WIDTH+`ARP_ITEM_NUM_WIDTH-1:0] data_addrb;
     logic data_web;
 
-
+    // Input: IP address, Output: MAC address.
     // Each item consists of (IP, MAC, PORT) tuple.
     // Data: (IP, MAC, PORT)
     xpm_memory_tdpram #(
-        .ADDR_WIDTH_A(`ARP_ITEM_NUM_WIDTH),
+        .ADDR_WIDTH_A(`ARP_BUCKET_NUM_WIDTH+`ARP_ITEM_NUM_WIDTH),
         .WRITE_DATA_WIDTH_A(`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH),
         .BYTE_WRITE_WIDTH_A(`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH),
 
-        .ADDR_WIDTH_B(`ARP_ITEM_NUM_WIDTH),
+        .ADDR_WIDTH_B(`ARP_BUCKET_NUM_WIDTH+`ARP_ITEM_NUM_WIDTH),
         .WRITE_DATA_WIDTH_B(`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH),
         .BYTE_WRITE_WIDTH_B(`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH),
-        .MEMORY_SIZE(`ARP_ITEM_NUM*(`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH)),
+        .MEMORY_SIZE(`ARP_BUCKET_NUM*`ARP_ITEM_NUM*(`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH)),
         .READ_LATENCY_A(0),
         .READ_LATENCY_B(0)
     ) xpm_memory_tdpram_inst (
@@ -65,6 +65,8 @@ module arp_table(
 
 
 enum logic [1:0] {S3,S2,S1,S0} StateA;
+logic 
+assign data_addra = {lookup_ip[31], lookup_ip[30], lookup_ip[29], }
 
 always_ff @ (posedge clk) begin
     if (rst) begin
