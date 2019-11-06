@@ -8,42 +8,44 @@ ID(Decode)模块：
 module id(
     input  logic                    rst,
     
-    input  inst_addr_t              pc_i,               // pc计数
-    input  word_t                   inst_i,             // 指令
+    input  inst_addr_t              pc_i,                   // PC
+    input  word_t                   inst_i,                 // 指令
 
-    input  word_t                   reg1_data_i,        // 读寄存器
-    input  word_t                   reg2_data_i,        // 读寄存器
+    input  word_t                   reg1_data_i,            // 读寄存器
+    input  word_t                   reg2_data_i,            // 读寄存器
 
     // 执行阶段传来的前传数据（解决相邻指令的冲突）
-    input  logic                    ex_wreg_i,          // ex是否写目的寄存器
-    input  word_t                   ex_wdata_i,         // ex需写入的数据
-    input  reg_addr_t               ex_wd_i,            // ex需写入的寄存器
+    input  logic                    ex_wreg_i,              // ex是否写目的寄存器
+    input  word_t                   ex_wdata_i,             // ex需写入的数据
+    input  reg_addr_t               ex_wd_i,                // ex需写入的寄存器
 
     // 访存阶段传来的前传数据（解决相隔1条指令的冲突）
-    input  logic                    mem_wreg_i,         // mem是否写目的寄存器
-    input  word_t                   mem_wdata_i,        // mem需写入的数据
-    input  reg_addr_t               mem_wd_i,           // mem需写入的寄存器
+    input  logic                    mem_wreg_i,             // mem是否写目的寄存器
+    input  word_t                   mem_wdata_i,            // mem需写入的数据
+    input  reg_addr_t               mem_wd_i,               // mem需写入的寄存器
 
-    input  logic                    in_delayslot,       // 当前指令在不在延迟槽
+    input  logic                    in_delayslot_i,         // 当前指令在不在延迟槽
 
-    output reg_addr_t               reg1_addr_o,        // 要读的寄存器1的编号
-    output reg_addr_t               reg2_addr_o,        // 要读的寄存器2的编号
+    output reg_addr_t               reg1_addr_o,            // 要读的寄存器1的编号
+    output reg_addr_t               reg2_addr_o,            // 要读的寄存器2的编号
 
-    output logic                    next_in_delayslot,  // 下一条在不在延迟槽
-    output logic                    branch_flag,        // 是否跳转
-    output inst_addr_t              branch_target_addr, // 跳转地址
+    output logic                    in_delayslot_o,         // 当前指令在不在延迟槽
+    output logic                    next_in_delayslot_o,    // 下一条在不在延迟槽
+    output logic                    branch_flag_o,          // 是否跳转
+    output inst_addr_t              branch_target_addr_o,   // 跳转地址
+    output inst_addr_t              branch_return_addr_o,   // 返回地址
 
-    output aluop_t                  aluop_o,            // 要ex执行的alu操作
-    output word_t                   reg1_o,             // 寄存器或者立即数的值（源操作数1）
-    output word_t                   reg2_o,             // 寄存器或者立即数的值（源操作数2）
-    output reg_addr_t               wd_o,               // 需要被写入的寄存器编号
-    output logic                    wreg_o,             // 是否需要写入
+    output aluop_t                  aluop_o,                // 要ex执行的alu操作
+    output word_t                   reg1_o,                 // 寄存器或者立即数的值（源操作数1）
+    output word_t                   reg2_o,                 // 寄存器或者立即数的值（源操作数2）
+    output reg_addr_t               wd_o,                   // 需要被写入的寄存器编号
+    output logic                    wreg_o,                 // 是否需要写入
 
-    output logic                    stallreq            // 暂停请求
+    output logic                    stallreq_o              // 暂停请求
 );
 
 // 暂停请求，目前设置为0
-assign stallreq = 0;
+assign stallreq_o = 0;
 
 // 四段码，参见书的121页，需要根据这个来判断指令类型
 logic[5:0] op1; assign op1 = inst_i[31:26];
@@ -67,25 +69,31 @@ assign pc_plus_offset = pc_i + {{14{inst_i[15]}}, inst_i[15:0], 2'b00}; // 地�
 // 把指令划分为3类，可以归纳出这样的宏函数，下面每个指令一行，可读性就好一些
 // 备注：sll, sllv的区别是sll是用立即数，sllv用寄存器
 // 第一类：逻辑/算术/移动（不涉及立即数和移位）
-`define INST_KIND_1_COMMON(exe,w,r1,r2)         aluop_o <= exe; \
-                                                wreg_o <= w; \
-                                                reg1_read_o <= r1; \
-                                                reg2_read_o <= r2
+`define INST_KIND_1_COMMON(e,w,r1,r2)       aluop_o <= e; \
+                                            wreg_o <= w; \
+                                            reg1_read_o <= r1; \
+                                            reg2_read_o <= r2
 
 // 第二类：涉及立即数（不涉及移位）
-`define INST_KIND_2_COMMON(exe,immi,w,r1,r2)    aluop_o <= exe; \
-                                                imm <= immi; \
-                                                wreg_o <= w; \
-                                                reg1_read_o <= r1; \
-                                                reg2_read_o <= r2; \
-                                                wd_o <= inst_i[20:16]
+`define INST_KIND_2_COMMON(e,i,w,r1,r2)     `INST_KIND_1_COMMON(e,w,r1,r2); \
+                                            imm <= i; \
+                                            wd_o <= inst_i[20:16]
 
 // 第三类：涉及移位和立即数，立即数只有5位
-`define INST_KIND_3_COMMON(exe,w,r1,r2)         aluop_o <= exe; \
-                                                wreg_o <= w; \
-                                                reg1_read_o <= r1; \
-                                                reg2_read_o <= r2; \
-                                                imm[4:0] <= inst_i[10:6]
+`define INST_KIND_3_COMMON(e,w,r1,r2)       `INST_KIND_1_COMMON(e,w,r1,r2); \
+                                            imm[4:0] <= inst_i[10:6]
+
+// 把四个有关分支跳转的都设置好
+`define BRANCH_ALL(r,t,f,n)                 branch_return_addr_o <= r; \
+                                            branch_target_addr_o <= t; \
+                                            branch_flag_o <= f; \
+                                            next_in_delayslot_o <= n
+
+`define BRANCH_CONDITION(c,r,t,f,n)         if (c) begin \
+                                                `BRANCH_ALL(r,t,f,n); \
+                                            end // Trick: 分号应该会被注释掉
+
+
 
 always_comb begin
     if (rst == 1) begin
@@ -96,7 +104,11 @@ always_comb begin
         reg2_read_o <= 0;
         reg1_addr_o <= `NOP_REG_ADDR;
         reg2_addr_o <= `NOP_REG_ADDR;
-        imm <= 0;
+        imm         <= 0;
+        next_in_delayslot_o  <= 0;
+        branch_flag_o        <= 0;
+        branch_target_addr_o <= 0;
+        branch_return_addr_o <= 0;
     end else begin
         // 默认情况
         aluop_o     <= EXE_NOP_OP;
@@ -106,7 +118,11 @@ always_comb begin
         reg2_read_o <= 0;
         reg1_addr_o <= inst_i[25:21];
         reg2_addr_o <= inst_i[20:16];
-        imm <= 0;
+        imm         <= 0;
+        next_in_delayslot_o  <= 0;
+        branch_flag_o        <= 0;
+        branch_target_addr_o <= 0;
+        branch_return_addr_o <= 0;
         // 下面这部分判断详情见造CPU一书的121页
         if (inst_i[31:21] != 11'b00000000000) begin // 不是sll, srl, sra
             case (op1) // 指令码
@@ -136,6 +152,9 @@ always_comb begin
                                 `EXE_MTLO:  begin `INST_KIND_1_COMMON(EXE_MTLO_OP,  0,              1, 0);  end // 从寄存器读并写到lo
                                 `EXE_MOVN:  begin `INST_KIND_1_COMMON(EXE_MOVN_OP,  (reg2_o != 0),  1, 1);  end // 如果非0就写
                                 `EXE_MOVZ:  begin `INST_KIND_1_COMMON(EXE_MOVZ_OP,  (reg2_o == 0),  1, 1);  end // 如果是0就写
+                                `EXE_JR: begin
+
+                                end
                                 default: begin end
                             endcase
                         end
@@ -171,6 +190,9 @@ always_comb begin
         end
     end
 end
+
+// 当前指令是否在延迟槽
+assign in_delayslot_o = rst ? 0 : in_delayslot_i;
 
 // 下面两段是传递什么数据给ex阶段，如果不读寄存器就用立即数
 always_comb begin

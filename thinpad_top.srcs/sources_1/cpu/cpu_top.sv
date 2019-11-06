@@ -60,7 +60,7 @@ word_t id_reg1_o, id_reg2_o;
 reg_addr_t id_wd_o;
 logic id_wreg_o;
 // id给ctrl的连线
-logic id_stallreq;
+logic id_stallreq_o;
 
 
 /** id_ex的出线 **/
@@ -80,7 +80,7 @@ word_t ex_wdata_o;
 word_t ex_hi_o, ex_lo_o;
 logic ex_whilo_o;
 // ex给ctrl的连线
-logic ex_stallreq;
+logic ex_stallreq_o;
 
 
 /** ex_mem的出线 **/
@@ -163,8 +163,8 @@ hilo_reg hilo_reg_inst(
 ctrl ctrl_inst(
     .rst(rst),
 
-    .stallreq_from_id(id_stallreq),
-    .stallreq_from_ex(ex_stallreq),
+    .stallreq_from_id(id_stallreq_o),
+    .stallreq_from_ex(ex_stallreq_o),
 
     .stall(ctrl_stall)
 );
@@ -173,7 +173,7 @@ ctrl ctrl_inst(
 if_id if_id_inst(
     .clk(clk),
     .rst(rst),
-    
+
     .stall(ctrl_stall),
 
     .if_pc(pc_reg_pc),
@@ -208,7 +208,7 @@ id id_inst(
     .wd_o(id_wd_o),
     .wreg_o(id_wreg_o),
 
-    .stallreq(id_stallreq)
+    .stallreq_o(id_stallreq_o)
 );
 
 // ID到EX的连接（同步把数据传给EX）
@@ -260,7 +260,7 @@ ex ex_inst(
     .lo_o(ex_lo_o),
     .whilo_o(ex_whilo_o),
 
-    .stallreq(ex_stallreq)
+    .stallreq_o(ex_stallreq_o)
 );
 
 // EX到MEM的连接（同步把数据给MEM）

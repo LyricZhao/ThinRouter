@@ -18,8 +18,6 @@ module pc_reg(
     output logic        ce                  // 指令rom的使能
 );
 
-assign branch_flag = 0;
-
 assign ce = ~rst;
 
 always_ff @ (posedge clk) begin

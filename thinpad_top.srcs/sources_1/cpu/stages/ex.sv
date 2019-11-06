@@ -33,7 +33,7 @@ module ex(
     output word_t           lo_o,       // 要写入的lo值
     output logic            whilo_o,    // 是否要写入hilo寄存器
 
-    output logic            stallreq    // 请求暂停流水
+    output logic            stallreq_o  // 请求暂停流水
 );
 
 // 暂停，目前设置为0
