@@ -6,8 +6,8 @@
 `timescale 1ns / 1ps
 
 module rgmii_manager(
-    input   wire    clk_rgmii,          // RGMII 的 125M 时钟
-    input   wire    clk_internal,       // 处理内部同步逻辑用的时钟，FIFO也是
+    input   wire    clk_125M,           // RGMII 和 FIFO 的 125M 时钟
+    input   wire    clk_internal,       // 处理内部同步逻辑用的时钟
     input   wire    clk_ref,            // 给 IDELAYCTRL (这个模块在eth_mac里面) 用的 200M 时钟
     input   wire    rst_n,              // PLL分频稳定后为1，后级电路复位，也加入了用户的按键
 
@@ -42,15 +42,15 @@ wire axis_tx_last;
 wire axis_tx_ready;
 
 io_manager io_manager_inst (
-    .clk_io(clk_internal),
-    .clk_internal(clk_internal),
+    .clk_fifo(clk_125M),
+    // .clk_internal(clk_internal),
 
     .rst_n(rst_n),
-    .clk_btn(clk_btn),
-    .btn(btn),
-    .led_out(led_out),
-    .digit0_out(digit0_out),
-    .digit1_out(digit1_out),
+    // .clk_btn(clk_btn),
+    // .btn(btn),
+    // .led_out(led_out),
+    // .digit0_out(digit0_out),
+    // .digit1_out(digit1_out),
 
     .rx_data(axis_rx_data),
     .rx_valid(axis_rx_valid),
@@ -63,7 +63,7 @@ io_manager io_manager_inst (
 );
 
 eth_mac_fifo_block trimac_fifo_block (
-    .gtx_clk                      (clk_rgmii),
+    .gtx_clk                      (clk_125M),
 
     .glbl_rstn                    (rst_n),
     .rx_axi_rstn                  (rst_n),
@@ -81,7 +81,7 @@ eth_mac_fifo_block trimac_fifo_block (
 
     // Receiver (AXI-S) Interface
     //----------------------------------------
-    .rx_fifo_clock                (clk_internal),
+    .rx_fifo_clock                (clk_125M),
     .rx_fifo_resetn               (rst_n),
     .rx_axis_fifo_tdata           (axis_rx_data),
     .rx_axis_fifo_tvalid          (axis_rx_valid),
@@ -98,7 +98,7 @@ eth_mac_fifo_block trimac_fifo_block (
 
     // Transmitter (AXI-S) Interface
     //-------------------------------------------
-    .tx_fifo_clock                (clk_internal),
+    .tx_fifo_clock                (clk_125M),
     .tx_fifo_resetn               (rst_n),
     .tx_axis_fifo_tdata           (axis_tx_data),
     .tx_axis_fifo_tvalid          (axis_tx_valid),
