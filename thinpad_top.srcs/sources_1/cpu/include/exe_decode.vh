@@ -15,7 +15,9 @@ TODO: 改成enum，但是问题是现在有重复的
 `define _EXE_DECODE_VH_
 
 `define EXE_NOP             6'b000000
-`define EXE_SPECIAL         6'b000000
+`define EXE_SPECIAL_INST    6'b000000
+`define EXE_REGIMM_INST     6'b000001
+`define EXE_SPECIAL2_INST   6'b011100
 
 `define EXE_AND             6'b100100
 `define EXE_OR              6'b100101
@@ -25,8 +27,23 @@ TODO: 改成enum，但是问题是现在有重复的
 `define EXE_ORI             6'b001101
 `define EXE_XORI            6'b001110
 `define EXE_LUI             6'b001111
+
+`define EXE_SLT             6'b101010
+`define EXE_SLTU            6'b101011
+`define EXE_SLTI            6'b001010
+`define EXE_SLTIU           6'b001011
+`define EXE_ADD             6'b100000
 `define EXE_ADDU            6'b100001
+`define EXE_SUB             6'b100010
+`define EXE_SUBU            6'b100011
+`define EXE_ADDI            6'b001000
 `define EXE_ADDIU           6'b001001
+`define EXE_CLZ             6'b100000
+`define EXE_CLO             6'b100001
+
+`define EXE_MULT            6'b011000
+`define EXE_MULTU           6'b011001
+`define EXE_MUL             6'b000010
 
 `define EXE_SLL             6'b000000
 `define EXE_SLLV            6'b000100

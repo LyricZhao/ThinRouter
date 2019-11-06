@@ -30,7 +30,7 @@ module id(
     output word_t                   reg1_o,         // 寄存器或者立即数的值（源操作数1）
     output word_t                   reg2_o,         // 寄存器或者立即数的值（源操作数2）
     output reg_addr_t               wd_o,           // 需要被写入的寄存器编号
-    output logic                    wreg_o         // 是否需要写入
+    output logic                    wreg_o          // 是否需要写入
 );
 
 logic[5:0] op1; assign op1 = inst_i[31:26];
@@ -43,25 +43,23 @@ word_t imm;
 logic reg1_read_o; // 是否读寄存器1
 logic reg2_read_o; // 是否读寄存器2
 
-`define INST_KIND_1_COMMON  wreg_o <= 1'b1; \
-                            reg1_read_o <= 1'b1; \
-                            reg2_read_o <= 1'b1; \
-                            wd_o <= inst_i[15:11]
+`define INST_KIND_1_COMMON(exe,w,r1,r2)         aluop_o <= exe; \
+                                                wreg_o <= w; \
+                                                reg1_read_o <= r1; \
+                                                reg2_read_o <= r2
 
-`define INST_KIND_2_COMMON  wreg_o <= 1'b1; \
-                            reg1_read_o <= 1'b1; \
-                            reg2_read_o <= 1'b0; \
-                            wd_o <= inst_i[20:16]
+`define INST_KIND_2_COMMON(exe,immi,w,r1,r2)    aluop_o <= exe; \
+                                                imm <= immi; \
+                                                wreg_o <= w; \
+                                                reg1_read_o <= r1; \
+                                                reg2_read_o <= r2; \
+                                                wd_o <= inst_i[20:16]
 
-`define INST_KIND_3_COMMON  wreg_o <= 1'b1; \
-                            reg1_read_o <= 1'b0; \
-                            reg2_read_o <= 1'b1; \
-                            imm[4:0] <= inst_i[10:6]; \
-                            wd_o <= inst_i[15:11]
-
-`define INST_KIND_4_COMMON(w,r1,r2)     wreg_o <= w; \
-                                        reg1_read_o <= r1; \
-                                        reg2_read_o <= r2
+`define INST_KIND_3_COMMON(exe,w,r1,r2)         aluop_o <= exe; \
+                                                wreg_o <= w; \
+                                                reg1_read_o <= r1; \
+                                                reg2_read_o <= r2; \
+                                                imm[4:0] <= inst_i[10:6]
 
 always_comb begin
     if (rst == 1'b1) begin
@@ -85,116 +83,62 @@ always_comb begin
         // 下面这部分判断详情见造CPU一书的121页
         if (inst_i[31:21] != 11'b00000000000) begin
             case (op1) // 指令码
-                `EXE_SPECIAL: begin
+                `EXE_SPECIAL_INST: begin
                     case (op2)
                         5'b00000: begin // op2暂时默认为0
-                            case (op3) // 功能码：or, and, xor, nor, sllv, srlv, srav, sync, mfhi, mflo, mthi, mtlo, movn, movz
-                                `EXE_OR: begin
-                                    aluop_o <= EXE_OR_OP;
-                                    `INST_KIND_1_COMMON;
-                                end
-                                `EXE_AND: begin
-                                    aluop_o <= EXE_AND_OP;
-                                    `INST_KIND_1_COMMON;
-                                end
-                                `EXE_XOR: begin
-                                    aluop_o <= EXE_XOR_OP;
-                                    `INST_KIND_1_COMMON;
-                                end
-                                `EXE_NOR: begin
-                                    aluop_o <= EXE_NOR_OP;
-                                    `INST_KIND_1_COMMON;
-                                end
-                                `EXE_SLLV: begin
-                                    aluop_o <= EXE_SLL_OP;
-                                    `INST_KIND_1_COMMON;
-                                end
-                                `EXE_SRLV: begin
-                                    aluop_o <= EXE_SRL_OP;
-                                    `INST_KIND_1_COMMON;
-                                end
-                                `EXE_SRAV: begin
-                                    aluop_o <= EXE_SRA_OP;
-                                    `INST_KIND_1_COMMON;
-                                end
-                                `EXE_SYNC: begin // 暂时没有用就是nop
-                                    aluop_o <= EXE_NOP_OP;
-                                    `INST_KIND_1_COMMON;
-                                end
-                                `EXE_MFHI: begin // 把HI寄存器的值给通用寄存器
-                                    aluop_o <= EXE_MFHI_OP;
-                                    `INST_KIND_4_COMMON(1, 0, 0);
-                                end
-                                `EXE_MFLO: begin // 把LO寄存器的值给通用寄存器
-                                    aluop_o <= EXE_MFLO_OP;
-                                    `INST_KIND_4_COMMON(1, 0, 0);
-                                end
-                                `EXE_MTHI: begin // 把通用寄存器的值给HI寄存器
-                                    aluop_o <= EXE_MTHI_OP;
-                                    `INST_KIND_4_COMMON(0, 1, 0);
-                                end
-                                `EXE_MTLO: begin // 把通用寄存器的值给LO寄存器
-                                    aluop_o <= EXE_MTLO_OP;
-                                    `INST_KIND_4_COMMON(0, 1, 0);
-                                end
-                                `EXE_MOVN: begin // 如果r2不是0，把r1写入目的寄存器（目的寄存器不一定是哪个）
-                                    aluop_o <= EXE_MOVN_OP;
-                                    `INST_KIND_4_COMMON((reg2_o != `ZeroWord), 1, 1);
-                                end
-                                `EXE_MOVZ: begin // 如果r2是0，把r1写入目的寄存器（目的寄存器不一定是哪个）
-                                    aluop_o <= EXE_MOVZ_OP;
-                                    `INST_KIND_4_COMMON((reg2_o == `ZeroWord), 1, 1);
-                                end
+                            case (op3) //                             ALUOP         是否写入寄存器            是否读取寄存器1/2
+                                `EXE_OR:    begin `INST_KIND_1_COMMON(EXE_OR_OP,    1,                      1, 1);  end
+                                `EXE_AND:   begin `INST_KIND_1_COMMON(EXE_AND_OP,   1,                      1, 1);  end
+                                `EXE_XOR:   begin `INST_KIND_1_COMMON(EXE_XOR_OP,   1,                      1, 1);  end
+                                `EXE_NOR:   begin `INST_KIND_1_COMMON(EXE_NOR_OP,   1,                      1, 1);  end
+                                `EXE_SLLV:  begin `INST_KIND_1_COMMON(EXE_SLL_OP,   1,                      1, 1);  end
+                                `EXE_SRLV:  begin `INST_KIND_1_COMMON(EXE_SRL_OP,   1,                      1, 1);  end
+                                `EXE_SRAV:  begin `INST_KIND_1_COMMON(EXE_SRA_OP,   1,                      1, 1);  end
+                                `EXE_SYNC:  begin `INST_KIND_1_COMMON(EXE_NOP_OP,   1,                      1, 1);  end
+                                `EXE_SLT:   begin `INST_KIND_1_COMMON(EXE_SLT_OP,   1,                      1, 1);  end
+                                `EXE_SLTU:  begin `INST_KIND_1_COMMON(EXE_SLTU_OP,  1,                      1, 1);  end
+                                `EXE_ADD:   begin `INST_KIND_1_COMMON(EXE_ADD_OP,   1,                      1, 1);  end
+                                `EXE_ADDU:  begin `INST_KIND_1_COMMON(EXE_ADDU_OP,  1,                      1, 1);  end
+                                `EXE_SUB:   begin `INST_KIND_1_COMMON(EXE_SUB_OP,   1,                      1, 1);  end
+                                `EXE_SUBU:  begin `INST_KIND_1_COMMON(EXE_SUBU_OP,  1,                      1, 1);  end
+                                `EXE_MULT:  begin `INST_KIND_1_COMMON(EXE_MULT_OP,  0,                      1, 1);  end
+                                `EXE_MULTU: begin `INST_KIND_1_COMMON(EXE_MULTU_OP, 0,                      1, 1);  end
+                                `EXE_MFHI:  begin `INST_KIND_1_COMMON(EXE_MFHI_OP,  1,                      0, 0);  end
+                                `EXE_MFLO:  begin `INST_KIND_1_COMMON(EXE_MFLO_OP,  1,                      0, 0);  end
+                                `EXE_MTHI:  begin `INST_KIND_1_COMMON(EXE_MTHI_OP,  0,                      1, 0);  end
+                                `EXE_MTLO:  begin `INST_KIND_1_COMMON(EXE_MTLO_OP,  0,                      1, 0);  end
+                                `EXE_MOVN:  begin `INST_KIND_1_COMMON(EXE_MOVN_OP,  (reg2_o != `ZeroWord),  1, 1);  end
+                                `EXE_MOVZ:  begin `INST_KIND_1_COMMON(EXE_MOVZ_OP,  (reg2_o == `ZeroWord),  1, 1);  end
                                 default: begin end
                             endcase
                         end
                         default: begin end
                     endcase
-                end
-
-                // ori, andi, xori, lui, pref
-                `EXE_ORI: begin
-                    aluop_o <= EXE_OR_OP;
-                    imm <= {16'h0, inst_i[15:0]};
-                    `INST_KIND_2_COMMON;
-                end
-                `EXE_ANDI: begin
-                    aluop_o <= EXE_AND_OP;
-                    imm <= {16'h0, inst_i[15:0]};
-                    `INST_KIND_2_COMMON;
-                end
-                `EXE_XORI: begin
-                    aluop_o <= EXE_XOR_OP;
-                    imm <= {16'h0, inst_i[15:0]};
-                    `INST_KIND_2_COMMON;
-                end
-                `EXE_LUI: begin
-                    aluop_o <= EXE_OR_OP;
-                    imm <= {inst_i[15:0], 16'h0};
-                    `INST_KIND_2_COMMON;
-                end
-                `EXE_PREF: begin
-                    aluop_o <= EXE_NOP_OP;
-                    wreg_o <= 1'b0;
-                    reg1_read_o <= 1'b0;
-                    reg2_read_o <= 1'b0;
+                end //                                ALUOP         立即数                             是否写入寄存器/是否读1/2
+                `EXE_ORI:   begin `INST_KIND_2_COMMON(EXE_OR_OP,    {16'h0, inst_i[15:0]},            1, 1, 0);   end
+                `EXE_ANDI:  begin `INST_KIND_2_COMMON(EXE_AND_OP,   {16'h0, inst_i[15:0]},            1, 1, 0);   end
+                `EXE_XORI:  begin `INST_KIND_2_COMMON(EXE_XOR_OP,   {16'h0, inst_i[15:0]},            1, 1, 0);   end
+                `EXE_LUI:   begin `INST_KIND_2_COMMON(EXE_OR_OP,    {inst_i[15:0], 16'h0},            1, 1, 0);   end
+                `EXE_PREF:  begin `INST_KIND_2_COMMON(EXE_NOP_OP,   0,                                0, 0, 0);   end
+                `EXE_SLTI:  begin `INST_KIND_2_COMMON(EXE_SLT_OP,   {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end
+                `EXE_SLTIU: begin `INST_KIND_2_COMMON(EXE_SLTU_OP,  {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end
+                `EXE_ADDI:  begin `INST_KIND_2_COMMON(EXE_ADDI_OP,  {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end
+                `EXE_ADDIU: begin `INST_KIND_2_COMMON(EXE_ADDIU_OP, {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end
+                `EXE_SPECIAL2_INST: begin
+                    case (op3) //                              ALUOP        是否写入寄存器/是否读1/2
+                        `EXE_CLZ:    begin `INST_KIND_1_COMMON(EXE_CLZ_OP,  1, 1, 0);  end
+                        `EXE_CLO:    begin `INST_KIND_1_COMMON(EXE_CLO_OP,  1, 1, 0);  end
+                        `EXE_MUL:    begin `INST_KIND_1_COMMON(EXE_MUL_OP,  1, 1, 1);  end
+                        default: begin end
+                    endcase
                 end
                 default: begin end
             endcase
-        end else begin // sll, srl, sra
-            case (op3)
-                `EXE_SLL: begin
-                    aluop_o <= EXE_SLL_OP;
-                    `INST_KIND_3_COMMON;
-                end
-                `EXE_SRL: begin
-                    aluop_o <= EXE_SRL_OP;
-                    `INST_KIND_3_COMMON;
-                end
-                `EXE_SRA: begin
-                    aluop_o <= EXE_SRA_OP;
-                    `INST_KIND_3_COMMON;
-                end
+        end else begin
+            case (op3) //                             ALUOP       是否写入寄存器/是否读1/2
+                `EXE_SLL:   begin `INST_KIND_3_COMMON(EXE_SLL_OP, 1, 0, 1);     end
+                `EXE_SRL:   begin `INST_KIND_3_COMMON(EXE_SRL_OP, 1, 0, 1);     end
+                `EXE_SRA:   begin `INST_KIND_3_COMMON(EXE_SRA_OP, 1, 0, 1);     end
                 default: begin end
             endcase
         end
