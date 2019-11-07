@@ -8,32 +8,35 @@ EX模块：
 module ex(
     input  logic            rst,
 
-    input  aluop_t          aluop_i,    // ALU运算类型
-    input  word_t           reg1_i,     // 源操作数1
-    input  word_t           reg2_i,     // 源操作数2
-    input  reg_addr_t       wd_i,       // 要写入的寄存器编号
-    input  logic            wreg_i,     // 是否要写寄存器
+    input  aluop_t          aluop_i,        // ALU运算类型
+    input  word_t           reg1_i,         // 源操作数1
+    input  word_t           reg2_i,         // 源操作数2
+    input  reg_addr_t       wd_i,           // 要写入的寄存器编号
+    input  logic            wreg_i,         // 是否要写寄存器
 
-    input  word_t           hi_i,       // hilo寄存器中的hi值
-    input  word_t           lo_i,       // hilo寄存器中的lo值
+    input  word_t           hi_i,           // hilo寄存器中的hi值
+    input  word_t           lo_i,           // hilo寄存器中的lo值
 
-    input  word_t           mem_hi_i,   // mem阶段的可能更新的hi值（数据回传）
-    input  word_t           mem_lo_i,   // mem阶段的可能更新的lo值（数据回传）
-    input  logic            mem_whilo_i,// mem阶段要不要写hilo（数据回传）
+    input  word_t           mem_hi_i,       // mem阶段的可能更新的hi值（数据回传）
+    input  word_t           mem_lo_i,       // mem阶段的可能更新的lo值（数据回传）
+    input  logic            mem_whilo_i,    // mem阶段要不要写hilo（数据回传）
 
-    input  word_t           wb_hi_i,    // wb阶段的可能更新的hi值（数据回传）
-    input  word_t           wb_lo_i,    // wb阶段的可能更新的lo值（数据回传）
-    input  logic            wb_whilo_i, // wb阶段要不要写hilo（数据回传）
+    input  word_t           wb_hi_i,        // wb阶段的可能更新的hi值（数据回传）
+    input  word_t           wb_lo_i,        // wb阶段的可能更新的lo值（数据回传）
+    input  logic            wb_whilo_i,     // wb阶段要不要写hilo（数据回传）
 
-    output reg_addr_t       wd_o,       // 要写入的寄存器的编号
-    output logic            wreg_o,     // 是否要写入寄存器
-    output word_t           wdata_o,    // 要写入的数据
+    input  logic            in_delayslot_i, // 当前的指令在不在延迟槽（会在异常处理的地方用到暂时没有用）
+    input  inst_addr_t      return_addr_i,  // 要返回的地址
 
-    output word_t           hi_o,       // 要写入的hi值
-    output word_t           lo_o,       // 要写入的lo值
-    output logic            whilo_o,    // 是否要写入hilo寄存器
+    output reg_addr_t       wd_o,           // 要写入的寄存器的编号
+    output logic            wreg_o,         // 是否要写入寄存器
+    output word_t           wdata_o,        // 要写入的数据
 
-    output logic            stallreq_o  // 请求暂停流水
+    output word_t           hi_o,           // 要写入的hi值
+    output word_t           lo_o,           // 要写入的lo值
+    output logic            whilo_o,        // 是否要写入hilo寄存器
+
+    output logic            stallreq_o      // 请求暂停流水
 );
 
 // 暂停，目前设置为0
@@ -143,6 +146,9 @@ always_comb begin
             end
             EXE_MOVN_OP: begin
                 wdata_o <= reg1_i;
+            end
+            EXE_J_OP, EXE_JAL_OP, EXE_JALR_OP, EXE_JR_OP, EXE_BEQ_OP, EXE_BGEZ_OP, EXE_BGEZAL_OP, EXE_BGTZ_OP, EXE_BLEZ_OP, EXE_BLTZ_OP, EXE_BLTZAL_OP, EXE_BNE_OP: begin
+                wdata_o <= return_addr_i;
             end
             default: begin // EXE_NOP_OP, EXE_MTHI_OP, EXE_MTLO_OP
                 wdata_o <= 0;

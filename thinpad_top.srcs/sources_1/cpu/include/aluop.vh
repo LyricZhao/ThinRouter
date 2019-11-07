@@ -34,7 +34,19 @@ typedef enum logic[`ALUOP_BUS] {
     EXE_ADDIU_OP,   // 无符号加立即数
     EXE_CLZ_OP,     // 前导零
     EXE_CLO_OP,     // 前导一
-    EXE_MUL_OP      // 两个有符号寄存器的值乘法到另一个寄存器
+    EXE_MUL_OP,     // 两个有符号寄存器的值乘法到另一个寄存器
+    EXE_JR_OP,
+    EXE_JALR_OP,
+    EXE_J_OP,
+    EXE_JAL_OP,
+    EXE_BEQ_OP,
+    EXE_BGTZ_OP,
+    EXE_BLEZ_OP,
+    EXE_BNE_OP,
+    EXE_BGEZ_OP,
+    EXE_BGEZAL_OP,
+    EXE_BLTZ_OP,
+    EXE_BLTZAL_OP
 } aluop_t;
 
 `endif

@@ -8,8 +8,9 @@
 `define _EXE_DECODE_VH_
 
 `define EXE_NOP             6'b000000
-`define EXE_SPECIAL_INST    6'b000000 // 两类指令的前缀
-`define EXE_SPECIAL2_INST   6'b011100 // 两类指令的前缀
+`define EXE_SPECIAL_INST    6'b000000
+`define EXE_SPECIAL2_INST   6'b011100
+`define EXE_REGIMM_INST     6'b000001
 
 `define EXE_AND             6'b100100
 `define EXE_OR              6'b100101

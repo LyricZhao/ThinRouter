@@ -24,16 +24,16 @@ module id(
     input  word_t                   mem_wdata_i,            // mem需写入的数据
     input  reg_addr_t               mem_wd_i,               // mem需写入的寄存器
 
-    input  logic                    in_delayslot_i,         // 当前指令在不在延迟槽
+    input  logic                    in_delayslot_i,         // 当前指令在不在延迟槽，因为是组合逻辑所以只能把用id_ex把next传回来
 
     output reg_addr_t               reg1_addr_o,            // 要读的寄存器1的编号
     output reg_addr_t               reg2_addr_o,            // 要读的寄存器2的编号
 
     output logic                    in_delayslot_o,         // 当前指令在不在延迟槽
     output logic                    next_in_delayslot_o,    // 下一条在不在延迟槽
-    output logic                    branch_flag_o,          // 是否跳转
-    output inst_addr_t              branch_target_addr_o,   // 跳转地址
-    output inst_addr_t              branch_return_addr_o,   // 返回地址
+    output logic                    jump_flag_o,            // 是否跳转
+    output inst_addr_t              target_addr_o,          // 跳转地址
+    output inst_addr_t              return_addr_o,          // 返回地址
 
     output aluop_t                  aluop_o,                // 要ex执行的alu操作
     output word_t                   reg1_o,                 // 寄存器或者立即数的值（源操作数1）
@@ -64,9 +64,9 @@ logic reg2_read_o;
 inst_addr_t pc_next, pc_next_2, pc_plus_offset;
 assign pc_next = pc_i + 4;
 assign pc_next_2 = pc_i + 8;
-assign pc_plus_offset = pc_i + {{14{inst_i[15]}}, inst_i[15:0], 2'b00}; // 地址偏移要乘4
+assign pc_plus_offset = pc_next + {{14{inst_i[15]}}, inst_i[15:0], 2'b00}; // 地址偏移要乘4
 
-// 把指令划分为3类，可以归纳出这样的宏函数，下面每个指令一行，可读性就好一些
+// 把指令划分为3类，可以归纳出这样的宏函数，下面每个指令一行，可读性就好一些，其实下面那个跳转部分也能搞成表，我觉得一行可能太长了就暂时没弄
 // 备注：sll, sllv的区别是sll是用立即数，sllv用寄存器
 // 第一类：逻辑/算术/移动（不涉及立即数和移位）
 `define INST_KIND_1_COMMON(e,w,r1,r2)       aluop_o <= e; \
@@ -84,9 +84,9 @@ assign pc_plus_offset = pc_i + {{14{inst_i[15]}}, inst_i[15:0], 2'b00}; // 地�
                                             imm[4:0] <= inst_i[10:6]
 
 // 把四个有关分支跳转的都设置好
-`define BRANCH_ALL(r,t,f,n)                 branch_return_addr_o <= r; \
-                                            branch_target_addr_o <= t; \
-                                            branch_flag_o <= f; \
+`define BRANCH_ALL(r,t,f,n)                 return_addr_o <= r; \
+                                            target_addr_o <= t; \
+                                            jump_flag_o <= f; \
                                             next_in_delayslot_o <= n
 
 `define BRANCH_CONDITION(c,r,t,f,n)         if (c) begin \
@@ -106,9 +106,9 @@ always_comb begin
         reg2_addr_o <= `NOP_REG_ADDR;
         imm         <= 0;
         next_in_delayslot_o  <= 0;
-        branch_flag_o        <= 0;
-        branch_target_addr_o <= 0;
-        branch_return_addr_o <= 0;
+        jump_flag_o          <= 0;
+        target_addr_o        <= 0;
+        return_addr_o        <= 0;
     end else begin
         // 默认情况
         aluop_o     <= EXE_NOP_OP;
@@ -120,9 +120,9 @@ always_comb begin
         reg2_addr_o <= inst_i[20:16];
         imm         <= 0;
         next_in_delayslot_o  <= 0;
-        branch_flag_o        <= 0;
-        branch_target_addr_o <= 0;
-        branch_return_addr_o <= 0;
+        jump_flag_o          <= 0;
+        target_addr_o        <= 0;
+        return_addr_o        <= 0;
         // 下面这部分判断详情见造CPU一书的121页
         if (inst_i[31:21] != 11'b00000000000) begin // 不是sll, srl, sra
             case (op1) // 指令码
@@ -153,7 +153,12 @@ always_comb begin
                                 `EXE_MOVN:  begin `INST_KIND_1_COMMON(EXE_MOVN_OP,  (reg2_o != 0),  1, 1);  end // 如果非0就写
                                 `EXE_MOVZ:  begin `INST_KIND_1_COMMON(EXE_MOVZ_OP,  (reg2_o == 0),  1, 1);  end // 如果是0就写
                                 `EXE_JR: begin
-
+                                    `INST_KIND_1_COMMON(EXE_JR_OP, 0, 1, 0);
+                                    `BRANCH_ALL(0, reg1_o, 1, 1);
+                                end
+                                `EXE_JALR: begin // 书上还有一句wd_o <= inst_i[15:11] 这里直接归为默认情况
+                                    `INST_KIND_1_COMMON(EXE_JALR_OP, 1, 1, 0);
+                                    `BRANCH_ALL(pc_next_2, reg1_o, 1, 1);
                                 end
                                 default: begin end
                             endcase
@@ -170,6 +175,54 @@ always_comb begin
                 `EXE_SLTIU: begin `INST_KIND_2_COMMON(EXE_SLTU_OP,  {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展（并不是0扩展，参见MIPS32文档）
                 `EXE_ADDI:  begin `INST_KIND_2_COMMON(EXE_ADDI_OP,  {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展
                 `EXE_ADDIU: begin `INST_KIND_2_COMMON(EXE_ADDIU_OP, {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展（并不是0扩展，参见MIPS32文档）
+                `EXE_J: begin
+                    `INST_KIND_1_COMMON(EXE_J_OP, 0, 0, 0);
+                    `BRANCH_ALL(0, {pc_next[31:28], inst_i[25:0], 2'b00}, 1, 1);
+                end
+                `EXE_JAL: begin
+                    wd_o <= 31; // 31号寄存器
+                    `INST_KIND_1_COMMON(EXE_JAL_OP, 1, 0, 0);
+                    `BRANCH_ALL(pc_next_2, {pc_next[31:28], inst_i[25:0], 2'b00}, 1, 1);
+                end
+                `EXE_BEQ: begin
+                    `INST_KIND_1_COMMON(EXE_BEQ_OP, 0, 1, 1);
+                    `BRANCH_CONDITION((reg1_o == reg2_o), 0, pc_plus_offset, 1, 1);
+                end
+                `EXE_BGTZ: begin
+                    `INST_KIND_1_COMMON(EXE_BGTZ_OP, 0, 1, 0);
+                    `BRANCH_CONDITION((reg1_o[31] == 0 && reg1_o != 0), 0, pc_plus_offset, 1, 1);
+                end
+                `EXE_BLEZ: begin
+                    `INST_KIND_1_COMMON(EXE_BLEZ_OP, 0, 1, 0);
+                    `BRANCH_CONDITION((reg1_o[31] == 1 || reg1_o == 0), 0, pc_plus_offset, 1, 1);
+                end
+                `EXE_BNE: begin
+                    `INST_KIND_1_COMMON(EXE_BNE_OP, 0, 1, 1);
+                    `BRANCH_CONDITION((reg1_o != reg2_o), 0, pc_plus_offset, 1, 1);
+                end
+                `EXE_REGIMM_INST: begin
+                    case (op4)
+                        `EXE_BGEZ: begin
+                            `INST_KIND_1_COMMON(EXE_BGEZ_OP, 0, 1, 0);
+                            `BRANCH_CONDITION((reg1_o[31] == 0), 0, pc_plus_offset, 1, 1);
+                        end
+                        `EXE_BGEZAL: begin
+                            wd_o <= 31;
+                            `INST_KIND_1_COMMON(EXE_BGEZAL_OP, 1, 1, 0);
+                            `BRANCH_CONDITION((reg1_o[31] == 0), pc_next_2, pc_plus_offset, 1, 1); // 书上的返回地址写在了if外面我觉得是等价的
+                        end
+                        `EXE_BLTZ: begin
+                            `INST_KIND_1_COMMON(EXE_BLTZ_OP, 0, 1, 0);
+                            `BRANCH_CONDITION((reg1_o[31] == 1), 0, pc_plus_offset, 1, 1);
+                        end
+                        `EXE_BLTZAL: begin
+                            wd_o <= 31;
+                            `INST_KIND_1_COMMON(EXE_BLTZAL_OP, 1, 1, 0);
+                            `BRANCH_CONDITION((reg1_o[31] == 1), pc_next_2, pc_plus_offset, 1, 1); // 书上的返回地址写在了if外面我觉得是等价的
+                        end
+                        default: begin end
+                    endcase
+                end
                 `EXE_SPECIAL2_INST: begin
                     case (op3) //                              ALUOP        是否写入寄存器/是否读1/2
                         `EXE_CLZ:    begin `INST_KIND_1_COMMON(EXE_CLZ_OP,  1, 1, 0);  end

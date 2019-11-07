@@ -59,8 +59,13 @@ aluop_t id_aluop_o;
 word_t id_reg1_o, id_reg2_o;
 reg_addr_t id_wd_o;
 logic id_wreg_o;
+logic id_next_in_delayslot_o, id_in_delayslot_o;
+inst_addr_t id_return_addr_o;
 // id给ctrl的连线
 logic id_stallreq_o;
+// id给pc_reg的出线
+logic id_jump_flag_o;
+inst_addr_t id_target_addr_o;
 
 
 /** id_ex的出线 **/
@@ -69,6 +74,10 @@ aluop_t id_ex_ex_aluop;
 word_t id_ex_ex_reg1, id_ex_ex_reg2;
 reg_addr_t id_ex_ex_wd;
 logic id_ex_ex_wreg;
+logic id_ex_ex_in_delayslot;
+inst_addr_t id_ex_ex_return_addr;
+// id_ex给id的连线
+logic id_ex_id_in_delayslot_o;
 
 
 /** ex的出线 **/
@@ -125,6 +134,9 @@ pc_reg pc_reg_inst(
     .clk(clk),
     .rst(rst),
     .stall(ctrl_stall),
+
+    .jump_flag(id_jump_flag_o),
+    .target_addr(id_target_addr_o),
 
     .pc(pc_reg_pc),
     .ce(pc_reg_ce)
@@ -199,8 +211,16 @@ id id_inst(
     .mem_wdata_i(mem_wdata_o),
     .mem_wd_i(mem_wd_o),
 
+    .in_delayslot_i(id_ex_id_in_delayslot_o),
+
     .reg1_addr_o(id_reg1_addr_o),
     .reg2_addr_o(id_reg2_addr_o),
+
+    .in_delayslot_o(id_in_delayslot_o),
+    .next_in_delayslot_o(id_next_in_delayslot_o),
+    .jump_flag_o(id_jump_flag_o),
+    .target_addr_o(id_target_addr_o),
+    .return_addr_o(id_return_addr_o),
 
     .aluop_o(id_aluop_o),
     .reg1_o(id_reg1_o),
@@ -224,11 +244,19 @@ id_ex id_ex_inst(
     .id_wd(id_wd_o),
     .id_wreg(id_wreg_o),
 
+    .id_return_addr(id_return_addr_o),
+    .id_in_delayslot_i(id_in_delayslot_o),
+    .id_next_in_delayslot(id_next_in_delayslot_o),
+
     .ex_aluop(id_ex_ex_aluop),
     .ex_reg1(id_ex_ex_reg1),
     .ex_reg2(id_ex_ex_reg2),
     .ex_wd(id_ex_ex_wd),
-    .ex_wreg(id_ex_ex_wreg)
+    .ex_wreg(id_ex_ex_wreg),
+
+    .ex_return_addr(id_ex_ex_return_addr),
+    .ex_in_delayslot(id_ex_ex_in_delayslot),
+    .id_in_delayslot_o(id_ex_id_in_delayslot_o)
 );
 
 // EX（异步的组合逻辑）
@@ -244,13 +272,16 @@ ex ex_inst(
     .hi_i(hilo_reg_hi_o),
     .lo_i(hilo_reg_lo_o),
 
+    .mem_hi_i(mem_hi_o),
+    .mem_lo_i(mem_lo_o),
+    .mem_whilo_i(mem_whilo_o),
+
     .wb_hi_i(mem_wb_wb_hi),
     .wb_lo_i(mem_wb_wb_lo),
     .wb_whilo_i(mem_wb_wb_whilo),
 
-    .mem_hi_i(mem_hi_o),
-    .mem_lo_i(mem_lo_o),
-    .mem_whilo_i(mem_whilo_o),
+    .in_delayslot_i(id_ex_ex_in_delayslot),
+    .return_addr_i(id_ex_ex_return_addr),
 
     .wd_o(ex_wd_o),
     .wreg_o(ex_wreg_o),
