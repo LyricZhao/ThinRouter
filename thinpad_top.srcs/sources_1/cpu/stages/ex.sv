@@ -40,7 +40,7 @@ module ex(
 );
 
 // 暂停，目前设置为0
-assign stallreq = 0;
+assign stallreq_o = 0;
 
 // 最新的hi, lo寄存器的值
 word_t hi, lo;
