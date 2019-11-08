@@ -28,6 +28,8 @@ module ex(
     input  logic            in_delayslot_i, // 当前的指令在不在延迟槽（会在异常处理的地方用到暂时没有用）
     input  inst_addr_t      return_addr_i,  // 要返回的地址
 
+    input  word_t           inst_i,         // 指令码
+
     output reg_addr_t       wd_o,           // 要写入的寄存器的编号
     output logic            wreg_o,         // 是否要写入寄存器
     output word_t           wdata_o,        // 要写入的数据
@@ -36,11 +38,22 @@ module ex(
     output word_t           lo_o,           // 要写入的lo值
     output logic            whilo_o,        // 是否要写入hilo寄存器
 
+    output aluop_t          aluop_o,        // 该信号为后续阶段做准备
+    output word_t           mem_addr_o,     // 该信号为后续阶段做准备，是访存阶段需要的地址
+    output word_t           reg2_o,         // 该信号为后续阶段做准备，是访存阶段要存储的数据
+
     output logic            stallreq_o      // 请求暂停流水
 );
 
 // 暂停，目前设置为0
 assign stallreq_o = 0;
+
+// 把输入的aluop和reg2直接输出即可
+assign aluop_o = aluop_i;
+assign reg2_o = reg2_i;
+
+// 计算访存地址的值
+assign mem_addr_o = reg1_i + {{16{inst_i[15]}}, inst_i[15:0]};
 
 // 最新的hi, lo寄存器的值
 word_t hi, lo;
