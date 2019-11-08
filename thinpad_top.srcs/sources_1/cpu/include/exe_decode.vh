@@ -68,4 +68,13 @@
 `define EXE_BLTZAL          5'b10000
 `define EXE_BNE             6'b000101
 
+`define EXE_LB              6'b100000
+`define EXE_LBU             6'b100100
+`define EXE_LH              6'b100001
+`define EXE_LHU             6'b100101
+`define EXE_LW              6'b100011
+`define EXE_SB              6'b101000
+`define EXE_SH              6'b101001
+`define EXE_SW              6'b101011
+
 `endif

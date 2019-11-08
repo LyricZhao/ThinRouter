@@ -46,7 +46,15 @@ typedef enum logic[`ALUOP_BUS] {
     EXE_BGEZ_OP,
     EXE_BGEZAL_OP,
     EXE_BLTZ_OP,
-    EXE_BLTZAL_OP
+    EXE_BLTZAL_OP,
+    EXE_LB_OP,
+    EXE_LBU_OP,
+    EXE_LH_OP,
+    EXE_LHU_OP,
+    EXE_LW_OP,
+    EXE_SB_OP,
+    EXE_SH_OP,
+    EXE_SW_OP
 } aluop_t;
 
 `endif

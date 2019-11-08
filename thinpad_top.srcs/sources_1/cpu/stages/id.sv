@@ -10,6 +10,7 @@ module id(
     
     input  inst_addr_t              pc_i,                   // PC
     input  word_t                   inst_i,                 // 指令
+    output word_t                   inst_o,                 // 把指令原样输出到下一阶段，用于仿存计算地址
 
     input  word_t                   reg1_data_i,            // 读寄存器
     input  word_t                   reg2_data_i,            // 读寄存器
@@ -46,6 +47,7 @@ module id(
 
 // 暂停请求，目前设置为0
 assign stallreq_o = 0;
+assign inst_o = inst_i; //输入的指令原样输出到下一阶段
 
 // 四段码，参见书的121页，需要根据这个来判断指令类型
 logic[5:0] op1; assign op1 = inst_i[31:26];
@@ -82,6 +84,10 @@ assign pc_plus_offset = pc_next + {{14{inst_i[15]}}, inst_i[15:0], 2'b00}; // �
 // 第三类：涉及移位和立即数，立即数只有5位
 `define INST_KIND_3_COMMON(e,w,r1,r2)       `INST_KIND_1_COMMON(e,w,r1,r2); \
                                             imm[4:0] <= inst_i[10:6]
+
+// 第四类：涉及访存，不涉及立即数
+`define INST_KIND_4_COMMON(e,w,r1,r2)       `INST_KIND_1_COMMON(e,w,r1,r2); \
+                                            wd_o <= inst_i[20:16]
 
 // 把四个有关分支跳转的都设置好
 `define BRANCH_ALL(r,t,f,n)                 return_addr_o <= r; \
@@ -175,6 +181,14 @@ always_comb begin
                 `EXE_SLTIU: begin `INST_KIND_2_COMMON(EXE_SLTU_OP,  {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展（并不是0扩展，参见MIPS32文档）
                 `EXE_ADDI:  begin `INST_KIND_2_COMMON(EXE_ADDI_OP,  {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展
                 `EXE_ADDIU: begin `INST_KIND_2_COMMON(EXE_ADDIU_OP, {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展（并不是0扩展，参见MIPS32文档）
+                `EXE_LB:    begin `INST_KIND_4_COMMON(EXE_LB_OP,                                      1, 1, 0);   end
+                `EXE_LBU:   begin `INST_KIND_4_COMMON(EXE_LBU_OP,                                     1, 1, 0);   end
+                `EXE_LH:    begin `INST_KIND_4_COMMON(EXE_LH_OP,                                      1, 1, 0);   end
+                `EXE_LHU:   begin `INST_KIND_4_COMMON(EXE_LHU_OP,                                     1, 1, 0);   end
+                `EXE_LW:    begin `INST_KIND_4_COMMON(EXE_LW_OP,                                      1, 1, 0);   end
+                `EXE_SB:    begin `INST_KIND_1_COMMON(EXE_SB_OP,                                      0, 1, 1);   end
+                `EXE_SH:    begin `INST_KIND_1_COMMON(EXE_SH_OP,                                      0, 1, 1);   end
+                `EXE_SW:    begin `INST_KIND_1_COMMON(EXE_SW_OP,                                      0, 1, 1);   end
                 `EXE_J: begin
                     `INST_KIND_1_COMMON(EXE_J_OP, 0, 0, 0);
                     `BRANCH_ALL(0, {pc_next[31:28], inst_i[25:0], 2'b00}, 1, 1);
