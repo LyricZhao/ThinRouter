@@ -14,13 +14,24 @@ module mem(
     input  word_t           hi_i,       // 要写入的hi值
     input  word_t           lo_i,       // 要写入的lo值
     input  logic            whilo_i,    // 是否要写入hilo寄存器
+    input  aluop_t          aluop_i,    // aluop的值
+    input  word_t           mem_addr_i, // 想要存入内存的地址
+    input  word_t           reg2_i,     // 欲写入内存的值
+
+    input  word_t           mem_data_i, // RAM读出来的数
 
     output reg_addr_t       wd_o,       // 要写入的寄存器编号
     output logic            wreg_o,     // 是否要写入寄存器
     output word_t           wdata_o,    // 要写入的数据
     output word_t           hi_o,       // 要写入的hi值
     output word_t           lo_o,       // 要写入的lo值
-    output logic            whilo_o     // 是否要写入hilo寄存器
+    output logic            whilo_o,    // 是否要写入hilo寄存器
+
+    output word_t           mem_addr_o, // 送到RAM中的信号
+    output logic            mem_we_o,   // 送到RAM中的信号
+    output logic[3:0]       mem_sel_o,  // 送到RAM中的信号
+    output word_t           mem_data_o, // 送到RAM中的信号
+    output logic            mem_ce_o    // 送到RAM中的信号
 );
 
 always_comb begin
