@@ -68,6 +68,7 @@ reg_addr_t id_wd_o;
 logic id_wreg_o;
 logic id_next_in_delayslot_o, id_in_delayslot_o;
 inst_addr_t id_return_addr_o;
+word_t id_inst_o;
 // id给ctrl的连线
 logic id_stallreq_o;
 // id给pc_reg的出线
@@ -83,6 +84,7 @@ reg_addr_t id_ex_ex_wd;
 logic id_ex_ex_wreg;
 logic id_ex_ex_in_delayslot;
 inst_addr_t id_ex_ex_return_addr;
+word_t id_ex_ex_inst;
 // id_ex给id的连线
 logic id_ex_id_in_delayslot_o;
 
@@ -95,6 +97,9 @@ word_t ex_wdata_o;
 // ex给ex_mem的连线
 word_t ex_hi_o, ex_lo_o;
 logic ex_whilo_o;
+aluop_t ex_aluop_o;
+word_t ex_mem_addr_o;
+word_t ex_reg2_o;
 // ex给ctrl的连线
 logic ex_stallreq_o;
 
@@ -106,7 +111,9 @@ logic ex_mem_mem_whilo;
 reg_addr_t ex_mem_mem_wd;
 logic ex_mem_mem_wreg;
 word_t ex_mem_mem_wdata;
-
+aluop_t ex_mem_mem_aluop;
+word_t ex_mem_mem_mem_addr;
+word_t ex_mem_mem_reg2;
 
 /** mem的出线 **/
 // mem给id（数据回传）和给mem_wb的连线
@@ -235,7 +242,9 @@ id id_inst(
     .wd_o(id_wd_o),
     .wreg_o(id_wreg_o),
 
-    .stallreq_o(id_stallreq_o)
+    .stallreq_o(id_stallreq_o),
+
+    .inst_o(id_inst_o)
 );
 
 // ID到EX的连接（同步把数据传给EX）
@@ -263,7 +272,10 @@ id_ex id_ex_inst(
 
     .ex_return_addr(id_ex_ex_return_addr),
     .ex_in_delayslot(id_ex_ex_in_delayslot),
-    .id_in_delayslot_o(id_ex_id_in_delayslot_o)
+    .id_in_delayslot_o(id_ex_id_in_delayslot_o),
+
+    .id_inst(id_inst_o),
+    .ex_inst(id_ex_ex_inst)
 );
 
 // EX（异步的组合逻辑）
@@ -298,7 +310,13 @@ ex ex_inst(
     .lo_o(ex_lo_o),
     .whilo_o(ex_whilo_o),
 
-    .stallreq_o(ex_stallreq_o)
+    .stallreq_o(ex_stallreq_o),
+
+    .inst_i(id_ex_ex_inst),
+
+    .aluop_o(ex_aluop_o),
+    .mem_addr_o(ex_mem_addr_o),
+    .reg2_o(ex_reg2_o)
 );
 
 // EX到MEM的连接（同步把数据给MEM）
@@ -321,7 +339,15 @@ ex_mem ex_mem_inst(
 
     .mem_wd(ex_mem_mem_wd),
     .mem_wreg(ex_mem_mem_wreg),
-    .mem_wdata(ex_mem_mem_wdata)
+    .mem_wdata(ex_mem_mem_wdata),
+
+    .ex_aluop(ex_aluop_o),
+    .ex_mem_addr(ex_mem_addr_o),
+    .ex_reg2(ex_reg2_o),
+
+    .mem_aluop(ex_mem_mem_aluop),
+    .mem_mem_addr(ex_mem_mem_mem_addr),
+    .mem_reg2(ex_mem_mem_reg2)
 );
 
 // MEM（异步的组合逻辑）
@@ -343,6 +369,18 @@ mem mem_inst(
     .whilo_o(mem_whilo_o),
 
     .mem_data_i(ram_data_i),
+    .mem_addr_o(ram_addr_o),
+    .mem_we_o(ram_we_o),
+    .mem_sel_o(ram_sel_o),
+    .mem_data_o(ram_data_o),
+    .mem_ce_o(ram_ce_o),
+
+    .aluop_i(ex_mem_mem_aluop),
+    .mem_addr_i(ex_mem_mem_mem_addr),
+    .reg2_i(ex_mem_mem_reg2),
+
+    .mem_data_i(ram_data_i),
+
     .mem_addr_o(ram_addr_o),
     .mem_we_o(ram_we_o),
     .mem_sel_o(ram_sel_o),

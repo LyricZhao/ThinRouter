@@ -10,7 +10,6 @@ module id(
     
     input  inst_addr_t              pc_i,                   // PC
     input  word_t                   inst_i,                 // 指令
-    output word_t                   inst_o,                 // 把指令原样输出到下一阶段，用于仿存计算地址
 
     input  word_t                   reg1_data_i,            // 读寄存器
     input  word_t                   reg2_data_i,            // 读寄存器
@@ -26,6 +25,8 @@ module id(
     input  reg_addr_t               mem_wd_i,               // mem需写入的寄存器
 
     input  logic                    in_delayslot_i,         // 当前指令在不在延迟槽，因为是组合逻辑所以只能把用id_ex把next传回来
+
+    output word_t                   inst_o,                 // 把指令原样输出到下一阶段，用于仿存计算地址
 
     output reg_addr_t               reg1_addr_o,            // 要读的寄存器1的编号
     output reg_addr_t               reg2_addr_o,            // 要读的寄存器2的编号
