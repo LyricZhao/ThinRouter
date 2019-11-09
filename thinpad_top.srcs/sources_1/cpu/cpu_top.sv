@@ -13,7 +13,14 @@ module cpu_top(
 
     input  word_t           rom_data_i,
     output inst_addr_t      rom_addr_o,
-    output logic            rom_ce_o
+    output logic            rom_ce_o,
+
+    input  word_t           ram_data_i,
+    output word_t           ram_addr_o,
+    output word_t           ram_data_o,
+    output logic            ram_we_o,
+    output logic[3:0]       ram_sel_o,
+    output logic            ram_ce_o
 );
 
 /* ---------------- 模块出线 ----------------- */
@@ -333,7 +340,15 @@ mem mem_inst(
     .wdata_o(mem_wdata_o),
     .hi_o(mem_hi_o),
     .lo_o(mem_lo_o),
-    .whilo_o(mem_whilo_o)
+    .whilo_o(mem_whilo_o),
+
+    .mem_data_i(ram_data_i),
+    .mem_addr_o(ram_addr_o),
+    .mem_we_o(ram_we_o),
+    .mem_sel_o(ram_sel_o),
+    .mem_data_o(ram_data_o),
+    .mem_ce_o(ram_ce_o)
+
 );
 
 // MEM到WB（同步），写回的信号直接接到寄存器（寄存器会同步下一个周期写入）
