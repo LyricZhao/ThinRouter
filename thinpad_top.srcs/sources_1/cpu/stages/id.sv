@@ -55,7 +55,7 @@ logic stallreq_for_reg1_loadrelate; // 寄存器1是否数据相关
 logic stallreq_for_reg2_loadrelate; // 寄存器2是否数据相关
 
 // 暂停请求
-assign stallreq_o = stallreq_for_reg1_loadrelate | stallreq_for_reg1_loadrelate;
+assign stallreq_o = stallreq_for_reg1_loadrelate | stallreq_for_reg2_loadrelate;
 assign inst_o = inst_i; //输入的指令原样输出到下一阶段
 
 // 四段码，参见书的121页，需要根据这个来判断指令类型
