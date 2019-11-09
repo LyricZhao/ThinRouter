@@ -39,7 +39,7 @@ cpu_top cpu_top_inst(
     .ram_ce_o(top_ram_ce_o)
 );
 
-inst_rom #("cpu_branch_test.mem") inst_rom0(
+inst_rom #("cpu_load_test.mem") inst_rom0(
     .addr(inst_addr),
     .inst(inst),
     .ce(rom_ce)

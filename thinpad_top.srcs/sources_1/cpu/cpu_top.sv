@@ -377,15 +377,7 @@ mem mem_inst(
 
     .aluop_i(ex_mem_mem_aluop),
     .mem_addr_i(ex_mem_mem_mem_addr),
-    .reg2_i(ex_mem_mem_reg2),
-
-    .mem_data_i(ram_data_i),
-
-    .mem_addr_o(ram_addr_o),
-    .mem_we_o(ram_we_o),
-    .mem_sel_o(ram_sel_o),
-    .mem_data_o(ram_data_o),
-    .mem_ce_o(ram_ce_o)
+    .reg2_i(ex_mem_mem_reg2)
 
 );
 

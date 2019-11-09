@@ -48,10 +48,25 @@ always_comb begin
         wdata_o <= wdata_i;
         {hi_o, lo_o} <= {hi_i, lo_i};
         whilo_o <= whilo_i;
-        {mem_we, mem_addr_o, mem_ce_o} <= 0;
+        {mem_we_o, mem_addr_o, mem_ce_o} <= 0;
         mem_sel_o <= 4'b1111; // 默认四个字节都读/写
         case (aluop_i)
-            // TODO，见书的P250~P257，我认为这里需要一些宏定义来优化代码风格
+            // TODO: 见书的P250~P257，我认为这里需要一些宏定义来优化代码风格
+            // 先简单加两条指令测试一下有没有bug
+            EXE_LW_OP: begin
+                mem_addr_o <= mem_addr_i;
+                mem_we_o <= 0;
+                wdata_o <= mem_data_i;
+                mem_sel_o <= 4'b1111;
+                mem_ce_o <= 1;
+            end
+            EXE_SW_OP: begin
+                mem_addr_o <= mem_addr_i;
+                mem_we_o <= 1;
+                mem_data_o <= reg2_i;
+                mem_sel_o <= 4'b1111;
+                mem_ce_o <= 1;                
+            end
         endcase
     end
 end
