@@ -16,6 +16,12 @@ inst_addr_t inst_addr;
 word_t inst;
 logic rom_ce;
 
+logic top_ram_ce_o;
+word_t top_ram_data_i;
+word_t top_ram_addr_o;
+word_t top_ram_data_o;
+logic top_ram_we_o;
+logic[3:0] top_ram_sel_o;
 // TODO: 把cpu_top放到thinpad_top里面
 cpu_top cpu_top_inst(
     .clk(clk_50M),
@@ -23,13 +29,30 @@ cpu_top cpu_top_inst(
 
     .rom_addr_o(inst_addr),
     .rom_data_i(inst),
-    .rom_ce_o(rom_ce)
+    .rom_ce_o(rom_ce),
+
+    .ram_data_i(top_ram_data_i),
+    .ram_addr_o(top_ram_addr_o),
+    .ram_data_o(top_ram_data_o),
+    .ram_we_o(top_ram_we_o),
+    .ram_sel_o(top_ram_sel_o),
+    .ram_ce_o(top_ram_ce_o)
 );
 
-inst_rom #("cpu_inst_test.mem") inst_rom0(
+inst_rom #("cpu_branch_test.mem") inst_rom0(
     .addr(inst_addr),
     .inst(inst),
     .ce(rom_ce)
+);
+
+data_ram data_ram0(
+    .clk(clk_50M),
+    .ce(top_ram_ce_o),
+    .we(top_ram_we_o),
+    .addr(top_ram_addr_o),
+    .sel(top_ram_sel_o),
+    .data_i(top_ram_data_o),
+    .data_o(top_ram_data_i)
 );
 
 initial begin
