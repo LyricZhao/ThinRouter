@@ -225,6 +225,8 @@ id id_inst(
     .mem_wdata_i(mem_wdata_o),
     .mem_wd_i(mem_wd_o),
 
+    .ex_aluop_i(ex_aluop_o),
+
     .in_delayslot_i(id_ex_id_in_delayslot_o),
 
     .reg1_addr_o(id_reg1_addr_o),
