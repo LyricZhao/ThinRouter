@@ -1,94 +1,59 @@
 `timescale 1ns / 1ps
-module rgmii_model (
-    input wire clk_125M,
-    input wire clk_125M_90deg,
+`default_nettype none
+module testbench_rgmii ();
 
-    output wire [3:0] rgmii_rd,
-    output wire rgmii_rx_ctl,
-    output wire rgmii_rxc
+wire [3:0] rgmii_rd;
+wire rgmii_rx_ctl;
+wire rgmii_rxc;
+rgmii_model rgmii_model_inst (
+    .rgmii_rd,
+    .rgmii_rx_ctl,
+    .rgmii_rxc
 );
 
-localparam WAIT = 0;
-localparam READ_LABEL = 10;
-localparam READ_DATA = 11;
-int state = 0;
+bit clk_125M;
+bit clk_125M_90deg;
+bit rst_n;
+wire [3:0] eth_rgmii_td;
+wire eth_rgmii_tx_ctl;
+wire eth_rgmii_txc;
 
-bit trans = 0;              // 给 ODDR 的传输信号
-bit [3:0] data1;            // 给 ODDR 的数据
-bit [3:0] data2;            // 给 ODDR 的数据
-int fd = 0;                 // file descriptor
-string buffer;
-bit [15:0] data;
-
-string packet_info;
-string rx_stream;
-always_ff @ (posedge clk_125M) begin
-    if (fd) case (state)
-        READ_LABEL: begin
-            if ($feof(fd))
-                fd = 0;
-            else begin
-                $fscanf(fd, "%s", buffer);
-                case (buffer)
-                    "info:": begin
-                        $fgets(packet_info, fd);
-                    end
-                    "eth_frame:": begin
-                        state = state + 1;
-                        $fscanf(fd, "%x", data);
-                        // $write("Frame IN:\t");
-                    end
-                endcase
-            end
-        end
-        READ_DATA: begin
-            if (data == 12'hfff) begin
-                // end of line
-                state = WAIT;
-                trans = 0;
-                $write("Info:\t%s", packet_info);
-                $display("Router IN:\t%s\n", rx_stream);
-                rx_stream = "";
-            end else begin
-                trans = 1;
-                data1 = data[3:0];
-                data2 = data[7:4];
-                $sformat(rx_stream, "%s %02x", rx_stream, data[7:0]);
-                $fscanf(fd, "%x", data);
-            end
-        end
-        default:
-            state = state + 1;
-    endcase
-    else
-        fd = #5000 $fopen("eth_frame_test.mem", "r");
-end
-
-genvar i;
-for (i = 0;i < 4;i++) begin
-    ODDR #(
-        .DDR_CLK_EDGE("SAME_EDGE") // OPPOSITE_EDGE or SAME_EDGE
-    ) oddr_inst (
-        .D1(data1[i]),      // 1-bit data input (posedge)
-        .D2(data2[i]),      // 1-bit data input (negedge)
-        .C(clk_125M),       // 1-bit clock
-        .CE(1'b1),          // 1-bit clock enable
-        .Q(rgmii_rd[i]),    // 1-bit ddr output
-        .R(1'b0)            // 1-bit reset
-    );
-end
-
-ODDR #(
-    .DDR_CLK_EDGE("SAME_EDGE")
-) oddr_inst_ctl (
-    .D1(trans),
-    .D2(trans),
-    .C(clk_125M),
-    .CE(1'b1),
-    .Q(rgmii_rx_ctl), // ctl = dv ^ er
-    .R(1'b0)
+wire [8:0] rx_fifo_din;    // 下降沿时，将这一拍的数据写在此处，下一拍上升沿传给 fifo
+wire [8:0] rx_fifo_dout;   // 最高位表示 enable，包与包之间必定间隔空数据
+wire rx_fifo_empty;        // 队列空
+wire rx_fifo_full;         // 队列满
+wire rx_fifo_out_en;       // 激活输出
+wire rx_fifo_out_busy;     // 队列输出端口正在复位
+wire rx_fifo_in_en;        // 激活输入
+wire rx_fifo_in_busy;      // 队列输入端口正在复位
+wire rx_fifo_rst;      // 复位信号，要求必须在 wr_clk 稳定时同步复位
+wire [1:0] eth_rx_state;
+rgmii_manager rgmii_manager_inst (
+    .clk_125M(clk_125M),
+    .clk_125M_90deg(clk_125M_90deg),
+    .rst_n(rst_n),
+    .eth_rgmii_rd(rgmii_rd),
+    .eth_rgmii_rx_ctl(rgmii_rx_ctl),
+    .eth_rgmii_rxc(rgmii_rxc),
+    .eth_rgmii_td(eth_rgmii_td),
+    .eth_rgmii_tx_ctl(eth_rgmii_tx_ctl),
+    .eth_rgmii_txc(eth_rgmii_txc),
+    .*
 );
 
-assign rgmii_rxc = clk_125M_90deg; // clock
+initial begin
+    #0.123;
+    clk_125M = 0;
+    forever clk_125M = #3.99 ~clk_125M;
+end
+initial begin
+    #2.312;
+    clk_125M_90deg = 0;
+    forever clk_125M_90deg = #3.99 ~clk_125M_90deg;
+end
+initial begin
+    rst_n = 0;
+    rst_n = #1000 1;
+end
 
 endmodule
