@@ -7,8 +7,7 @@
 
 module rgmii_manager(
     input   wire    clk_125M,           // RGMII 和 FIFO 的 125M 时钟
-    input   wire    clk_internal,       // 处理内部同步逻辑用的时钟
-    input   wire    clk_ref,            // 给 IDELAYCTRL (这个模块在eth_mac里面) 用的 200M 时钟
+    input   wire    clk_200M,           // 给 IDELAYCTRL (这个模块在eth_mac里面) 用的 200M 时钟
     input   wire    rst_n,              // PLL分频稳定后为1，后级电路复位，也加入了用户的按键
 
     input   wire    clk_btn,            // 硬件 clk 按键
@@ -42,15 +41,14 @@ wire axis_tx_last;
 wire axis_tx_ready;
 
 io_manager io_manager_inst (
-    .clk_fifo(clk_125M),
-    // .clk_internal(clk_internal),
+    .clk_125M,
 
-    .rst_n(rst_n),
-    // .clk_btn(clk_btn),
-    // .btn(btn),
-    // .led_out(led_out),
-    // .digit0_out(digit0_out),
-    // .digit1_out(digit1_out),
+    .rst_n,
+    .clk_btn,
+    .btn,
+    .led_out,
+    .digit0_out,
+    .digit1_out,
 
     .rx_data(axis_rx_data),
     .rx_valid(axis_rx_valid),
@@ -70,7 +68,7 @@ eth_mac_fifo_block trimac_fifo_block (
     .tx_axi_rstn                  (rst_n),
 
     // Reference clock for IDELAYCTRL's
-    .refclk                       (clk_ref),
+    .refclk                       (clk_200M),
 
     // Receiver Statistics Interface
     //---------------------------------------
@@ -128,7 +126,7 @@ eth_mac_fifo_block trimac_fifo_block (
     // 这是干嘛的？
     // Configuration Vectors
     //-----------------------
-    .rx_configuration_vector      (80'b10100000101110),
+    .rx_configuration_vector      (80'b10100000100110),
     .tx_configuration_vector      (80'b10000000000110)
 );
 
