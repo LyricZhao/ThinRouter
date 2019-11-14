@@ -18,16 +18,11 @@ wire [3:0] eth_rgmii_td;
 wire eth_rgmii_tx_ctl;
 wire eth_rgmii_txc;
 
-wire [8:0] rx_fifo_din;    // 下降沿时，将这一拍的数据写在此处，下一拍上升沿传给 fifo
-wire [8:0] rx_fifo_dout;   // 最高位表示 enable，包与包之间必定间隔空数据
-wire rx_fifo_empty;        // 队列空
-wire rx_fifo_full;         // 队列满
-wire rx_fifo_out_en;       // 激活输出
-wire rx_fifo_out_busy;     // 队列输出端口正在复位
-wire rx_fifo_in_en;        // 激活输入
-wire rx_fifo_in_busy;      // 队列输入端口正在复位
-wire rx_fifo_rst;      // 复位信号，要求必须在 wr_clk 稳定时同步复位
-wire [1:0] eth_rx_state;
+wire [7:0] rx_data;
+wire rx_valid;
+wire rx_pause;
+reg  [7:0] tx_data = '0;
+reg  tx_valid = 0;
 rgmii_manager rgmii_manager_inst (
     .clk_125M(clk_125M),
     .clk_125M_90deg(clk_125M_90deg),
