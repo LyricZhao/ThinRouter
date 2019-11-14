@@ -49,6 +49,7 @@ wire rx_fifo_in_busy;       // 队列输入端口正在复位
 reg  rx_fifo_rst = 0;       // 复位信号，要求必须在 wr_clk 稳定时同步复位
 reg  rx_fifo_ready = 0;     // fifo 可用：复位后等到 !busy 且无数据进入时置 1
 reg  last_in_valid = 0;     // 上一拍的 rx 是否有效，如果有效且这一拍无效，则向 fifo 中插入一个空字段表示结束
+reg  last_empty = 0;        // 上一拍是否 empty，在不 empty 的第一拍先不读取数据
 
 always_latch begin
     if (rx_fifo_rst || rx_fifo_in_busy || rx_fifo_out_busy) begin
@@ -62,15 +63,20 @@ always_ff @(posedge eth_rgmii_rxc) begin
     last_in_valid <= rx_ctl_posedge && rx_ctl_negedge;
 end
 
+always_ff @(posedge clk_125M) begin
+    last_empty <= rx_fifo_empty;
+end
+
 // maybe todo 添加 fifo 的 rst
-assign rx_fifo_out_en = ~rx_fifo_empty;
+assign rx_fifo_out_en = !rx_fifo_empty && !last_empty;
 assign rx_data = rx_fifo_dout[7:0];
-assign rx_valid = !rx_fifo_empty && rx_fifo_dout[8];
+assign rx_valid = rx_fifo_out_en && rx_fifo_dout[8];
 assign rx_pause = rx_fifo_empty && rx_fifo_dout[8];
 // rx_fifo_din[7:0] 用 IDDR 映射
 assign rx_fifo_din[8] = rx_ctl_posedge && rx_ctl_negedge;
 assign rx_fifo_in_en = (rx_ctl_posedge && rx_ctl_negedge) || last_in_valid;
-
+assign tx_ctl_posedge = tx_valid;
+assign tx_ctl_negedge = tx_valid;
 
 /****************************************
  * 将 rgmii 的上下沿数据映射到两倍位宽的变量中
@@ -91,7 +97,9 @@ IDDR rx_ctl_iddr (
     .R(~rst_n),
     .S(0)
 );
-ODDR tx_ctl_oddr (
+ODDR #(
+    .DDR_CLK_EDGE("SAME_EDGE")
+) tx_ctl_oddr (
     .Q(eth_rgmii_tx_ctl),
     .C(clk_125M),
     .CE(1),
@@ -114,7 +122,9 @@ generate for (i = 0; i < 4; i++) begin
         .R(~rst_n),
         .S(0)
     );
-    ODDR tx_data_oddr (
+    ODDR #(
+        .DDR_CLK_EDGE("SAME_EDGE")
+    ) tx_data_oddr (
         .Q(eth_rgmii_td[i]),
         .C(clk_125M),
         .CE(1),

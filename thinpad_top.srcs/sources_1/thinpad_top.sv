@@ -93,12 +93,8 @@ module thinpad_top(
 logic locked, clk_10M, clk_20M, clk_125M, clk_200M, clk_125M_90deg;
 pll clock_gen 
 (
-    // Clock out ports
-    .clk_out1(clk_10M),               // 时钟输出1
-    .clk_out2(clk_20M),               // 时钟输出2
-    .clk_out3(clk_125M),              // 时钟输出3
-    .clk_out4(clk_200M),              // 时钟输出4
-    .clk_out5(clk_125M_90deg),
+    .clk_125M,
+    .clk_125M_90deg,
     .reset(reset_btn),                // PLL 复位输入，这里是用户按键
     .locked(locked),                  // 锁定输出，"1"表示时钟稳定，可作为后级电路复位
     .clk_in1(clk_50M)                 // 外部时钟输入
@@ -122,15 +118,38 @@ eth_conf conf(
  *      路由模块      *
  *********************/
 
+wire [7:0] rgmii_data;
+wire rgmii_valid;
+wire rx_pause;
 rgmii_manager rgmii_manager_inst (
-    .*,
+    .clk_125M,
+    .clk_125M_90deg,
     .rst_n(locked),
+    .eth_rgmii_rd,
+    .eth_rgmii_rx_ctl,
+    .eth_rgmii_rxc,
+    .eth_rgmii_td,
+    .eth_rgmii_tx_ctl,
+    .eth_rgmii_txc,
+    .rx_data(rgmii_data),
+    .rx_valid(rgmii_valid),
+    .tx_data(rgmii_data),
+    .tx_valid(rgmii_valid),
+    .rx_pause
+);
 
-    .clk_btn(clock_btn),
-    .btn(touch_btn),
-    .led_out(leds),
-    .digit0_out(dpy0),
-    .digit1_out(dpy1)
+digit_hex dh0 (
+    .value(rgmii_data[3:0]),
+    .digit(dpy0)
+);
+digit_hex dh1 (
+    .value(rgmii_data[7:4]),
+    .digit(dpy1)
+);
+
+led_loop li (
+    .clk(rgmii_valid),
+    .led(leds)
 );
 
 endmodule
