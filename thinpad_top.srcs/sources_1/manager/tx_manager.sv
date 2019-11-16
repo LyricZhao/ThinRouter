@@ -1,3 +1,49 @@
+/*
+发送数据包
+
+时序：
+将 start 置 1 一拍，同时提供所有必要的输入（MAC 等），这些输入应当尽量保持，直到下一个 start
+如果当前没有正在发送的数据包，就进入发送。否则需要等待一段时间再发送
+
+这些数据是通过 fifo 传输的：
+IP 包
+-   0   VLAN tag
+-   4   IP header
+-   14  TTL （已 -1）
+-   16  IP checksum （已 +0x100，但可能有特殊情况需要处理）
+        如果低 8 位是 0xff，会传一个信号，需要在这里进行处理
+-   18  src IP
+-   22  dst IP
+-   26  payload
+-   ?
+ARP 包
+-   0   VLAN tag
+-   4   ARP info
+-   12  ARP response （已经处理为 0x0002 ARP Response）
+-   14  src MAC
+-   20  src IP
+-   24
+
+发送的数据来源：
+IP 包
+-   0   dst MAC         input_dst_mac
+-   6   src MAC         根据 input_vlan_id 推断
+-   12  VLAN tag        fifo
+-   16  IP header       fifo
+    28  IP checksum     fifo （根据 input_ip_checksum_ff 可能额外处理）
+-   38  IP payload      fifo
+ARP 包
+-   0   dst MAC         input_dst_mac
+-   6   src MAC         根据 input_vlan_id 推断
+-   12  VLAN tag        fifo
+-   16  ARP info        fifo
+    24  ARP reply       fifo
+-   26  src MAC         根据 input_vlan_id 推断
+-   32  src IP          根据 input_vlan_id 推断
+-   36  dst MAC         fifo
+-   42  dst IP          fifo
+-   46
+*/
 `timescale 1ns / 1ps
 
 `include "debug.vh"
@@ -89,6 +135,7 @@ always_ff @(negedge clk_125M) begin
         no_tx();
     end else begin
         if (working) begin
+            // working
             if (is_ip) begin
                 // IP 包
                 case (send_cnt)
@@ -157,6 +204,7 @@ always_ff @(negedge clk_125M) begin
                 send_cnt <= send_cnt + 1;
             end
         end else begin
+            // !working
             if (start) begin
                 working <= 1;
                 dst_mac <= input_dst_mac;
