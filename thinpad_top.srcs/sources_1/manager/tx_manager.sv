@@ -60,7 +60,7 @@ module tx_manager (
     input   wire    input_is_ip,
     // 如果 ip checksum 的低 8 位是 ff，则还需要再处理（不然就由 io_manager 流上处理了）
     input   wire    input_ip_checksum_ff,
-    // 包长度，padding 0 不计入，也不进入 fifo
+    // 要发送的包长度，padding 0 不计入，也不进入 fifo
     input   wire    [15:0] input_packet_size,
 
     // 告知 tx 开始发送
@@ -86,6 +86,7 @@ reg [2:0]  vlan_id;
 reg is_ip;
 reg ip_checksum_ff;
 reg working;
+reg has_job_pending;
 reg [15:0]  send_cnt;
 reg [15:0]  packet_size;
 
@@ -132,10 +133,10 @@ end
 always_ff @(negedge clk_125M) begin
     if (!rst_n) begin
         working <= 0;
+        has_job_pending <= 0;
         no_tx();
     end else begin
         if (working) begin
-            // working
             if (is_ip) begin
                 // IP 包
                 case (send_cnt)
@@ -203,9 +204,13 @@ always_ff @(negedge clk_125M) begin
                 working <= 1;
                 send_cnt <= send_cnt + 1;
             end
-        end else begin
-            // !working
+            // 可能来了下一个发送
             if (start) begin
+                has_job_pending <= 1;
+            end
+        end else begin  // !working
+            if (has_job_pending || start) begin
+                has_job_pending <= 0;
                 working <= 1;
                 dst_mac <= input_dst_mac;
                 vlan_id <= input_vlan_id;
