@@ -4,6 +4,7 @@
 时序：
 将 start 置 1 一拍，同时提供所有必要的输入（MAC 等），这些输入应当尽量保持，直到下一个 start
 如果当前没有正在发送的数据包，就进入发送。否则需要等待一段时间再发送
+如果此时 input_bad 为 1，则处理这个包的时候改为丢弃 fifo 内容，不发送任何数据
 
 这些数据是通过 fifo 传输的：
 IP 包
@@ -60,13 +61,15 @@ module tx_manager (
     input   wire    input_is_ip,
     // 如果 ip checksum 的低 8 位是 ff，则还需要再处理（不然就由 io_manager 流上处理了）
     input   wire    input_ip_checksum_ff,
-    // 要发送的包长度，padding 0 不计入，也不进入 fifo
-    input   wire    [15:0] input_packet_size,
+    // 如果出现问题，需要直接丢掉 fifo 中数据，直到 fifo 传来 last
+    input   wire    input_bad,
 
     // 告知 tx 开始发送
     input   wire    start,
 
-    input   wire    [7:0]   fifo_data,
+    // fifo 中最高位表示 last，低 8 为数据
+    input   wire    [8:0]   fifo_data,
+    input   wire    fifo_empty,
     output  reg     fifo_rd_en,
 
     // todo
@@ -76,7 +79,7 @@ module tx_manager (
     output  reg     tx_valid,
     output  reg     tx_last,
     // todo
-    input  wire    tx_ready
+    input  wire     tx_ready
 );
 
 reg [47:0] dst_mac;
@@ -85,12 +88,17 @@ reg [31:0] src_ip;
 reg [2:0]  vlan_id;
 reg is_ip;
 reg ip_checksum_ff;
+reg bad;
 reg working;
 reg has_job_pending;
-reg [15:0]  send_cnt;
-reg [15:0]  packet_size;
+reg [5:0]  send_cnt;
 
-wire is_last = send_cnt + 1 == packet_size;
+// 给定 vlan_id，组合逻辑获取路由器对应接口的 MAC 和 IP
+address router_address (
+    .vlan_id,
+    .mac(src_mac),
+    .ip(src_ip)
+);
 
 task no_tx;
 begin
@@ -106,29 +114,18 @@ input logic [7:0] data;
 begin
     tx_data <= data;
     tx_valid <= 1;
-    tx_last <= is_last;
+    tx_last <= 0;
     fifo_rd_en <= 0;
 end
 endtask
 
 task send_fifo;
 begin
-    tx_data <= fifo_data;
+    {tx_last, tx_data} <= fifo_data;
     tx_valid <= 1;
-    tx_last <= is_last;
     fifo_rd_en <= 1;
 end
 endtask
-
-always_comb begin
-    case (vlan_id)
-        1: {src_mac, src_ip} = {`ROUTER_MAC_1, `ROUTER_IP_1};
-        2: {src_mac, src_ip} = {`ROUTER_MAC_2, `ROUTER_IP_2};
-        3: {src_mac, src_ip} = {`ROUTER_MAC_3, `ROUTER_IP_3};
-        4: {src_mac, src_ip} = {`ROUTER_MAC_4, `ROUTER_IP_4};
-        default: {src_mac, src_ip} = 'x;
-    endcase
-end
 
 always_ff @(negedge clk_125M) begin
     if (!rst_n) begin
@@ -137,73 +134,89 @@ always_ff @(negedge clk_125M) begin
         no_tx();
     end else begin
         if (working) begin
-            if (is_ip) begin
-                // IP 包
-                case (send_cnt)
-                    0 : send(dst_mac[40 +: 8]);
-                    1 : send(dst_mac[32 +: 8]);
-                    2 : send(dst_mac[24 +: 8]);
-                    3 : send(dst_mac[16 +: 8]);
-                    4 : send(dst_mac[ 8 +: 8]);
-                    5 : send(dst_mac[ 0 +: 8]);
-                    6 : send(src_mac[40 +: 8]);
-                    7 : send(src_mac[32 +: 8]);
-                    8 : send(src_mac[24 +: 8]);
-                    9 : send(src_mac[16 +: 8]);
-                    10: send(src_mac[ 8 +: 8]);
-                    11: send(src_mac[ 0 +: 8]);
-                    // IP Checksum 对于低 8 位为 FF 的情况要特殊处理
-                    // 其余情况，以及 TTL-1 应当在 io_manager 写入 fifo 之时就处理了
-                    28, 29: begin
-                        tx_data <= ip_checksum_ff ? fifo_data + 1 : fifo_data;
-                        tx_valid <= 1;
-                        tx_last <= 0;
-                        fifo_rd_en <= 1;
-                    end
-                    default: begin
-                        send_fifo();
-                    end
-                endcase
+            if (fifo_empty) begin
+                // 先简单处理，遇到 fifo 空了就暂停处理
+                no_tx();
             end else begin
-                // ARP 包
-                case (send_cnt)
-                    0 : send(dst_mac[40 +: 8]);
-                    1 : send(dst_mac[32 +: 8]);
-                    2 : send(dst_mac[24 +: 8]);
-                    3 : send(dst_mac[16 +: 8]);
-                    4 : send(dst_mac[ 8 +: 8]);
-                    5 : send(dst_mac[ 0 +: 8]);
-                    6 : send(src_mac[40 +: 8]);
-                    7 : send(src_mac[32 +: 8]);
-                    8 : send(src_mac[24 +: 8]);
-                    9 : send(src_mac[16 +: 8]);
-                    10: send(src_mac[ 8 +: 8]);
-                    11: send(src_mac[ 0 +: 8]);
-                    // io_manager 会将 ARP 请求的 src MAC & IP 写入 fifo，而 dst MAC & IP 则丢弃
-                    // 返回 ARP 回复的时候，此模块手动插入路由器的 MAC & IP
-                    26: send(src_mac[40 +: 8]);
-                    27: send(src_mac[32 +: 8]);
-                    28: send(src_mac[24 +: 8]);
-                    29: send(src_mac[16 +: 8]);
-                    30: send(src_mac[ 8 +: 8]);
-                    31: send(src_mac[ 0 +: 8]);
-                    32: send(src_ip [24 +: 8]);
-                    33: send(src_ip [16 +: 8]);
-                    34: send(src_ip [ 8 +: 8]);
-                    35: send(src_ip [ 0 +: 8]);
-                    default: begin
-                        send_fifo();
+                if (bad) begin
+                    // 丢弃 fifo
+                    tx_data <= 'x;
+                    tx_valid <= 0;
+                    tx_last <= 0;
+                    fifo_rd_en <= 1;
+                end else if (is_ip) begin
+                    // IP 包
+                    case (send_cnt)
+                        0 : send(dst_mac[40 +: 8]);
+                        1 : send(dst_mac[32 +: 8]);
+                        2 : send(dst_mac[24 +: 8]);
+                        3 : send(dst_mac[16 +: 8]);
+                        4 : send(dst_mac[ 8 +: 8]);
+                        5 : send(dst_mac[ 0 +: 8]);
+                        6 : send(src_mac[40 +: 8]);
+                        7 : send(src_mac[32 +: 8]);
+                        8 : send(src_mac[24 +: 8]);
+                        9 : send(src_mac[16 +: 8]);
+                        10: send(src_mac[ 8 +: 8]);
+                        11: send(src_mac[ 0 +: 8]);
+                        // IP Checksum 对于低 8 位为 FF 的情况要特殊处理
+                        // 其余情况，以及 TTL-1 应当在 io_manager 写入 fifo 之时就处理了
+                        28, 29: begin
+                            tx_data <= ip_checksum_ff ? fifo_data[7:0] + 1 : fifo_data[7:0];
+                            tx_valid <= 1;
+                            tx_last <= 0;
+                            fifo_rd_en <= 1;
+                        end
+                        default: begin
+                            send_fifo();
+                        end
+                    endcase
+                end else begin
+                    // ARP 包
+                    case (send_cnt)
+                        0 : send(dst_mac[40 +: 8]);
+                        1 : send(dst_mac[32 +: 8]);
+                        2 : send(dst_mac[24 +: 8]);
+                        3 : send(dst_mac[16 +: 8]);
+                        4 : send(dst_mac[ 8 +: 8]);
+                        5 : send(dst_mac[ 0 +: 8]);
+                        6 : send(src_mac[40 +: 8]);
+                        7 : send(src_mac[32 +: 8]);
+                        8 : send(src_mac[24 +: 8]);
+                        9 : send(src_mac[16 +: 8]);
+                        10: send(src_mac[ 8 +: 8]);
+                        11: send(src_mac[ 0 +: 8]);
+                        // io_manager 会将 ARP 请求的 src MAC & IP 写入 fifo，而 dst MAC & IP 则丢弃
+                        // 返回 ARP 回复的时候，此模块手动插入路由器的 MAC & IP
+                        26: send(src_mac[40 +: 8]);
+                        27: send(src_mac[32 +: 8]);
+                        28: send(src_mac[24 +: 8]);
+                        29: send(src_mac[16 +: 8]);
+                        30: send(src_mac[ 8 +: 8]);
+                        31: send(src_mac[ 0 +: 8]);
+                        32: send(src_ip [24 +: 8]);
+                        33: send(src_ip [16 +: 8]);
+                        34: send(src_ip [ 8 +: 8]);
+                        35: send(src_ip [ 0 +: 8]);
+                        default: begin
+                            send_fifo();
+                        end
+                    endcase
+                end
+                // 是否发完
+                if (fifo_data[8]) begin
+                    working <= 0;
+                    send_cnt <= 0;
+                end else begin
+                    working <= 1;
+                    if (send_cnt == '1) begin
+                        send_cnt <= '1;
+                    end else begin
+                        send_cnt <= send_cnt + 1;
                     end
-                endcase
+                end
             end
-            // 是否发完
-            if (is_last) begin
-                working <= 0;
-                send_cnt <= 0;
-            end else begin
-                working <= 1;
-                send_cnt <= send_cnt + 1;
-            end
+            
             // 可能来了下一个发送
             if (start) begin
                 has_job_pending <= 1;
@@ -216,8 +229,8 @@ always_ff @(negedge clk_125M) begin
                 vlan_id <= input_vlan_id;
                 is_ip <= input_is_ip;
                 ip_checksum_ff <= input_ip_checksum_ff;
+                bad <= input_bad;
                 send_cnt <= 0;
-                packet_size <= input_packet_size;
             end else begin  
                 working <= 0;
             end

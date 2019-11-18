@@ -89,30 +89,6 @@ always_ff @ (negedge clk_125M) begin
         fd = #100 $fopen("io_manager_test.mem", "r");
 end
 
-
-wire [4:0] debug_state;
-wire [15:0] debug_countdown;
-wire [5:0] debug_current;
-wire [5:0] debug_tx;
-wire [5:0] debug_last;
-wire [6:0] debug_case;
-wire [3:0] debug_process;
-string io_state;
-
-always_comb case (debug_state)
-    0: io_state = "Idle";
-    1: io_state = "Load_Unprocessed_Packet";
-    2: io_state = "Load_Processing_Packet";
-    3: io_state = "Discard_Packet";
-    4: io_state = "Send_Load_Packet";
-    5: io_state = "Send_Detrailer_Packet";
-    6: io_state = "Send_Packet";
-    7: io_state = "Send_Load_Another_Unprocessed";
-    8: io_state = "Send_Load_Another_Processing";
-    9: io_state = "Send_Load_Another_Processed";
-    10: io_state = "Send_Discard_Another";
-endcase
-
 logic clk_internal;
 logic clk_btn;
 logic [3:0]  btn;
@@ -120,8 +96,11 @@ logic [15:0] led_out;
 logic [7:0]  digit0_out;
 logic [7:0]  digit1_out;
 
+
+logic   [8:0] fifo_din;
+logic   [8:0] fifo_wr_en;
+logic   [5:0] read_cnt;
 io_manager inst (
-    .clk_fifo(clk_125M),
     .*
 );
 

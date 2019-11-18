@@ -123,7 +123,6 @@ eth_mac_fifo_block trimac_fifo_block (
     // .inband_clock_speed           (inband_clock_speed),
     // .inband_duplex_status         (inband_duplex_status),
 
-    // 这是干嘛的？
     // Configuration Vectors
     //-----------------------
     .rx_configuration_vector      (80'b10100000100110),
