@@ -135,30 +135,24 @@ begin
         $display("Assertion fails at rx_data == %02x (expected %02x)", rx_data, expected);
         bad <= 1;
     end
-end
-endtask
+end endtask
 
-task fifo_write_none;
-begin
+task fifo_write_none; begin
     fifo_din <= 'x;
     fifo_wr_en <= 0;
-end
-endtask
+end endtask
 
-task fifo_write_rx;
-begin
+task fifo_write_rx; begin
     fifo_din <= {rx_last, rx_data};
     fifo_wr_en <= 1;
-end
-endtask
+end endtask
 
 task fifo_write;
 input wire [7:0] data;
 begin
     fifo_din <= {rx_last, data};
     fifo_wr_en <= 1;
-end
-endtask
+end endtask
 
 always_ff @(posedge clk_125M) begin
     if (!rst_n) begin
@@ -260,8 +254,8 @@ always_ff @(posedge clk_125M) begin
             casez ({bad, is_ip})
                 // ARP
                 2'b00: begin
-                    // 45 字节后开始发送
-                    tx_start <= read_cnt == 45;
+                    // 46 字节后开始发送
+                    tx_start <= read_cnt == 46;
                     case (read_cnt)
                         // 检验目标 MAC 为广播
                         18: begin
@@ -281,19 +275,19 @@ always_ff @(posedge clk_125M) begin
                         42: assert_rx(router_ip[24 +: 8]);
                         43: assert_rx(router_ip[16 +: 8]);
                         44: assert_rx(router_ip[ 8 +: 8]);
-                        // 如果是正确的 IP 则开始发送
-                        45: begin
-                            assert_rx(router_ip[ 0 +: 8]);
+                        45: assert_rx(router_ip[ 0 +: 8]);
+                        46: begin
+                            // 开始发送
                             input_dst_mac <= src_mac;
                             input_vlan_id <= vlan_id;
                             input_is_ip <= is_ip;
-                            input_bad <= bad || (rx_data != router_ip[0 +: 8]);
+                            input_bad <= bad;
                         end
                     endcase
                 end
                 // IP
                 2'b01: begin
-                    // todo
+                    // 发送取决于 packet_processor 返回结果
                     case (read_cnt)
                         24: bad <= 1;
                     endcase
@@ -301,7 +295,8 @@ always_ff @(posedge clk_125M) begin
                 // Bad
                 2'b1?: begin
                     input_bad <= 1;
-                    tx_start <= read_cnt == 45;
+                    // 这里用 46 因为 bad 最晚在 45 被设置
+                    tx_start <= read_cnt == 46;
                 end
             endcase
 
