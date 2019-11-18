@@ -75,6 +75,9 @@ xpm_fifo_sync #(
 // 此后不再读内容，rx_last 时向 fifo 扔一个带 last 标志的字节，然后让 tx 清 fifo
 reg  bad;
 
+// 已经读了多少字节
+reg  [5:0]  read_cnt;
+
 // 包的信息
 reg  [47:0] dst_mac;
 reg  [47:0] src_mac;
@@ -83,8 +86,16 @@ reg  is_ip;
 reg  ip_checksum_ff;
 reg  [31:0] dst_ip;
 
-// 已经读了多少字节
-reg  [5:0]  read_cnt;
+// 让 tx_manager 开始发送当前包的信号
+reg  tx_start;
+
+// 在 tx_start 时锁存
+reg  [47:0] input_dst_mac;
+reg  [2:0]  input_vlan_id;
+reg  input_is_ip;
+reg  input_ip_checksum_ff;
+reg  [31:0] input_dst_ip;
+reg  input_bad;
 
 // 根据 vlan_id 得出的路由器 MAC
 wire [47:0] router_mac;
@@ -97,17 +108,14 @@ address router_address (
     .ip(router_ip)
 );
 
-// 让 tx_manager 开始发送当前包的信号
-reg  tx_start;
-
 tx_manager tx_manager_inst (
     .clk_125M,
     .rst_n,
-    .input_dst_mac(src_mac),
-    .input_vlan_id(vlan_id),
-    .input_is_ip(is_ip),
-    .input_ip_checksum_ff(ip_checksum_ff),
-    .input_bad(bad),
+    .input_dst_mac,
+    .input_vlan_id,
+    .input_is_ip,
+    .input_ip_checksum_ff,
+    .input_bad,
     .start(tx_start),
     .fifo_data(fifo_dout),
     .fifo_empty,
@@ -198,7 +206,12 @@ always_ff @(posedge clk_125M) begin
                 2'b00: begin
                     // ARP 包中，12 字节后，除目标 MAC IP 以外都入 fifo
                     if (read_cnt >= 12 && (read_cnt < 36 || read_cnt >= 46)) begin
-                        fifo_din <= {rx_last, rx_data};
+                        // 将 ARP Request 改为 ARP Reply
+                        if (read_cnt == 25) begin
+                            fifo_din <= {rx_last, 8'h02};
+                        end else begin
+                            fifo_din <= {rx_last, rx_data};
+                        end
                         fifo_wr_en <= 1;
                     end else begin
                         fifo_din <= 'x;
@@ -256,6 +269,10 @@ always_ff @(posedge clk_125M) begin
                         45: begin
                             assert_rx(router_ip[ 0 +: 8]);
                             tx_start <= 1;
+                            input_dst_mac <= src_mac;
+                            input_vlan_id <= vlan_id;
+                            input_is_ip <= is_ip;
+                            input_bad <= bad;
                         end
                         default: begin
                             tx_start <= 0;

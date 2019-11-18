@@ -61,7 +61,7 @@ always_ff @ (posedge clk_125M) begin
             state = state + 1;
     endcase
     else
-        fd = #5000 $fopen("eth_frame_test.mem", "r");
+        fd = #1000 $fopen("eth_frame_test.mem", "r");
 end
 
 genvar i;
