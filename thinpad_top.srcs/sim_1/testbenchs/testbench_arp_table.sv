@@ -19,26 +19,25 @@ module testbench_arp_table();
     logic [`MAC_WIDTH-1:0] insert_mac;
     logic [`PORT_WIDTH-1:0] insert_port;
     logic insert_valid;
-    logic insert_ready;
+    logic insert_ready = 1;
     //logic [`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH-1:0] data_douta_debug;
     //logic [`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH-1:0] data_doutb_debug;
     
-    arp_table arp_table_inst(
+    simple_arp_table arp_table_inst(
         .clk(clk),
-        .rst(rst),
+        .rst_n(~rst),
 
-        .lookup_ip(lookup_ip),
-        .lookup_mac(lookup_mac),
-        .lookup_port(lookup_port),
-        .lookup_ip_valid(lookup_ip_valid),
-        .lookup_mac_found(lookup_mac_found),
-        .lookup_mac_not_found(lookup_mac_not_found),
+        .ip_query(lookup_ip),
+        .mac_output(lookup_mac),
+        .vlan_output(lookup_port),
+        .query(lookup_ip_valid),
+        .found(lookup_mac_found),
+        .done(lookup_mac_not_found),
 
-        .insert_ip(insert_ip),
-        .insert_mac(insert_mac),
-        .insert_port(insert_port),
-        .insert_valid(insert_valid),
-        .insert_ready(insert_ready)
+        .ip_insert(insert_ip),
+        .mac_input(insert_mac),
+        .vlan_input(insert_port),
+        .write(insert_valid)
         //.data_douta_debug(data_douta_debug)
         //.data_doutb_debug(data_doutb_debug)
     );
@@ -66,7 +65,7 @@ module testbench_arp_table();
         input bit[47:0] mac;    // mac 地址
         input bit[1:0] port;    // 物理接口
     begin
-        $display("insert %d.%d.%d.%d -> %2x:%2x:%2x:%2x:%2x:%2x@%d",
+        $display("insert %0d.%0d.%0d.%0d -> %2x:%2x:%2x:%2x:%2x:%2x@%d",
             addr[31:24], addr[23:16], addr[15:8], addr[7:0],
             mac[47:40], mac[39:32], mac[31:24], mac[23:16], mac[15:8], mac[7:0],
             port);
@@ -94,19 +93,19 @@ module testbench_arp_table();
         lookup_ip_valid <= 0;
         wait_for_result();
 
-        if (lookup_mac_not_found) begin
-            $display("get    none");
-            if (expect_mac == '0 && expect_port == '0)
+        if (lookup_mac_found) begin
+            $display("get    %2x:%2x:%2x:%2x:%2x:%2x@%d",
+                lookup_mac[47:40], lookup_mac[39:32], lookup_mac[31:24], 
+                lookup_mac[23:16], lookup_mac[15:8], lookup_mac[7:0], lookup_port);
+            if (expect_mac == lookup_mac && expect_port == lookup_port)
                 $display("correct");
             else
                 $display("WRONG! Expecting %2x:%2x:%2x:%2x:%2x:%2x@%d",
                     expect_mac[47:40], expect_mac[39:32], expect_mac[31:24], 
                     expect_mac[23:16], expect_mac[15:8], expect_mac[7:0], expect_port);
         end else begin
-            $display("get    %2x:%2x:%2x:%2x:%2x:%2x@%d",
-                lookup_mac[47:40], lookup_mac[39:32], lookup_mac[31:24], 
-                lookup_mac[23:16], lookup_mac[15:8], lookup_mac[7:0], lookup_port);
-            if (expect_mac == lookup_mac && expect_port == lookup_port)
+            $display("get    none");
+            if (expect_mac == '0 && expect_port == '0)
                 $display("correct");
             else
                 $display("WRONG! Expecting %2x:%2x:%2x:%2x:%2x:%2x@%d",
