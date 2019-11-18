@@ -260,7 +260,23 @@ always_ff @(posedge clk_125M) begin
             casez ({bad, is_ip})
                 // ARP
                 2'b00: begin
+                    // 45 字节后开始发送
+                    tx_start <= read_cnt == 45;
                     case (read_cnt)
+                        // 检验目标 MAC 为广播
+                        18: begin
+                            if (dst_mac != '1 || rx_data != 8'h00) begin
+                                bad <= 1;
+                            end
+                        end
+                        // 检验其他 ARP 东西
+                        19: assert_rx(8'h01);
+                        20: assert_rx(8'h08);
+                        21: assert_rx(8'h00);
+                        22: assert_rx(8'h06);
+                        23: assert_rx(8'h04);
+                        24: assert_rx(8'h00);
+                        25: assert_rx(8'h01);
                         // 检查目标 IP 是否为路由器自己 IP
                         42: assert_rx(router_ip[24 +: 8]);
                         43: assert_rx(router_ip[16 +: 8]);
@@ -268,22 +284,24 @@ always_ff @(posedge clk_125M) begin
                         // 如果是正确的 IP 则开始发送
                         45: begin
                             assert_rx(router_ip[ 0 +: 8]);
-                            tx_start <= 1;
                             input_dst_mac <= src_mac;
                             input_vlan_id <= vlan_id;
                             input_is_ip <= is_ip;
-                            input_bad <= bad;
-                        end
-                        default: begin
-                            tx_start <= 0;
+                            input_bad <= bad || (rx_data != router_ip[0 +: 8]);
                         end
                     endcase
                 end
                 // IP
                 2'b01: begin
+                    // todo
                     case (read_cnt)
                         24: bad <= 1;
                     endcase
+                end
+                // Bad
+                2'b1?: begin
+                    input_bad <= 1;
+                    tx_start <= read_cnt == 45;
                 end
             endcase
 
@@ -301,5 +319,19 @@ always_ff @(posedge clk_125M) begin
         end
     end
 end
+
+// 正常发包显示在高位数码管
+digit_loop debug_send (
+    .rst_n(rst_n),
+    .clk(tx_start),
+    .digit_out(digit1_out)
+);
+
+// 丢包显示在低位数码管
+digit_loop debug_discard (
+    .rst_n(rst_n),
+    .clk(bad),
+    .digit_out(digit0_out)
+);
 
 endmodule
