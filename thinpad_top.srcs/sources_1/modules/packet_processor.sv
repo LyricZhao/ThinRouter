@@ -3,6 +3,7 @@
 
 module packet_processor (
     input  wire  clk,                   // 125M 时钟
+    input  wire  clk_routing_table,     // 路由表专用时钟
     input  wire  rst_n,                 // 初始化
     input  wire  add_arp,               // 添加 ARP 项
     input  wire  add_routing,           // 添加路由项
@@ -47,8 +48,8 @@ reg  ip_insert;
 wire ip_complete;
 wire [31:0] ip_nexthop;
 wire ip_found = ip_nexthop != '0;
-routing_table routing_table_inst (
-    .clk,
+routing_table_adapter routing_table_inst (
+    .clk_routing_table,
     .rst(!rst_n),
 
     .lookup_valid(ip_lookup),

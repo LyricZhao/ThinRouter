@@ -141,20 +141,12 @@ end
 
 always clk = #4 ~clk;
 
-routing_table routing_table_inst(
-    .clk(clk),
-    .rst(rst),
+reg clk_async = 1;
+always clk_async = #11 ~clk_async;
 
-    .lookup_insert_addr(lookup_insert_addr),
-    .lookup_valid(lookup_valid),
-
-    .insert_valid(insert_valid),
-    .insert_nexthop(insert_nexthop),
-    .insert_mask_len(insert_mask_len),
-
-    .lookup_insert_ready(lookup_insert_ready),
-    .lookup_output_valid(lookup_output_valid),
-    .lookup_output_nexthop(lookup_output_nexthop)
+routing_table_adapter routing_table_inst(
+    .clk(clk_async),
+    .*
 );
 
 endmodule
