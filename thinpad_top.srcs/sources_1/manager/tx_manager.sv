@@ -31,7 +31,7 @@ IP 包
 -   6   src MAC         根据 input_vlan_id 推断
 -   12  VLAN tag        fifo
 -   16  IP header       fifo
-    28  IP checksum     fifo （根据 input_ip_checksum_ff 可能额外处理）
+    28  IP checksum     fifo （根据 input_ip_checksum_overflow 可能额外处理）
 -   38  IP payload      fifo
 ARP 包
 -   0   dst MAC         input_dst_mac
@@ -60,7 +60,7 @@ module tx_manager (
     // 是 IP 包 / ARP 包
     input   wire    input_is_ip,
     // 如果 ip checksum 的低 8 位是 ff，则还需要再处理（不然就由 io_manager 流上处理了）
-    input   wire    input_ip_checksum_ff,
+    input   wire    input_ip_checksum_overflow,
     // 如果出现问题，需要直接丢掉 fifo 中数据，直到 fifo 传来 last
     input   wire    input_bad,
 
@@ -82,13 +82,22 @@ module tx_manager (
     input  wire     tx_ready
 );
 
+// 接到处理指示后，记录各种信息
 reg [47:0] dst_mac;
 reg [47:0] src_mac;
 reg [31:0] src_ip;
 reg [2:0]  vlan_id;
 reg is_ip;
-reg ip_checksum_ff;
+reg ip_checksum_overflow;
 reg bad;
+
+// 在处理过程中又接到处理指示，也记录下来
+reg [47:0] pending_dst_mac;
+reg [2:0]  pending_vlan_id;
+reg pending_is_ip;
+reg pending_ip_checksum_overflow;
+reg pending_bad;
+
 reg working;
 reg has_job_pending;
 reg [5:0]  send_cnt;
@@ -159,10 +168,23 @@ always_ff @(negedge clk_125M) begin
                         9 : send(src_mac[16 +: 8]);
                         10: send(src_mac[ 8 +: 8]);
                         11: send(src_mac[ 0 +: 8]);
-                        // IP Checksum 对于低 8 位为 FF 的情况要特殊处理
-                        // 其余情况，以及 TTL-1 应当在 io_manager 写入 fifo 之时就处理了
-                        28, 29: begin
-                            tx_data <= ip_checksum_ff ? fifo_data[7:0] + 1 : fifo_data[7:0];
+                        // VLAN
+                        15: begin
+                            tx_data <= {fifo_data[7:3], vlan_id};
+                            tx_valid <= 1;
+                            tx_last <= 0;
+                            fifo_rd_en <= 1;
+                        end
+                        // IP Checksum 对于 >= 0xfeff 的情况要特殊处理
+                        // checksum + 0x100，以及 TTL - 1 应当在 io_manager 写入 fifo 之时就处理了
+                        28: begin
+                            tx_data <= ip_checksum_overflow ? 8'h0 : fifo_data[7:0];
+                            tx_valid <= 1;
+                            tx_last <= 0;
+                            fifo_rd_en <= 1;
+                        end
+                        29: begin
+                            tx_data <= ip_checksum_overflow ? fifo_data[7:0] + 1 : fifo_data[7:0];
                             tx_valid <= 1;
                             tx_last <= 0;
                             fifo_rd_en <= 1;
@@ -207,6 +229,7 @@ always_ff @(negedge clk_125M) begin
                 if (fifo_data[8]) begin
                     working <= 0;
                     send_cnt <= 0;
+                    // $display("tx_manager send complete\n");
                 end else begin
                     working <= 1;
                     if (send_cnt == '1) begin
@@ -219,18 +242,38 @@ always_ff @(negedge clk_125M) begin
             
             // 可能来了下一个发送
             if (start) begin
+                // if (input_bad) $display("tx_manager new bad job pending\n");
+                // else $display("tx_manager new job pending\n");
                 has_job_pending <= 1;
+                pending_dst_mac <= input_dst_mac;
+                pending_vlan_id <= input_vlan_id;
+                pending_is_ip <= input_is_ip;
+                pending_ip_checksum_overflow <= input_ip_checksum_overflow;
+                pending_bad <= input_bad;
             end
         end else begin  // !working
-            if (has_job_pending || start) begin
+            if (has_job_pending) begin
+                has_job_pending <= 0;
+                working <= 1;
+                dst_mac <= pending_dst_mac;
+                vlan_id <= pending_vlan_id;
+                is_ip <= pending_is_ip;
+                ip_checksum_overflow <= pending_ip_checksum_overflow;
+                bad <= pending_bad;
+                send_cnt <= 0;
+                // if (pending_bad) $display("tx_manager start pending bad");
+                // else $display("tx_manager start pending");
+            end else if (start) begin
                 has_job_pending <= 0;
                 working <= 1;
                 dst_mac <= input_dst_mac;
                 vlan_id <= input_vlan_id;
                 is_ip <= input_is_ip;
-                ip_checksum_ff <= input_ip_checksum_ff;
+                ip_checksum_overflow <= input_ip_checksum_overflow;
                 bad <= input_bad;
                 send_cnt <= 0;
+                // if (input_bad) $display("tx_manager start new bad");
+                // else $display("tx_manager start new");
             end else begin  
                 working <= 0;
             end

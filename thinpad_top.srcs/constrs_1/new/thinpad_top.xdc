@@ -321,3 +321,9 @@ set_property CONFIG_VOLTAGE 3.3 [current_design]
 connect_debug_port dbg_hub/clk [get_nets u_ila_1_CLK]
 
 
+
+
+
+
+
+set_false_path -through [get_nets -filter { NAME =~  "*" } -of_objects [get_cells -hierarchical -filter { NAME =~  "*arp_table_inst*" }]]

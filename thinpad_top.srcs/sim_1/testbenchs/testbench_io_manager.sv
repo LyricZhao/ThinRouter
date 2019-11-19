@@ -70,6 +70,7 @@ always_ff @ (negedge clk_125M) begin
                 state = WAIT;
                 rx_valid = 0;
                 rx_last = 0;
+                $display("%0t", $realtime);
                 $write("Info:\t%s", packet_info);
                 $display("Router IN:\t%s\n", rx_packet);
                 // $display("");

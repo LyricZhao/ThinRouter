@@ -8,6 +8,7 @@ module packet_processor (
     input  wire  add_routing,           // 添加路由项
     input  wire  process_arp,           // 查询 ARP
     input  wire  process_ip,            // 处理 IP 包
+    input  wire  reset,                 // 手动清除 done bad 标志
 
     input  wire  [31:0] ip_input,       // 输入 IP
     input  wire  [7:0]  mask_input,     // 掩码长度（用于插入路由）
@@ -41,11 +42,11 @@ always_comb begin
 end
 
 // 路由表
-logic ip_lookup;
-logic ip_insert;
-wire  ip_complete;
-wire  [31:0] ip_nexthop;
-wire  ip_found = ip_nexthop != '0;
+reg  ip_lookup;
+reg  ip_insert;
+wire ip_complete;
+wire [31:0] ip_nexthop;
+wire ip_found = ip_nexthop != '0;
 routing_table routing_table_inst (
     .clk,
     .rst(!rst_n),
@@ -101,6 +102,10 @@ always_ff @ (negedge clk) begin
     end else begin
         case (state)
             Idle: begin
+                if (reset) begin
+                    done <= 0;
+                    bad <= 0;
+                end
                 case ({add_arp, add_routing, process_arp, process_ip})
                     4'b0000: begin
                         arp_add_entry <= 0;
@@ -116,6 +121,8 @@ always_ff @ (negedge clk) begin
                         arp_query <= 0;
                         ip_lookup <= 0;
                         ip_insert <= 0;
+                        done <= 0;
+                        bad <= 0;
                         arp_query_nexthop <= 0;
                         state <= AddArp;
                     end
@@ -125,6 +132,8 @@ always_ff @ (negedge clk) begin
                         arp_query <= 0;
                         ip_lookup <= 0;
                         ip_insert <= 1;
+                        done <= 0;
+                        bad <= 0;
                         arp_query_nexthop <= 0;
                         state <= AddRouting;
                     end
@@ -134,11 +143,15 @@ always_ff @ (negedge clk) begin
                         arp_query <= 1;
                         ip_lookup <= 0;
                         ip_insert <= 0;
+                        done <= 0;
+                        bad <= 0;
                         arp_query_nexthop <= 0;
                         state <= ProcessArp;
                     end
                     4'b0001: begin
                         // 开始处理 IP 包
+                        done <= 0;
+                        bad <= 0;
                         if (subnet == 0) begin
                             // 不是直连，需要查路由表
                             arp_add_entry <= 0;
@@ -167,8 +180,6 @@ always_ff @ (negedge clk) begin
                         $display("ERROR!");
                     end
                 endcase
-                done <= 0;
-                bad <= 0;
             end
             AddArp: begin
                 arp_add_entry <= 0;
@@ -178,7 +189,7 @@ always_ff @ (negedge clk) begin
                 done <= arp_done;
                 bad <= 0;
                 if (arp_done) begin
-                    $display("ARP entry added\n");
+                    // $display("ARP entry added\n");
                     state <= Idle;
                 end else begin
                     state <= AddArp;
@@ -192,7 +203,7 @@ always_ff @ (negedge clk) begin
                 done <= ip_complete;
                 bad <= 0;
                 if (ip_complete) begin
-                    $display("Routing entry added\n");
+                    // $display("Routing entry added\n");
                     state <= Idle;
                 end else begin
                     state <= AddRouting;
@@ -206,7 +217,8 @@ always_ff @ (negedge clk) begin
                 done <= arp_done;
                 bad <= arp_done && !arp_found;
                 if (arp_done) begin
-                    $display("ARP complete\n");
+                    // $display("ARP complete\n");
+                    arp_query_nexthop <= 0;
                     state <= Idle;
                 end else begin
                     state <= ProcessArp;
@@ -222,12 +234,12 @@ always_ff @ (negedge clk) begin
                     if (ip_found) begin
                         // 找到 nexthop
                         arp_query <= 1;
-                        $display("Nexthop found, searching ARP table\n");
+                        // $display("Nexthop found, searching ARP table\n");
                         state <= ProcessArp;
                     end else begin
                         // 没有找到
                         arp_query <= 0;
-                        $display("Not found in routing table\n");
+                        // $display("Not found in routing table\n");
                         state <= Idle;
                     end
                 end else begin

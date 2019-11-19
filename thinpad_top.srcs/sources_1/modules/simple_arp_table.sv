@@ -27,10 +27,10 @@ module simple_arp_table #(
     input   wire    [31:0]  ip_query,   // 查询的 IP
     input   wire    [47:0]  mac_input,  // 插入的 MAC
     input   wire    [2:0]   vlan_input, // 插入的 VLAN ID
-    output  wire    [47:0]  mac_output, // 查询得到的 MAC
-    output  wire    [2:0]   vlan_output,// 查询得到的 VLAN ID
-    output  wire    done,               // 表示查询结束
-    output  wire    found               // 表示查到了结果
+    output  reg     [47:0]  mac_output, // 查询得到的 MAC
+    output  reg     [2:0]   vlan_output,// 查询得到的 VLAN ID
+    output  reg     done,               // 表示查询结束
+    output  reg     found               // 表示查到了结果
 );
 
 reg  [$clog2(ENTRY_COUNT)-1:0]  write_head;
@@ -39,32 +39,34 @@ reg  [31:0] ip_entries[ENTRY_COUNT-1:0];
 reg  [47:0] mac_entries[ENTRY_COUNT-1:0];
 reg  [2:0]  vlan_entries[ENTRY_COUNT-1:0];
 
-wire match [2*ENTRY_COUNT-1:0];
-wire [47:0] mac_entries_match[2*ENTRY_COUNT-1:0];
-wire [2:0]  vlan_entries_match[2*ENTRY_COUNT-1:0];
+always_comb begin
+    if (ip_query == '0) begin
+        found = 0;
+        mac_output = 'x;
+        vlan_output = 'x;
+    end else begin
+        // found = 1;
+        // mac_output = 'x;
+        // vlan_output = 'x;
+        found = 0;
+        for (int i = 0; i < ENTRY_COUNT; i++) begin
+            if (ip_query == ip_entries[i]) begin
+                found = 1;
+                mac_output = mac_entries[i];
+                vlan_output = vlan_entries[i];
+            end
+        end
+    end
+end
 
-// 用满二叉树的形式来连接，使得 match[0] 为所有的或
-genvar i;
-generate for (i = 0; i < ENTRY_COUNT; i++) begin
-    assign mac_entries_match[ENTRY_COUNT+i] = match[ENTRY_COUNT+i] ? mac_entries[i] : '0;
-    assign vlan_entries_match[ENTRY_COUNT+i] = match[ENTRY_COUNT+i] ? vlan_entries[i] : '0;
-    assign match[ENTRY_COUNT+i] = ip_query == ip_entries[i];
-end
-endgenerate
-generate for (i = 1; i < ENTRY_COUNT; i++) begin
-    assign mac_entries_match[i] = mac_entries_match[2*i+1] | mac_entries_match[2*i];
-    assign vlan_entries_match[i] = vlan_entries_match[2*i+1] | vlan_entries_match[2*i];
-    assign match[i] = match[2*i+1] | match[2*i];
-end
-endgenerate
-assign done = 1;
-assign found = match[1];
-assign mac_output = mac_entries_match[1];
-assign vlan_output = vlan_entries_match[1];
+reg cooling;
+reg need_write;
 
 always_ff @ (posedge clk) begin
     if (!rst_n) begin
         // 初始化
+        done <= 1;
+        cooling <= 0;
         write_head <= '0;
         // 在 synthesis 中，for loop 会被展开
         for (int i = 0; i < ENTRY_COUNT; i++) begin
@@ -72,21 +74,33 @@ always_ff @ (posedge clk) begin
             mac_entries[i] <= '0;
             vlan_entries[i] <= '0;
         end
-    end else if (write && !match[1]) begin
-        // 记录当前得到的 IP MAC VLAN
-        // 如果已经存在记录则无视
-        $display("ARP table saving entry:");
-        $write("\tIP:\t");
-        `DISPLAY_IP(ip_insert);
-        $write("\tMAC:\t");
-        `DISPLAY_MAC(mac_input);
-        $display("\tVLAN ID:\t%d", vlan_input);
-        $display("");
-        
-        ip_entries[write_head] <= ip_insert;
-        mac_entries[write_head] <= mac_input;
-        vlan_entries[write_head] <= vlan_input;
-        write_head <= write_head + 1;
+    end else if (write || query) begin
+        cooling <= '1;
+        need_write <= write;
+        done <= 0;
+    end else begin
+        if (cooling > 0) begin
+            cooling <= cooling - 1;
+        end
+        if (cooling == 1) begin
+            done <= 1;
+            if (need_write && !found) begin
+                // 记录当前得到的 IP MAC VLAN
+                // 如果已经存在记录则无视
+                $display("ARP table saving entry:");
+                $write("\tIP:\t");
+                `DISPLAY_IP(ip_insert);
+                $write("\tMAC:\t");
+                `DISPLAY_MAC(mac_input);
+                $display("\tVLAN ID:\t%d", vlan_input);
+                $display("");
+                
+                ip_entries[write_head] <= ip_insert;
+                mac_entries[write_head] <= mac_input;
+                vlan_entries[write_head] <= vlan_input;
+                write_head <= write_head + 1;
+            end
+        end
     end
 end
 

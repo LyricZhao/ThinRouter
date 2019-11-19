@@ -32,10 +32,10 @@ module io_manager (
     input   wire    tx_ready,           // 外面是否准备接收：当前不处理外部不 ready 的逻辑 （TODO）
     output  bit     tx_last             // 数据传出结束
 
-    ,
-    output  logic   [8:0] fifo_din,
-    output  logic   [8:0] fifo_wr_en,
-    output  logic   [5:0] read_cnt
+    // ,
+    // output  logic   [8:0] fifo_din,
+    // output  logic   [8:0] fifo_wr_en,
+    // output  logic   [5:0] read_cnt
 
 );
 
@@ -83,19 +83,15 @@ reg  [47:0] dst_mac;
 reg  [47:0] src_mac;
 reg  [2:0]  vlan_id;
 reg  is_ip;
-reg  ip_checksum_ff;
-reg  [31:0] dst_ip;
+reg  ip_checksum_overflow;  // checksum >= 0xfeff，则输出 checksum 高 8 位为 0，低 8 位 +1
+reg  ip_checksum_fe;     // checksum == 0xfe??
 
 // 让 tx_manager 开始发送当前包的信号
 reg  tx_start;
 
-// 在 tx_start 时锁存
-reg  [47:0] input_dst_mac;
-reg  [2:0]  input_vlan_id;
-reg  input_is_ip;
-reg  input_ip_checksum_ff;
-reg  [31:0] input_dst_ip;
-reg  input_bad;
+// 提供的信息
+reg  [47:0] tx_dst_mac;
+reg  [2:0]  tx_vlan_id;
 
 // 根据 vlan_id 得出的路由器 MAC
 wire [47:0] router_mac;
@@ -111,11 +107,11 @@ address router_address (
 tx_manager tx_manager_inst (
     .clk_125M,
     .rst_n,
-    .input_dst_mac,
-    .input_vlan_id,
-    .input_is_ip,
-    .input_ip_checksum_ff,
-    .input_bad,
+    .input_dst_mac(tx_dst_mac),
+    .input_vlan_id(tx_vlan_id),
+    .input_is_ip(is_ip),
+    .input_ip_checksum_overflow(ip_checksum_overflow),
+    .input_bad(bad),
     .start(tx_start),
     .fifo_data(fifo_dout),
     .fifo_empty,
@@ -125,6 +121,39 @@ tx_manager tx_manager_inst (
     .tx_last
     // tx_ready
     // abort
+);
+
+// 需要处理的数据
+reg  [31:0] ip_input;
+wire [47:0] mac_result;
+wire [2:0]  vlan_result;
+
+// 处理信号
+reg  process_reset;
+reg  add_arp;
+reg  add_routing;
+reg  process_arp;
+reg  process_ip;
+wire process_done;
+wire process_bad;
+
+packet_processor packet_processor_inst (
+    .clk(clk_125M),
+    .rst_n,
+    .reset(process_reset),
+    .add_arp,
+    .add_routing,
+    .process_arp,
+    .process_ip,
+    .ip_input,
+    //.mask_input(),
+    //.nexthop_input,
+    .mac_input(src_mac),
+    .vlan_input(vlan_id),
+    .done(process_done),
+    .bad(process_bad),
+    .mac_output(mac_result),
+    .vlan_output(vlan_result)
 );
 
 // 断言 rx_data 的数据，如果不一样则置 bad 为 1
@@ -157,6 +186,12 @@ end endtask
 always_ff @(posedge clk_125M) begin
     if (!rst_n) begin
         // 复位
+        process_reset <= 0;
+        add_arp <= 0;
+        add_routing <= 0;
+        process_arp <= 0;
+        process_ip <= 0;
+
         read_cnt <= 0;
         tx_start <= 0;
     end else begin
@@ -217,14 +252,14 @@ always_ff @(posedge clk_125M) begin
                     case (read_cnt)
                         // TTL
                         26: begin
-                            if (rx_data == '0) // TTL = 0
-                                bad <= 1;
-                            fifo_din <= {rx_last, rx_data - 1};
+                            fifo_din[8] <= rx_last;
+                            fifo_din[7:0] <= rx_data - 1;
                             fifo_wr_en <= 1;
                         end
                         // checksum 高 8 位
                         28: begin
-                            fifo_din <= {rx_last, rx_data + 1};
+                            fifo_din[8] <= rx_last;
+                            fifo_din[7:0] <= rx_data + 1;
                             fifo_wr_en <= 1;
                         end
                         // 其他情况，12 字节后全部进 fifo，其中 TTL 和 checksum 需要处理
@@ -255,7 +290,10 @@ always_ff @(posedge clk_125M) begin
                 // ARP
                 2'b00: begin
                     // 46 字节后开始发送
+                    tx_dst_mac <= src_mac;
+                    tx_vlan_id <= vlan_id;
                     tx_start <= read_cnt == 46;
+                    // 过程中检验
                     case (read_cnt)
                         // 检验目标 MAC 为广播
                         18: begin
@@ -271,30 +309,72 @@ always_ff @(posedge clk_125M) begin
                         23: assert_rx(8'h04);
                         24: assert_rx(8'h00);
                         25: assert_rx(8'h01);
+                        // 记录来源 IP，准备添加 ARP 条目
+                        32: ip_input[24 +: 8] <= rx_data;
+                        33: ip_input[16 +: 8] <= rx_data;
+                        34: ip_input[ 8 +: 8] <= rx_data;
+                        35: ip_input[ 0 +: 8] <= rx_data;
                         // 检查目标 IP 是否为路由器自己 IP
                         42: assert_rx(router_ip[24 +: 8]);
                         43: assert_rx(router_ip[16 +: 8]);
                         44: assert_rx(router_ip[ 8 +: 8]);
                         45: assert_rx(router_ip[ 0 +: 8]);
-                        46: begin
-                            // 开始发送
-                            input_dst_mac <= src_mac;
-                            input_vlan_id <= vlan_id;
-                            input_is_ip <= is_ip;
-                            input_bad <= bad;
-                        end
                     endcase
+                    // 需要在 ARP 表中记录一下包的来源
+                    add_arp <= read_cnt == 36;
+                    add_routing <= 0;
+                    process_arp <= 0;
+                    process_ip <= 0;
+                    process_reset <= 0;
                 end
                 // IP
                 2'b01: begin
-                    // 发送取决于 packet_processor 返回结果
+                    tx_dst_mac <= mac_result;
+                    tx_vlan_id <= vlan_result;
                     case (read_cnt)
-                        24: bad <= 1;
+                        // TTL > 0
+                        26: begin
+                            if (rx_data == '0)
+                                bad <= 1;
+                        end
+                        // checksum_overflow <= checksum >= 0xfeff
+                        28: begin
+                            ip_checksum_fe <= rx_data == 8'hfe;
+                            ip_checksum_overflow <= rx_data == '1;
+                        end
+                        29: begin
+                            if (ip_checksum_fe && rx_data == '1)
+                                ip_checksum_overflow <= 1;
+                        end
+                        // 记录目标 IP，准备查表
+                        34: ip_input[24 +: 8] <= rx_data;
+                        35: ip_input[16 +: 8] <= rx_data;
+                        36: ip_input[ 8 +: 8] <= rx_data;
+                        37: ip_input[ 0 +: 8] <= rx_data;
                     endcase
+                    // 发送取决于 packet_processor 返回结果
+                    if (read_cnt > 38 && process_done) begin
+                        if (process_bad) begin
+                            bad <= 1;
+                            tx_start <= read_cnt >= 46;
+                            process_reset <= 0;
+                        end else begin
+                            // tx_start 置一拍后，packet_processor 重置，process_done = 0
+                            tx_start <= 1;
+                            process_reset <= 1;
+                        end
+                    end else begin
+                        tx_start <= 0;
+                        process_reset <= 0;
+                    end
+                    // 调用 packet_processor
+                    add_arp <= 0;
+                    add_routing <= 0;
+                    process_arp <= 0;
+                    process_ip <= read_cnt == 38;
                 end
                 // Bad
                 2'b1?: begin
-                    input_bad <= 1;
                     // 这里用 46 因为 bad 最晚在 45 被设置
                     tx_start <= read_cnt == 46;
                 end
@@ -314,6 +394,10 @@ always_ff @(posedge clk_125M) begin
         end
     end
 end
+
+// always_ff @(negedge clk_125M) begin
+//     if (tx_start) $display("START at read_cnt=%0d", read_cnt);
+// end
 
 // 正常发包显示在高位数码管
 digit_loop debug_send (
