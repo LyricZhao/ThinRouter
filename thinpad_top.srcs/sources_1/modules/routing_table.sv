@@ -67,7 +67,7 @@ xpm_memory_spram #(
     .ena(1'b1)
 );
 
-always_ff @(posedge clk) begin
+always_ff @(negedge clk) begin
     if (rst) begin
         /* Ports */
         lookup_insert_ready <= 1;

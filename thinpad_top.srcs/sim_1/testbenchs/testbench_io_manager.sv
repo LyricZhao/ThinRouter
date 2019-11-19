@@ -1,7 +1,8 @@
 `timescale 1ns / 1ps
 module testbench_io_manager ();
 
-reg clk_125M;
+bit clk_125M;
+bit clk_62M5;
 reg [7:0] rx_data = 0;
 reg rx_valid = 0;
 reg rx_last = 0;
@@ -29,6 +30,7 @@ initial begin
 end
 
 always clk_125M = #4 ~clk_125M;
+always clk_62M5 = #6.25 ~clk_62M5;
 
 string tx_packet = "";
 always_ff @ (negedge clk_125M) begin
@@ -70,6 +72,7 @@ always_ff @ (negedge clk_125M) begin
                 state = WAIT;
                 rx_valid = 0;
                 rx_last = 0;
+                $display("%0t", $realtime);
                 $write("Info:\t%s", packet_info);
                 $display("Router IN:\t%s\n", rx_packet);
                 // $display("");
@@ -89,39 +92,17 @@ always_ff @ (negedge clk_125M) begin
         fd = #100 $fopen("io_manager_test.mem", "r");
 end
 
-
-wire [4:0] debug_state;
-wire [15:0] debug_countdown;
-wire [5:0] debug_current;
-wire [5:0] debug_tx;
-wire [5:0] debug_last;
-wire [6:0] debug_case;
-wire [3:0] debug_process;
-string io_state;
-
-always_comb case (debug_state)
-    0: io_state = "Idle";
-    1: io_state = "Load_Unprocessed_Packet";
-    2: io_state = "Load_Processing_Packet";
-    3: io_state = "Discard_Packet";
-    4: io_state = "Send_Load_Packet";
-    5: io_state = "Send_Detrailer_Packet";
-    6: io_state = "Send_Packet";
-    7: io_state = "Send_Load_Another_Unprocessed";
-    8: io_state = "Send_Load_Another_Processing";
-    9: io_state = "Send_Load_Another_Processed";
-    10: io_state = "Send_Discard_Another";
-endcase
-
-logic clk_internal;
 logic clk_btn;
 logic [3:0]  btn;
 logic [15:0] led_out;
 logic [7:0]  digit0_out;
 logic [7:0]  digit1_out;
 
+
+logic   [8:0] fifo_din;
+logic   [8:0] fifo_wr_en;
+logic   [5:0] read_cnt;
 io_manager inst (
-    .clk_fifo(clk_125M),
     .*
 );
 

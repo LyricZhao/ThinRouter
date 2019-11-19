@@ -321,3 +321,11 @@ set_property CONFIG_VOLTAGE 3.3 [current_design]
 connect_debug_port dbg_hub/clk [get_nets u_ila_1_CLK]
 
 
+
+
+
+
+
+set_false_path -through [get_nets -filter { NAME =~  "*" } -of_objects [get_cells -hierarchical -filter { NAME =~  "*arp_table_inst*" }]]
+
+set_false_path -from [get_pins rgmii_manager_inst/io_manager_inst/packet_processor_inst/ip_lookup_reg/C] -to [get_pins -filter { NAME =~  "*" } -of_objects [get_cells -hierarchical -filter { NAME =~  "*routing_table_inst*" && NAME !~  "*memory*" }]]

@@ -1,6 +1,8 @@
 """
 生成以太网帧的测试用例
 
+更新: 移除 crc
+
 输出会存储到 ../io_manager_test.mem
 
 每行，
@@ -397,8 +399,8 @@ class EthFrame:
             self.src_mac.hex +
             '81 00 00 0%d ' % self.port +
             self.ip_layer_data.hex +
-            '00 ' * self.padding_size +
-            self.crc
+            '00 ' * self.padding_size
+            # self.crc
         )
 
     def __str__(self):

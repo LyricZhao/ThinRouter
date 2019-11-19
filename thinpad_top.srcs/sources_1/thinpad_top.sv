@@ -90,14 +90,13 @@ module thinpad_top(
 
 // PLL分频
 
-logic locked, clk_10M, clk_20M, clk_125M, clk_200M;
+logic locked, clk_62M5, clk_125M, clk_200M;
 pll clock_gen 
 (
     // Clock out ports
-    .clk_out1(clk_10M),               // 时钟输出1
-    .clk_out2(clk_20M),               // 时钟输出2
-    .clk_out3(clk_125M),              // 时钟输出3
-    .clk_out4(clk_200M),              // 时钟输出4
+    .clk_62M5,
+    .clk_125M,
+    .clk_200M,
     .reset(reset_btn),                // PLL 复位输入，这里是用户按键
     .locked(locked),                  // 锁定输出，"1"表示时钟稳定，可作为后级电路复位
     .clk_in1(clk_50M)                 // 外部时钟输入
@@ -122,9 +121,9 @@ eth_conf conf(
  *********************/
 
 rgmii_manager rgmii_manager_inst (
-    .clk_125M(clk_125M),
-    .clk_internal(clk_125M),
-    .clk_ref(clk_200M),
+    .clk_62M5,
+    .clk_125M,
+    .clk_200M,
     .rst_n(locked),
 
     .clk_btn(clock_btn),
