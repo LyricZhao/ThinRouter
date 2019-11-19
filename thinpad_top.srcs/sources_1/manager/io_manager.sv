@@ -12,6 +12,7 @@
 module io_manager (
     // 由父模块提供各种时钟
     input   wire    clk_125M,
+    input   wire    clk_62M5,
     input   wire    rst_n,
 
     // top 硬件
@@ -139,6 +140,7 @@ wire process_bad;
 
 packet_processor packet_processor_inst (
     .clk(clk_125M),
+    .clk_62M5,
     .rst_n,
     .reset(process_reset),
     .add_arp,

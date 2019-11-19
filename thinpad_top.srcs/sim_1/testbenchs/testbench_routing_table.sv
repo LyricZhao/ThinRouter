@@ -145,6 +145,7 @@ reg clk_async = 1;
 always clk_async = #11 ~clk_async;
 
 routing_table_adapter routing_table_inst(
+    .clk_125M(clk),
     .clk(clk_async),
     .*
 );

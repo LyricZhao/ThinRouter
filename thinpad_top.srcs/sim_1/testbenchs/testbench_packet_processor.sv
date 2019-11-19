@@ -5,12 +5,14 @@
 module testbench_packet_processor();
 
 bit  clk = 1;
+bit  clk_62M5 = 1;
 bit  rst_n = 0;
 bit  reset_process = 0;
 bit  add_arp = 0;
 bit  add_routing = 0;
 bit  process_arp = 0;
 bit  process_ip = 0;
+bit  reset = 0;
 
 bit  [31:0] ip_input;
 bit  [7:0]  mask_input;
@@ -27,6 +29,7 @@ packet_processor inst(.*);
 
 // 125M clock
 always clk = #4 !clk;
+always clk_62M5 = #6.25 !clk_62M5;
 
 task waitTillComplete; begin
     do @(posedge clk); while (!done);
@@ -139,7 +142,11 @@ initial begin
     queryArp(32'h0a_04_01_a0);
     addArp(32'h0a_04_01_a0, 48'h11_11_11_11_11_11, 1);
     queryArp(32'h0a_04_01_a0);
+
     addRouting(32'h08_08_08_08, 24, 32'h0a_04_01_a0);
+    addRouting(32'h09_08_08_08, 24, 32'h0a_04_02_a0);
+    addRouting(32'h0a_08_08_08, 24, 32'h0a_04_03_a0);
+
     queryArp(32'h0a_04_01_a1);
     queryArp(32'h0a_04_01_a0);
     addArp(32'h0a_04_02_a0, 48'h22_22_22_22_22_22, 2);
@@ -147,7 +154,11 @@ initial begin
     addArp(32'h0a_04_04_a0, 48'h44_44_44_44_44_44, 4);
     queryArp(32'h0a_04_02_a0);
     queryArp(32'h0a_04_01_a0);
+    
     queryIp(32'h08_08_08_00);
+    queryIp(32'h09_08_08_00);
+    queryIp(32'h0a_08_08_00);
+    queryIp(32'h0b_08_08_00);
 end
 
 endmodule

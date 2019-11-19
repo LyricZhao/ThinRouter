@@ -1,7 +1,8 @@
 `timescale 1ns / 1ps
 module testbench_io_manager ();
 
-reg clk_125M;
+bit clk_125M;
+bit clk_62M5;
 reg [7:0] rx_data = 0;
 reg rx_valid = 0;
 reg rx_last = 0;
@@ -29,6 +30,7 @@ initial begin
 end
 
 always clk_125M = #4 ~clk_125M;
+always clk_62M5 = #6.25 ~clk_62M5;
 
 string tx_packet = "";
 always_ff @ (negedge clk_125M) begin
@@ -90,7 +92,6 @@ always_ff @ (negedge clk_125M) begin
         fd = #100 $fopen("io_manager_test.mem", "r");
 end
 
-logic clk_internal;
 logic clk_btn;
 logic [3:0]  btn;
 logic [15:0] led_out;

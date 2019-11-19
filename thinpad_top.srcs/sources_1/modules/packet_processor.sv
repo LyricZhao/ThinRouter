@@ -3,7 +3,7 @@
 
 module packet_processor (
     input  wire  clk,                   // 125M 时钟
-    input  wire  clk_routing_table,     // 路由表专用时钟
+    input  wire  clk_62M5,               // 路由表专用时钟
     input  wire  rst_n,                 // 初始化
     input  wire  add_arp,               // 添加 ARP 项
     input  wire  add_routing,           // 添加路由项
@@ -49,7 +49,8 @@ wire ip_complete;
 wire [31:0] ip_nexthop;
 wire ip_found = ip_nexthop != '0;
 routing_table_adapter routing_table_inst (
-    .clk_routing_table,
+    .clk_125M(clk),
+    .clk(clk_62M5),
     .rst(!rst_n),
 
     .lookup_valid(ip_lookup),
@@ -235,12 +236,12 @@ always_ff @ (negedge clk) begin
                     if (ip_found) begin
                         // 找到 nexthop
                         arp_query <= 1;
-                        // $display("Nexthop found, searching ARP table\n");
+                        $display("Nexthop found, searching ARP table\n");
                         state <= ProcessArp;
                     end else begin
                         // 没有找到
                         arp_query <= 0;
-                        // $display("Not found in routing table\n");
+                        $display("Not found in routing table\n");
                         state <= Idle;
                     end
                 end else begin
