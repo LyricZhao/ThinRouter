@@ -74,19 +74,19 @@ always_comb begin
                 mem_we_o <= 0;
                 mem_ce_o <= 1;
                 case (mem_addr_i[1:0])
-                    2'b00: begin
+                    2'b11: begin
                         wdata_o <= {{24{mem_data_i[31]}}, mem_data_i[31:24]};
                         mem_sel_o <= 4'b1000;
                     end
-                    2'b01: begin
+                    2'b10: begin
                         wdata_o <= {{24{mem_data_i[23]}}, mem_data_i[23:16]};
                         mem_sel_o <= 4'b0100;
                     end
-                    2'b10: begin
+                    2'b01: begin
                         wdata_o <= {{24{mem_data_i[15]}}, mem_data_i[15:8]};
                         mem_sel_o <= 4'b0010;
                     end
-                    2'b11: begin
+                    2'b00: begin
                         wdata_o <= {{24{mem_data_i[7]}}, mem_data_i[7:0]};
                         mem_sel_o <= 4'b0001;
                     end
@@ -110,16 +110,16 @@ always_comb begin
                 mem_data_o <= {reg2_i[7:0], reg2_i[7:0], reg2_i[7:0], reg2_i[7:0]}; // 这样写仅仅是为了接下来选择某个字节进行写入时方便
                 mem_ce_o <= 1;
                 case (mem_addr_i[1:0])
-                    2'b00: begin
+                    2'b11: begin
                         mem_sel_o <= 4'b1000;
                     end
-                    2'b01: begin
+                    2'b10: begin
                         mem_sel_o <= 4'b0100;
                     end
-                    2'b10: begin
+                    2'b01: begin
                         mem_sel_o <= 4'b0010;
                     end
-                    2'b11: begin
+                    2'b00: begin
                         mem_sel_o <= 4'b0001;
                     end     
                     default: begin
