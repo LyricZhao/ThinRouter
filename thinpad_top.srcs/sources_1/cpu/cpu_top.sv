@@ -20,7 +20,7 @@ module cpu_top(
     output word_t           ram_data_o,
     output logic            ram_we_o,
     output logic[3:0]       ram_sel_o,
-    output logic            ram_ce_o
+    output logic            ram_ce_o // data ram的使能信号
 );
 
 /* ---------------- 模块出线 ----------------- */

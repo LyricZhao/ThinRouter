@@ -31,7 +31,7 @@
     <Option Name="EnableBDX" Val="FALSE"/>
     <Option Name="DSAVendor" Val="xilinx"/>
     <Option Name="DSANumComputeUnits" Val="16"/>
-    <Option Name="WTXSimLaunchSim" Val="737"/>
+    <Option Name="WTXSimLaunchSim" Val="763"/>
     <Option Name="WTModelSimLaunchSim" Val="0"/>
     <Option Name="WTQuestaLaunchSim" Val="0"/>
     <Option Name="WTIesLaunchSim" Val="0"/>
@@ -126,15 +126,6 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sources_1/imports/modules/data_ram.sv">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/modules/data_ram.sv"/>
-          <Attr Name="ImportTime" Val="1573283198"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
       <File Path="$PSRCDIR/sources_1/cpu/stages/ex.sv">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
@@ -172,15 +163,6 @@
       </File>
       <File Path="$PSRCDIR/sources_1/cpu/bridges/if_id.sv">
         <FileInfo>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sources_1/imports/modules/inst_rom.sv">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/modules/inst_rom.sv"/>
-          <Attr Name="ImportTime" Val="1573130319"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
@@ -293,6 +275,26 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
+      <File Path="$PSRCDIR/sources_1/imports/modules/data_ram.sv">
+        <FileInfo>
+          <Attr Name="AutoDisabled" Val="1"/>
+          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/modules/data_ram.sv"/>
+          <Attr Name="ImportTime" Val="1573283198"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/imports/modules/inst_rom.sv">
+        <FileInfo>
+          <Attr Name="AutoDisabled" Val="1"/>
+          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/modules/inst_rom.sv"/>
+          <Attr Name="ImportTime" Val="1573130319"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
       <File Path="$PSRCDIR/sources_1/include/debug.vh">
         <FileInfo>
           <Attr Name="AutoDisabled" Val="1"/>
@@ -399,7 +401,7 @@
       <File Path="$PSRCDIR/sim_1/imports/testbenchs/testbench_thinpad_cpu.sv">
         <FileInfo>
           <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/testbenchs/testbench_thinpad_cpu.sv"/>
-          <Attr Name="ImportTime" Val="1574480016"/>
+          <Attr Name="ImportTime" Val="1574500280"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
@@ -478,9 +480,21 @@
       <File Path="$PSRCDIR/sim_1/imports/runtime/cpu_load_test.mem">
         <FileInfo>
           <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/cpu_load_test.mem"/>
-          <Attr Name="ImportTime" Val="1573287571"/>
+          <Attr Name="ImportTime" Val="1574496654"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/imports/cpu/cpu_inst_test.bin">
+        <FileInfo>
+          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/scripts/cpu/cpu_inst_test.bin"/>
+          <Attr Name="ImportTime" Val="1573216944"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/imports/cpu/cpu_load_test.bin">
+        <FileInfo>
+          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/scripts/cpu/cpu_load_test.bin"/>
+          <Attr Name="ImportTime" Val="1574508556"/>
         </FileInfo>
       </File>
       <Config>
@@ -489,6 +503,7 @@
         <Option Name="TopLib" Val="xil_defaultlib"/>
         <Option Name="TransportPathDelay" Val="0"/>
         <Option Name="TransportIntDelay" Val="0"/>
+        <Option Name="SimMode" Val="post-implementation"/>
         <Option Name="SrcSet" Val="sources_1"/>
         <Option Name="xsim.simulate.runtime" Val="32000ns"/>
       </Config>
@@ -595,7 +610,7 @@
       <ReportStrategy Name="Vivado Synthesis Default Reports" Flow="Vivado Synthesis 2018"/>
       <Report Name="ROUTE_DESIGN.REPORT_METHODOLOGY" Enabled="1"/>
     </Run>
-    <Run Id="impl_1" Type="Ft2:EntireDesign" Part="xc7a100tfgg676-2L" ConstrsSet="constrs_1" Description="Default settings for Implementation." AutoIncrementalCheckpoint="false" WriteIncrSynthDcp="false" State="current" SynthRun="synth_1" IncludeInArchive="true" GenFullBitstream="true">
+    <Run Id="impl_1" Type="Ft2:EntireDesign" Part="xc7a100tfgg676-2L" ConstrsSet="constrs_1" Description="Default settings for Implementation." AutoIncrementalCheckpoint="false" WriteIncrSynthDcp="false" State="current" Dir="$PRUNDIR/impl_1" SynthRun="synth_1" IncludeInArchive="true" GenFullBitstream="true">
       <Strategy Version="1" Minor="2">
         <StratHandle Name="Vivado Implementation Defaults" Flow="Vivado Implementation 2016"/>
         <Step Id="init_design"/>
@@ -608,6 +623,7 @@
         <Step Id="post_route_phys_opt_design"/>
         <Step Id="write_bitstream"/>
       </Strategy>
+      <GeneratedRun Dir="$PRUNDIR" File="gen_run.xml"/>
       <ReportStrategy Name="Vivado Implementation Default Reports" Flow="Vivado Implementation 2017"/>
       <Report Name="ROUTE_DESIGN.REPORT_METHODOLOGY" Enabled="1"/>
     </Run>
