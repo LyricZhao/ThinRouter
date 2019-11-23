@@ -105,40 +105,105 @@ pll clock_gen
 
 // 这里应该是KSZ8795芯片的一些设置，初始化用
 
-eth_conf conf(
+// eth_conf conf(
+//     .clk(clk_50M),
+//     .rst_in_n(locked),
+
+//     .eth_spi_miso(eth_spi_miso),
+//     .eth_spi_mosi(eth_spi_mosi),
+//     .eth_spi_sck(eth_spi_sck),
+//     .eth_spi_ss_n(eth_spi_ss_n),
+
+//     .done()
+// );
+
+// /**********************
+//  *      路由模块      *
+//  *********************/
+
+// rgmii_manager rgmii_manager_inst (
+//     .clk_rgmii(clk_125M),
+//     .clk_internal(clk_125M),
+//     .clk_ref(clk_200M),
+//     .rst_n(locked),
+
+//     .clk_btn(clock_btn),
+//     .btn(touch_btn),
+//     .led_out(leds),
+//     .digit0_out(dpy0),
+//     .digit1_out(dpy1),
+
+//     .eth_rgmii_rd(eth_rgmii_rd),
+//     .eth_rgmii_rx_ctl(eth_rgmii_rx_ctl),
+//     .eth_rgmii_rxc(eth_rgmii_rxc),
+//     .eth_rgmii_td(eth_rgmii_td),
+//     .eth_rgmii_tx_ctl(eth_rgmii_tx_ctl),
+//     .eth_rgmii_txc(eth_rgmii_txc)
+// );
+
+inst_addr_t inst_addr;
+word_t inst;
+logic rom_ce;
+
+logic top_ram_ce_o;
+word_t top_ram_data_i;
+word_t top_ram_addr_o;
+word_t top_ram_data_o;
+logic top_ram_we_o;
+logic[3:0] top_ram_sel_o;
+// TODO: 把cpu_top放到thinpad_top里面
+cpu_top cpu_top_inst(
     .clk(clk_50M),
-    .rst_in_n(locked),
+    .rst(reset_btn),
 
-    .eth_spi_miso(eth_spi_miso),
-    .eth_spi_mosi(eth_spi_mosi),
-    .eth_spi_sck(eth_spi_sck),
-    .eth_spi_ss_n(eth_spi_ss_n),
+    .rom_addr_o(inst_addr),
+    .rom_data_i(inst),
+    .rom_ce_o(rom_ce),
 
-    .done()
+    .ram_data_i(top_ram_data_i),
+    .ram_addr_o(top_ram_addr_o),
+    .ram_data_o(top_ram_data_o),
+    .ram_we_o(top_ram_we_o),
+    .ram_sel_o(top_ram_sel_o),
+    .ram_ce_o(top_ram_ce_o)
 );
 
-/**********************
- *      路由模块      *
- *********************/
+// /* UART */
+// wire [7:0] uart_data;
 
-rgmii_manager rgmii_manager_inst (
-    .clk_rgmii(clk_125M),
-    .clk_internal(clk_125M),
-    .clk_ref(clk_200M),
-    .rst_n(locked),
+// /* Variables */
+// logic is_writing;
+// logic [19:0] base_ram_addr_end;
+// logic [31:0] bus_data_to_write;
 
-    .clk_btn(clock_btn),
-    .btn(touch_btn),
-    .led_out(leds),
-    .digit0_out(dpy0),
-    .digit1_out(dpy1),
+// /* Assigns */
+// assign base_ram_data = is_writing ? bus_data_to_write : 32'bz;
+// assign uart_data = base_ram_data[7:0];
 
-    .eth_rgmii_rd(eth_rgmii_rd),
-    .eth_rgmii_rx_ctl(eth_rgmii_rx_ctl),
-    .eth_rgmii_rxc(eth_rgmii_rxc),
-    .eth_rgmii_td(eth_rgmii_td),
-    .eth_rgmii_tx_ctl(eth_rgmii_tx_ctl),
-    .eth_rgmii_txc(eth_rgmii_txc)
+// always_comb begin
+//     if (reset_btn) begin
+
+//     end else begin
+
+//     end
+
+// end
+
+inst_rom #("cpu_load_test.mem") inst_rom0(
+    .addr(inst_addr),
+    .inst(inst),
+    .ce(rom_ce)
 );
+
+data_ram data_ram0(
+    .clk(clk_50M),
+    .ce(top_ram_ce_o),
+    .we(top_ram_we_o),
+    .addr(top_ram_addr_o),
+    .sel(top_ram_sel_o),
+    .data_i(top_ram_data_o),
+    .data_o(top_ram_data_i)
+);
+
 
 endmodule
