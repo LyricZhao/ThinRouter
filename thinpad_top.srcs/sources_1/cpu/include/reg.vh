@@ -8,7 +8,7 @@
 `define REG_ADDR_BUS        4:0
 `define REG_NUM             32
 `define NOP_REG_ADDR        5'b00000
-
+`define INIT_PC             32'h80000000
 typedef logic[`REG_ADDR_BUS]  reg_addr_t;
 
 `endif
