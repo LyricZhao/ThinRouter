@@ -10,6 +10,7 @@ module ctrl(
 	
     input  logic        stallreq_from_id,   // 从id来的暂停请求
     input  logic        stallreq_from_ex,   // 从ex来的暂停请求
+    input  logic        stallreq_from_mem,  // 从mem来的暂停请求
 
     output stall_t      stall     // 给几个模块的暂停信号
 );
@@ -17,6 +18,8 @@ module ctrl(
 always_comb begin
     if (rst == 1) begin
         stall <= 6'b000000;
+    end else if (stallreq_from_mem) begin
+        stall <= 6'b001111; // pc保持, 取值暂停, 译码暂停, 执行暂停
     end else if (stallreq_from_ex) begin
         stall <= 6'b001111; // pc保持, 取值暂停, 译码暂停, 执行暂停
     end else if (stallreq_from_id) begin

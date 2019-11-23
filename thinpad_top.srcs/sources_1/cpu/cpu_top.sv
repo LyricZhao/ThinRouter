@@ -123,7 +123,8 @@ word_t mem_wdata_o;
 // mem给ex（hilo数据回传）和给mem_wb的连线
 word_t mem_hi_o, mem_lo_o;
 logic mem_whilo_o;
-
+// mem给ctrl的连线
+logic mem_stallreq_o;
 
 /** mem_wb的出线 **/
 // mem_wb给hilo_reg的连线
@@ -191,6 +192,7 @@ ctrl ctrl_inst(
 
     .stallreq_from_id(id_stallreq_o),
     .stallreq_from_ex(ex_stallreq_o),
+    .stallreq_from_mem(mem_stallreq_o),
 
     .stall(ctrl_stall)
 );
@@ -379,7 +381,9 @@ mem mem_inst(
 
     .aluop_i(ex_mem_mem_aluop),
     .mem_addr_i(ex_mem_mem_mem_addr),
-    .reg2_i(ex_mem_mem_reg2)
+    .reg2_i(ex_mem_mem_reg2),
+
+    .stallreq_o(mem_stallreq_o)
 
 );
 

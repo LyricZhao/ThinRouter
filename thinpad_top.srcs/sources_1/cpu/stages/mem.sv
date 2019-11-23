@@ -31,7 +31,9 @@ module mem(
     output logic            mem_we_o,   // 送到RAM中的信号，写使能
     output logic[3:0]       mem_sel_o,  // 送到RAM中的信号，从一个word中四个字节选取若干个
     output word_t           mem_data_o, // 送到RAM中的信号
-    output logic            mem_ce_o    // 送到RAM中的信号
+    output logic            mem_ce_o,   // 送到RAM中的信号
+
+    output logic            stallreq_o  // 暂停请求
 );
 
 always_comb begin
@@ -42,6 +44,7 @@ always_comb begin
         {hi_o, lo_o} <= 0;
         whilo_o <= 0;
         {mem_addr_o, mem_we_o, mem_sel_o, mem_data_o, mem_ce_o} <= 0;
+        stallreq_o <= 0;
     end else begin
         wd_o <= wd_i;
         wreg_o <= wreg_i;
@@ -50,10 +53,15 @@ always_comb begin
         whilo_o <= whilo_i;
         {mem_we_o, mem_addr_o, mem_ce_o} <= 0;
         mem_sel_o <= 4'b1111; // 默认四个字节都读/写
+        stallreq_o <= 0;
         case (aluop_i)
-            // TODO: 见书的P250~P257，我认为这里需要一些宏定义来优化代码风格
-            // 先简单加两条指令测试一下有没有bug
+            /*
+            TODO: 见书的P250~P257，我认为这里需要一些宏定义来优化代码风格
+            先简单加两条指令测试一下有没有bug
+            !现在的实现方式是所有的访存指令都暂停流水线
+            */
             EXE_LW_OP: begin
+                stallreq_o <= 1;
                 mem_addr_o <= mem_addr_i;
                 mem_we_o <= 0;
                 wdata_o <= mem_data_i;
@@ -61,8 +69,9 @@ always_comb begin
                 mem_ce_o <= 1;
             end
             EXE_LB_OP: begin
+                stallreq_o <= 1;
                 mem_addr_o <= mem_addr_i;
-                mem_we <= 0;
+                mem_we_o <= 0;
                 mem_ce_o <= 1;
                 case (mem_addr_i[1:0])
                     2'b00: begin
@@ -87,6 +96,7 @@ always_comb begin
                 endcase
             end
             EXE_SW_OP: begin
+                stallreq_o <= 1;
                 mem_addr_o <= mem_addr_i;
                 mem_we_o <= 1;
                 mem_data_o <= reg2_i;
@@ -94,8 +104,9 @@ always_comb begin
                 mem_ce_o <= 1;                
             end
             EXE_SB_OP: begin
+                stallreq_o <= 1;
                 mem_addr_o <= mem_addr_i;
-                mem_we <= 1;
+                mem_we_o <= 1;
                 mem_data_o <= {reg2_i[7:0], reg2_i[7:0], reg2_i[7:0], reg2_i[7:0]}; // 这样写仅仅是为了接下来选择某个字节进行写入时方便
                 mem_ce_o <= 1;
                 case (mem_addr_i[1:0])
