@@ -186,6 +186,8 @@ pll clock_gen
 //         .TxD_data(ext_uart_tx_reg)         //待发送的数据
 //     );
 
+logic lock_n;
+assign lock_n = ~locked;
 
 inst_addr_t inst_addr; // cpu想读取得指令的地址
 word_t inst; // cpu读入的指令
@@ -198,8 +200,9 @@ word_t cpu_ram_data_o;
 logic cpu_ram_we_o;
 logic[3:0] cpu_ram_sel_o;
 // 把cpu_top放到thinpad_top里面
+
 cpu_top cpu_top_inst(
-    .clk(clk_10M),
+    .clk(clk_11M0592),
     .rst(reset_btn),
 
     .rom_addr_o(inst_addr),
@@ -232,6 +235,8 @@ always_comb begin
         ext_is_writing <= 0;
         base_ram_ce_n <= 1;
         ext_ram_ce_n <= 1;
+        uart_rdn <= 1;
+        uart_wrn <= 1;
     end else begin
         inst <= 0;
         cpu_ram_data_i <= 0;
@@ -239,6 +244,8 @@ always_comb begin
         ext_is_writing <= 0;
         base_ram_ce_n <= 1;
         ext_ram_ce_n <= 1;
+        uart_rdn <= 1;
+        uart_wrn <= 1;
         if (cpu_ram_ce_o) begin // 访存的优先级大于取指的优先级
             if (cpu_ram_addr_o>=32'h80000000 && cpu_ram_addr_o <= 32'h803FFFFF) begin// 访问baseram
                 base_ram_ce_n <= 0;
@@ -274,6 +281,19 @@ always_comb begin
                     ext_ram_be_n <= ~cpu_ram_sel_o; // 真值相反       
                     cpu_ram_data_i <= ext_ram_data;
                 end
+            end else if (cpu_ram_addr_o == 32'hbfd003f8) begin // 访问串口
+                //base_ram_ce_n <= 1; // 把baseram禁止
+                if (cpu_ram_we_o) begin // 如果是写状态
+                    uart_rdn <= 1;
+                    uart_wrn <= 0;
+                    base_bus_data_to_write[7:0] <= cpu_ram_data_o[7:0];  
+                end else begin
+                    uart_rdn <= 0;
+                    uart_wrn <= 1;
+                    cpu_ram_data_i <= {24'b0, base_ram_data[7:0]};
+                end
+            end else if (cpu_ram_addr_o == 32'hbfd003fc) begin
+                cpu_ram_data_i <= {30'b0, uart_dataready, uart_tsre}; // uncertain
             end
         end else if (rom_ce) begin // 指令是只读的
             if (inst_addr >= 32'h80000000 && inst_addr <= 32'h803FFFFF) begin // 访问baseram
@@ -295,6 +315,14 @@ always_comb begin
                 ext_ram_be_n <= 4'b0000; // 永远可以选择
                 inst <= ext_ram_data;
             end
+            // end else if (inst_addr == 32'hbfd003f8) begin // 访问串口
+            //     base_ram_ce_n <= 1; // 把baseram禁止
+            //     uart_rdn <= 0;
+            //     uart_wrn <= 1;
+            //     inst <= {24'b0, base_ram_data[7:0]};
+            // end else if (inst_addr == 32'hbfd003fc) begin
+            //     inst <= {30'b0, uart_dataready, uart_tsre}; // uncertain
+            // end
         end
     end
 end

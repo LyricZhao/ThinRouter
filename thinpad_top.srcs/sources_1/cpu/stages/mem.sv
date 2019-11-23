@@ -121,10 +121,10 @@ always_comb begin
                     end
                     2'b00: begin
                         mem_sel_o <= 4'b0001;
-                    end     
+                    end
                     default: begin
                         mem_sel_o <= 4'b0000;
-                    end              
+                    end
                 endcase
             end
         endcase
