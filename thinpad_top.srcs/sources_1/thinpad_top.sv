@@ -234,18 +234,26 @@ always_comb begin
         inst <= 0;
         cpu_ram_data_i <= 0;
         base_is_writing <= 0;
-        ext_is_writing <= 0;
         base_ram_ce_n <= 1;
+        base_ram_we_n <= 1;
+        base_ram_oe_n <= 1;
+        ext_is_writing <= 0;
         ext_ram_ce_n <= 1;
+        ext_ram_we_n <= 1;
+        ext_ram_oe_n <= 1;
         uart_rdn <= 1;
         uart_wrn <= 1;
     end else begin
         inst <= 0;
         cpu_ram_data_i <= 0;
         base_is_writing <= 0;
-        ext_is_writing <= 0;
         base_ram_ce_n <= 1;
+        base_ram_we_n <= 1;
+        base_ram_oe_n <= 1;
+        ext_is_writing <= 0;
         ext_ram_ce_n <= 1;
+        ext_ram_we_n <= 1;
+        ext_ram_oe_n <= 1;
         uart_rdn <= 1;
         uart_wrn <= 1;
         if (cpu_ram_ce_o) begin // 访存的优先级大于取指的优先级
@@ -285,9 +293,11 @@ always_comb begin
                 end
             end else if (cpu_ram_addr_o == 32'hbfd003f8) begin // 访问串口
                 //base_ram_ce_n <= 1; // 把baseram禁止
+                base_ram_addr <= cpu_ram_addr_o[19+2:0+2]; // 仅调试
                 if (cpu_ram_we_o) begin // 如果是写状态
                     uart_rdn <= 1;
                     uart_wrn <= 0;
+                    base_is_writing <= 1;
                     base_bus_data_to_write[7:0] <= cpu_ram_data_o[7:0];  
                 end else begin
                     uart_rdn <= 0;
@@ -295,6 +305,7 @@ always_comb begin
                     cpu_ram_data_i <= {24'b0, base_ram_data[7:0]};
                 end
             end else if (cpu_ram_addr_o == 32'hbfd003fc) begin
+                base_ram_addr <= cpu_ram_addr_o[19+2:0+2]; // 仅调试
                 cpu_ram_data_i <= {30'b0, uart_dataready, uart_tsre & uart_tbre}; // uncertain
             end
         end else if (rom_ce) begin // 指令是只读的
