@@ -24,16 +24,16 @@ module comm_reg(
 word_t regs[0:`REG_NUM-1];
 
 // 清零逻辑
-genvar i;
-generate
-    for (i = 0; i < `REG_NUM; i = i + 1) begin
-        always_ff @ (posedge clk) begin
-            if (rst == 1) begin
-                regs[i] <= 0;
-            end
-        end
-    end
-endgenerate
+// genvar i;
+// generate
+//     for (i = 0; i < `REG_NUM; i = i + 1) begin
+//         always_ff @ (posedge clk) begin
+//             if (rst == 1) begin
+//                 regs[i] <= 0;
+//             end
+//         end
+//     end
+// endgenerate
 
 // 同步写入
 always_ff @ (posedge clk) begin
@@ -41,7 +41,7 @@ always_ff @ (posedge clk) begin
         if ((we == 1) && (waddr != 0)) begin
             regs[waddr] <= wdata;
         end
-    end
+    end 
 end
 
 // 下面两个读是异步的组合逻辑，下面的数据前传解决了相隔2个指令的数据冲突
