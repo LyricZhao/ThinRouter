@@ -18,13 +18,14 @@ module pc_reg(
     output logic        ce                  // 指令rom的使能
 );
 
-assign ce = ~rst;
-
-always_ff @ (posedge clk) begin
-    if (ce == 0) begin
+// 同步启动，异步重置
+always_ff @ (posedge clk or posedge rst) begin
+    if (rst) begin
         pc <= 0;
+        ce <= 0;
     end else if (stall[0] == 0) begin
         pc <= jump_flag ? target_addr : (pc + 4);
+        ce <= 1;
     end
 end
 
