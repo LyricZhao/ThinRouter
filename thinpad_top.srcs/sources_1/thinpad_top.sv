@@ -227,6 +227,8 @@ logic [31:0] ext_bus_data_to_write;
 assign base_ram_data = base_is_writing ? base_bus_data_to_write : 32'bz;
 assign ext_ram_data = ext_is_writing ? ext_bus_data_to_write : 32'bz;
 
+assign leds = inst_addr[31:16];
+
 always_comb begin
     if (reset_btn) begin
         inst <= 0;
@@ -293,7 +295,7 @@ always_comb begin
                     cpu_ram_data_i <= {24'b0, base_ram_data[7:0]};
                 end
             end else if (cpu_ram_addr_o == 32'hbfd003fc) begin
-                cpu_ram_data_i <= {30'b0, uart_dataready, uart_tsre}; // uncertain
+                cpu_ram_data_i <= {30'b0, uart_dataready, uart_tsre & uart_tbre}; // uncertain
             end
         end else if (rom_ce) begin // 指令是只读的
             if (inst_addr >= 32'h80000000 && inst_addr <= 32'h803FFFFF) begin // 访问baseram
