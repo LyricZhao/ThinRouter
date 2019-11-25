@@ -188,171 +188,161 @@ pll clock_gen
 
 logic lock_n;
 assign lock_n = ~locked;
+// 
+// inst_addr_t inst_addr; // cpu想读取得指令的地址
+// word_t inst; // cpu读入的指令
+// logic rom_ce;
+// 
+// logic cpu_ram_ce_o;
+// word_t cpu_ram_data_i; // 从ram读进来的数据
+// word_t cpu_ram_addr_o;
+// word_t cpu_ram_data_o;
+// logic cpu_ram_we_o;
+// logic[3:0] cpu_ram_sel_o;
+// // 把cpu_top放到thinpad_top里面
+// 
+// cpu_top cpu_top_inst(
+//     .clk(clk_11M0592),
+//     .rst(reset_btn),
+// 
+//     .rom_addr_o(inst_addr),
+//     .rom_data_i(inst),
+//     .rom_ce_o(rom_ce),
+// 
+//     .ram_data_i(cpu_ram_data_i),
+//     .ram_addr_o(cpu_ram_addr_o),
+//     .ram_data_o(cpu_ram_data_o),
+//     .ram_we_o(cpu_ram_we_o),
+//     .ram_sel_o(cpu_ram_sel_o),
+//     .ram_ce_o(cpu_ram_ce_o)
+// );
+// 
+// 
+// /* Variables */
+// logic base_is_writing;
+// logic ext_is_writing;
+// logic [31:0] base_bus_data_to_write;
+// logic [31:0] ext_bus_data_to_write;
+// /* Assigns */
+// assign base_ram_data = base_is_writing ? base_bus_data_to_write : 32'bz;
+// assign ext_ram_data = ext_is_writing ? ext_bus_data_to_write : 32'bz;
+// 
+// assign leds = inst_addr[31:16];
+// 
+// always_comb begin
+//     if (reset_btn) begin
+//         inst <= 0;
+//         cpu_ram_data_i <= 0;
+//         base_is_writing <= 0;
+//         base_ram_ce_n <= 1;
+//         base_ram_we_n <= 1;
+//         base_ram_oe_n <= 1;
+//         ext_is_writing <= 0;
+//         ext_ram_ce_n <= 1;
+//         ext_ram_we_n <= 1;
+//         ext_ram_oe_n <= 1;
+//         uart_rdn <= 1;
+//         uart_wrn <= 1;
+//     end else begin
+//         inst <= 0;
+//         cpu_ram_data_i <= 0;
+//         base_is_writing <= 0;
+//         base_ram_ce_n <= 1;
+//         base_ram_we_n <= 1;
+//         base_ram_oe_n <= 1;
+//         ext_is_writing <= 0;
+//         ext_ram_ce_n <= 1;
+//         ext_ram_we_n <= 1;
+//         ext_ram_oe_n <= 1;
+//         uart_rdn <= 1;
+//         uart_wrn <= 1;
+//         if (cpu_ram_ce_o) begin // 访存的优先级大于取指的优先级
+//             if (cpu_ram_addr_o>=32'h80000000 && cpu_ram_addr_o <= 32'h803FFFFF) begin// 访问baseram
+//                 base_ram_ce_n <= 0;
+//                 if (cpu_ram_we_o) begin // 如果是写状态
+//                     base_ram_we_n <= 0;            
+//                     base_ram_oe_n <= 1;
+//                     base_is_writing <= 1;
+//                     base_ram_addr <= cpu_ram_addr_o[19+2:0+2];
+//                     base_ram_be_n <= ~cpu_ram_sel_o; // 真值相反
+//                     base_bus_data_to_write <= cpu_ram_data_o;
+//                 end else begin // 如果是读状态
+//                     base_ram_we_n <= 1;
+//                     base_ram_oe_n <= 0;
+//                     base_is_writing <= 0;
+//                     base_ram_addr <= cpu_ram_addr_o[19+2:0+2];
+//                     base_ram_be_n <= ~cpu_ram_sel_o; // 真值相反       
+//                     cpu_ram_data_i <= base_ram_data;
+//                 end
+//             end else if (cpu_ram_addr_o>=32'h80400000 && cpu_ram_addr_o <= 32'h807FFFFF) begin // 访问extram
+//                 ext_ram_ce_n <= 0;
+//                 if (cpu_ram_we_o) begin // 如果是写状态
+//                     ext_ram_we_n <= 0;            
+//                     ext_ram_oe_n <= 1;
+//                     ext_is_writing <= 1;
+//                     ext_ram_addr <= cpu_ram_addr_o[19+2:0+2];
+//                     ext_ram_be_n <= ~cpu_ram_sel_o; // 真值相反
+//                     ext_bus_data_to_write <= cpu_ram_data_o;
+//                 end else begin // 如果是读状态
+//                     ext_ram_we_n <= 1;
+//                     ext_ram_oe_n <= 0;
+//                     ext_is_writing <= 0;
+//                     ext_ram_addr <= cpu_ram_addr_o[19+2:0+2];
+//                     ext_ram_be_n <= ~cpu_ram_sel_o; // 真值相反       
+//                     cpu_ram_data_i <= ext_ram_data;
+//                 end
+//             end else if (cpu_ram_addr_o == 32'hbfd003f8) begin // 访问串口
+//                 //base_ram_ce_n <= 1; // 把baseram禁止
+//                 //base_ram_addr <= cpu_ram_addr_o[19+2:0+2]; // 仅调试
+//                 if (cpu_ram_we_o) begin // 如果是写状态
+//                     uart_rdn <= 1;
+//                     uart_wrn <= 0;
+//                     base_is_writing <= 1;
+//                     base_bus_data_to_write[7:0] <= cpu_ram_data_o[7:0];  
+//                 end else begin
+//                     uart_rdn <= 0;
+//                     uart_wrn <= 1;
+//                     cpu_ram_data_i <= {24'b0, base_ram_data[7:0]};
+//                 end
+//             end else if (cpu_ram_addr_o == 32'hbfd003fc) begin
+//                 //base_ram_addr <= cpu_ram_addr_o[19+2:0+2]; // 仅调试
+//                 cpu_ram_data_i <= {30'b0, uart_dataready, uart_tsre & uart_tbre}; // uncertain
+//             end
+//         end else if (rom_ce) begin // 指令是只读的
+//             if (inst_addr >= 32'h80000000 && inst_addr <= 32'h803FFFFF) begin // 访问baseram
+//                 base_ram_ce_n <= 0;
+//                 // 取指只能是读状态
+//                 base_ram_we_n <= 1;
+//                 base_ram_oe_n <= 0;
+//                 base_is_writing <= 0;
+//                 base_ram_addr <= inst_addr[19+2:0+2];
+//                 base_ram_be_n <= 4'b0000; // 永远可以选择
+//                 inst <= base_ram_data;
+//             end else if (inst_addr >= 32'h80400000 && inst_addr <= 32'h807FFFFF) begin // 访问extram
+//                 ext_ram_ce_n <= 0;
+//                 // 取指只能是读状态
+//                 ext_ram_we_n <= 1;
+//                 ext_ram_oe_n <= 0;
+//                 ext_is_writing <= 0;
+//                 ext_ram_addr <= inst_addr[19+2:0+2];
+//                 ext_ram_be_n <= 4'b0000; // 永远可以选择
+//                 inst <= ext_ram_data;
+//             end
+//             // end else if (inst_addr == 32'hbfd003f8) begin // 访问串口
+//             //     base_ram_ce_n <= 1; // 把baseram禁止
+//             //     uart_rdn <= 0;
+//             //     uart_wrn <= 1;
+//             //     inst <= {24'b0, base_ram_data[7:0]};
+//             // end else if (inst_addr == 32'hbfd003fc) begin
+//             //     inst <= {30'b0, uart_dataready, uart_tsre}; // uncertain
+//             // end
+//         end
+//     end
+// end
 
-inst_addr_t inst_addr; // cpu想读取得指令的地址
-word_t inst; // cpu读入的指令
-logic rom_ce;
-
-logic cpu_ram_ce_o;
-word_t cpu_ram_data_i; // 从ram读进来的数据
-word_t cpu_ram_addr_o;
-word_t cpu_ram_data_o;
-logic cpu_ram_we_o;
-logic[3:0] cpu_ram_sel_o;
-// 把cpu_top放到thinpad_top里面
-
-cpu_top cpu_top_inst(
-    .clk(clk_11M0592),
-    .rst(reset_btn),
-
-    .rom_addr_o(inst_addr),
-    .rom_data_i(inst),
-    .rom_ce_o(rom_ce),
-
-    .ram_data_i(cpu_ram_data_i),
-    .ram_addr_o(cpu_ram_addr_o),
-    .ram_data_o(cpu_ram_data_o),
-    .ram_we_o(cpu_ram_we_o),
-    .ram_sel_o(cpu_ram_sel_o),
-    .ram_ce_o(cpu_ram_ce_o)
-);
-
-
-/* Variables */
-logic base_is_writing;
-logic ext_is_writing;
-logic [31:0] base_bus_data_to_write;
-logic [31:0] ext_bus_data_to_write;
-/* Assigns */
-assign base_ram_data = base_is_writing ? base_bus_data_to_write : 32'bz;
-assign ext_ram_data = ext_is_writing ? ext_bus_data_to_write : 32'bz;
-
-assign leds = inst_addr[31:16];
-
-always_comb begin
-    if (reset_btn) begin
-        inst <= 0;
-        cpu_ram_data_i <= 0;
-        base_is_writing <= 0;
-        base_ram_ce_n <= 1;
-        base_ram_we_n <= 1;
-        base_ram_oe_n <= 1;
-        ext_is_writing <= 0;
-        ext_ram_ce_n <= 1;
-        ext_ram_we_n <= 1;
-        ext_ram_oe_n <= 1;
-        uart_rdn <= 1;
-        uart_wrn <= 1;
-    end else begin
-        inst <= 0;
-        cpu_ram_data_i <= 0;
-        base_is_writing <= 0;
-        base_ram_ce_n <= 1;
-        base_ram_we_n <= 1;
-        base_ram_oe_n <= 1;
-        ext_is_writing <= 0;
-        ext_ram_ce_n <= 1;
-        ext_ram_we_n <= 1;
-        ext_ram_oe_n <= 1;
-        uart_rdn <= 1;
-        uart_wrn <= 1;
-        if (cpu_ram_ce_o) begin // 访存的优先级大于取指的优先级
-            if (cpu_ram_addr_o>=32'h80000000 && cpu_ram_addr_o <= 32'h803FFFFF) begin// 访问baseram
-                base_ram_ce_n <= 0;
-                if (cpu_ram_we_o) begin // 如果是写状态
-                    base_ram_we_n <= 0;            
-                    base_ram_oe_n <= 1;
-                    base_is_writing <= 1;
-                    base_ram_addr <= cpu_ram_addr_o[19+2:0+2];
-                    base_ram_be_n <= ~cpu_ram_sel_o; // 真值相反
-                    base_bus_data_to_write <= cpu_ram_data_o;
-                end else begin // 如果是读状态
-                    base_ram_we_n <= 1;
-                    base_ram_oe_n <= 0;
-                    base_is_writing <= 0;
-                    base_ram_addr <= cpu_ram_addr_o[19+2:0+2];
-                    base_ram_be_n <= ~cpu_ram_sel_o; // 真值相反       
-                    cpu_ram_data_i <= base_ram_data;
-                end
-            end else if (cpu_ram_addr_o>=32'h80400000 && cpu_ram_addr_o <= 32'h807FFFFF) begin // 访问extram
-                ext_ram_ce_n <= 0;
-                if (cpu_ram_we_o) begin // 如果是写状态
-                    ext_ram_we_n <= 0;            
-                    ext_ram_oe_n <= 1;
-                    ext_is_writing <= 1;
-                    ext_ram_addr <= cpu_ram_addr_o[19+2:0+2];
-                    ext_ram_be_n <= ~cpu_ram_sel_o; // 真值相反
-                    ext_bus_data_to_write <= cpu_ram_data_o;
-                end else begin // 如果是读状态
-                    ext_ram_we_n <= 1;
-                    ext_ram_oe_n <= 0;
-                    ext_is_writing <= 0;
-                    ext_ram_addr <= cpu_ram_addr_o[19+2:0+2];
-                    ext_ram_be_n <= ~cpu_ram_sel_o; // 真值相反       
-                    cpu_ram_data_i <= ext_ram_data;
-                end
-            end else if (cpu_ram_addr_o == 32'hbfd003f8) begin // 访问串口
-                //base_ram_ce_n <= 1; // 把baseram禁止
-                //base_ram_addr <= cpu_ram_addr_o[19+2:0+2]; // 仅调试
-                if (cpu_ram_we_o) begin // 如果是写状态
-                    uart_rdn <= 1;
-                    uart_wrn <= 0;
-                    base_is_writing <= 1;
-                    base_bus_data_to_write[7:0] <= cpu_ram_data_o[7:0];  
-                end else begin
-                    uart_rdn <= 0;
-                    uart_wrn <= 1;
-                    cpu_ram_data_i <= {24'b0, base_ram_data[7:0]};
-                end
-            end else if (cpu_ram_addr_o == 32'hbfd003fc) begin
-                //base_ram_addr <= cpu_ram_addr_o[19+2:0+2]; // 仅调试
-                cpu_ram_data_i <= {30'b0, uart_dataready, uart_tsre & uart_tbre}; // uncertain
-            end
-        end else if (rom_ce) begin // 指令是只读的
-            if (inst_addr >= 32'h80000000 && inst_addr <= 32'h803FFFFF) begin // 访问baseram
-                base_ram_ce_n <= 0;
-                // 取指只能是读状态
-                base_ram_we_n <= 1;
-                base_ram_oe_n <= 0;
-                base_is_writing <= 0;
-                base_ram_addr <= inst_addr[19+2:0+2];
-                base_ram_be_n <= 4'b0000; // 永远可以选择
-                inst <= base_ram_data;
-            end else if (inst_addr >= 32'h80400000 && inst_addr <= 32'h807FFFFF) begin // 访问extram
-                ext_ram_ce_n <= 0;
-                // 取指只能是读状态
-                ext_ram_we_n <= 1;
-                ext_ram_oe_n <= 0;
-                ext_is_writing <= 0;
-                ext_ram_addr <= inst_addr[19+2:0+2];
-                ext_ram_be_n <= 4'b0000; // 永远可以选择
-                inst <= ext_ram_data;
-            end
-            // end else if (inst_addr == 32'hbfd003f8) begin // 访问串口
-            //     base_ram_ce_n <= 1; // 把baseram禁止
-            //     uart_rdn <= 0;
-            //     uart_wrn <= 1;
-            //     inst <= {24'b0, base_ram_data[7:0]};
-            // end else if (inst_addr == 32'hbfd003fc) begin
-            //     inst <= {30'b0, uart_dataready, uart_tsre}; // uncertain
-            // end
-        end
-    end
-end
-
-//图像输出演示，分辨率800x600@75Hz，像素时钟为50MHz
-wire [11:0] hdata;
-assign video_red = hdata < 266 ? 3'b111 : 0; //红色竖条
-assign video_green = hdata < 532 && hdata >= 266 ? 3'b111 : 0; //绿色竖条
-assign video_blue = hdata >= 532 ? 2'b11 : 0; //蓝色竖条
-assign video_clk = clk_50M;
-vga #(12, 800, 856, 976, 1040, 600, 637, 643, 666, 1, 1) vga800x600at75 (
-    .clk(clk_50M), 
-    .hdata(hdata), //横坐标
-    .vdata(),      //纵坐标
-    .hsync(video_hsync),
-    .vsync(video_vsync),
-    .data_enable(video_de)
+display display_inst(
+    .rst_n(locked),
+    .*
 );
 
 // inst_rom #("cpu_load_test.mem") inst_rom0(
