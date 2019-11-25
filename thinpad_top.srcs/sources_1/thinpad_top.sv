@@ -293,7 +293,7 @@ always_comb begin
                 end
             end else if (cpu_ram_addr_o == 32'hbfd003f8) begin // 访问串口
                 //base_ram_ce_n <= 1; // 把baseram禁止
-                base_ram_addr <= cpu_ram_addr_o[19+2:0+2]; // 仅调试
+                //base_ram_addr <= cpu_ram_addr_o[19+2:0+2]; // 仅调试
                 if (cpu_ram_we_o) begin // 如果是写状态
                     uart_rdn <= 1;
                     uart_wrn <= 0;
@@ -305,7 +305,7 @@ always_comb begin
                     cpu_ram_data_i <= {24'b0, base_ram_data[7:0]};
                 end
             end else if (cpu_ram_addr_o == 32'hbfd003fc) begin
-                base_ram_addr <= cpu_ram_addr_o[19+2:0+2]; // 仅调试
+                //base_ram_addr <= cpu_ram_addr_o[19+2:0+2]; // 仅调试
                 cpu_ram_data_i <= {30'b0, uart_dataready, uart_tsre & uart_tbre}; // uncertain
             end
         end else if (rom_ce) begin // 指令是只读的

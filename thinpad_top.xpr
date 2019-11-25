@@ -31,7 +31,7 @@
     <Option Name="EnableBDX" Val="FALSE"/>
     <Option Name="DSAVendor" Val="xilinx"/>
     <Option Name="DSANumComputeUnits" Val="16"/>
-    <Option Name="WTXSimLaunchSim" Val="795"/>
+    <Option Name="WTXSimLaunchSim" Val="796"/>
     <Option Name="WTModelSimLaunchSim" Val="0"/>
     <Option Name="WTQuestaLaunchSim" Val="0"/>
     <Option Name="WTIesLaunchSim" Val="0"/>
@@ -503,16 +503,16 @@
           <Attr Name="ImportTime" Val="1567394439"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sim_1/imports/cpu/cpu_load_test.bin">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/scripts/cpu/cpu_load_test.bin"/>
-          <Attr Name="ImportTime" Val="1574578968"/>
-        </FileInfo>
-      </File>
       <File Path="$PSRCDIR/sim_1/imports/cpu/kernel-fpga-notlb-noint.bin">
         <FileInfo>
           <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/scripts/cpu/kernel-fpga-notlb-noint.bin"/>
           <Attr Name="ImportTime" Val="1574564199"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/imports/cpu/cpu_load_test.bin">
+        <FileInfo>
+          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/scripts/cpu/cpu_load_test.bin"/>
+          <Attr Name="ImportTime" Val="1574651370"/>
         </FileInfo>
       </File>
       <Config>
