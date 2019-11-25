@@ -17,15 +17,14 @@ module ctrl(
 
 always_comb begin
     if (rst == 1) begin
-        stall <= 6'b000000;
-    end else if (stallreq_from_mem) begin
-        stall <= 6'b001111; // pc保持, 取值暂停, 译码暂停, 执行暂停
-    end else if (stallreq_from_ex) begin
-        stall <= 6'b001111; // pc保持, 取值暂停, 译码暂停, 执行暂停
-    end else if (stallreq_from_id) begin
-        stall <= 6'b000111; // pc保持, 取值暂停, 译码暂停
+        stall <= '{default: '0};
     end else begin
-        stall <= 6'b000000;
+        stall.pc <= stallreq_from_mem || stallreq_from_ex || stallreq_from_id;
+        stall.ifetch <= stallreq_from_mem || stallreq_from_ex || stallreq_from_id;
+        stall.id <= stallreq_from_mem || stallreq_from_ex || stallreq_from_id;
+        stall.ex <= stallreq_from_mem || stallreq_from_ex;
+        stall.mem <= 0;
+        stall.wb <= 0;
     end
 end
 

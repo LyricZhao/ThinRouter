@@ -23,7 +23,7 @@ always_ff @ (posedge clk or posedge rst) begin
     if (rst) begin
         pc <= 0;
         ce <= 0;
-    end else if (stall[0] == 0) begin
+    end else if (!stall.pc) begin
         pc <= jump_flag ? target_addr : (pc + 4);
         ce <= 1;
     end
