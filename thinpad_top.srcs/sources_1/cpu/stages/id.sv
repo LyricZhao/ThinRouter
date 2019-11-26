@@ -137,7 +137,7 @@ always_comb begin
         target_addr_o        <= 0;
         return_addr_o        <= 0;
         // 下面这部分判断详情见造CPU一书的121页
-        if (inst_i[31:21] != 11'b00000000000) begin // 不是sll, srl, sra
+        //if (inst_i[31:21] != 11'b00000000000) begin // 不是sll, srl, sra
             case (op1) // 指令码
                 `EXE_SPECIAL_INST: begin
                     case (op2)
@@ -254,7 +254,8 @@ always_comb begin
                 end
                 default: begin end
             endcase
-        end else begin
+        //end else begin
+        if (inst_i[31:21] == 11'b00000000000) begin
             case (op3) //                             ALUOP       是否写入寄存器/是否读1/2
                 `EXE_SLL:   begin `INST_KIND_3_COMMON(EXE_SLL_OP, 1, 0, 1);     end
                 `EXE_SRL:   begin `INST_KIND_3_COMMON(EXE_SRL_OP, 1, 0, 1);     end

@@ -186,6 +186,69 @@ pll clock_gen
 //         .TxD_data(ext_uart_tx_reg)         //待发送的数据
 //     );
 
+
+//直连串口接收发送演示，从直连串口收到的数据再发送出去
+wire [7:0] ext_uart_rx;
+reg [7:0] ext_uart_rx_reg;
+reg [7:0] ext_uart_tx_reg, ext_uart_tx;
+wire ext_uart_ready, ext_uart_busy;
+reg ext_uart_start_reg, ext_uart_start, ext_uart_avai;
+reg [1:0] counter;
+
+always @(posedge clk_11M0592) begin
+    if (reset_btn) begin
+        ext_uart_tx_reg <= 8'b0;
+        ext_uart_start_reg <= 1'b0;
+        counter <= 2'b0;
+    end else begin
+        if (ext_uart_start) begin
+            ext_uart_tx_reg <= ext_uart_tx;
+            ext_uart_start_reg <= 1'b1;
+            counter <= 2'b0;
+        end else begin
+            counter <= counter + 1;
+            if (&counter) begin
+                ext_uart_tx_reg <= 8'b0;
+                ext_uart_start_reg <= 1'b0;
+            end
+        end
+    end
+end
+async_receiver #(.ClkFrequency(11059200),.Baud(9600)) //接收模块，9600无检验位
+    ext_uart_r(
+        .clk(clk_11M0592),                       //外部时钟信号
+        .RxD(rxd),                           //外部串行信号输入
+        .RxD_data_ready(ext_uart_ready),  //数据接收到标志
+        .RxD_clear(ext_uart_ready),       //清除接收标志
+        .RxD_data(ext_uart_rx)             //接收到的一字节数据
+    );
+    
+async_transmitter #(.ClkFrequency(11059200),.Baud(9600)) //发送模块，9600无检验位
+    ext_uart_t(
+        .clk(clk_11M0592),                  //外部时钟信号
+        .TxD(txd),                      //串行信号输出
+        .TxD_busy(ext_uart_busy),       //发送器忙状态指示
+        .TxD_start(ext_uart_start_reg),    //开始发送信号
+        .TxD_data(ext_uart_tx_reg)        //待发送的数据
+    );
+
+wire[5:0] int_i;
+wire timer_int;
+assign int_i = {timer_int, 2'b00, serial_read_status^already_read_status, 2'b00}; //{3'b000, serial_read_status^already_read_status, 1'b0, timer_int};
+reg serial_read_status = 1'b0;
+reg already_read_status = 1'b0;
+reg[7:0] serial_read_data;
+always @(posedge ext_uart_ready) begin   
+    if (reset_btn) begin 
+        serial_read_status <= 1'b0;
+    end else begin
+        serial_read_status <= ~serial_read_status;
+        serial_read_data <= ext_uart_rx;
+    end
+end
+
+
+
 logic lock_n;
 assign lock_n = ~locked;
 
@@ -219,6 +282,7 @@ cpu_top cpu_top_inst(
 
 
 /* Variables */
+logic to_pull_up_uart;
 logic base_is_writing;
 logic ext_is_writing;
 logic [31:0] base_bus_data_to_write;
@@ -237,31 +301,37 @@ always_comb begin
         base_ram_ce_n <= 1;
         base_ram_we_n <= 1;
         base_ram_oe_n <= 1;
+        base_ram_addr <= 0;
         ext_is_writing <= 0;
         ext_ram_ce_n <= 1;
         ext_ram_we_n <= 1;
         ext_ram_oe_n <= 1;
+        ext_ram_addr <= 0;
         uart_rdn <= 1;
         uart_wrn <= 1;
+        to_pull_up_uart <= 0;
     end else begin
         inst <= 0;
         cpu_ram_data_i <= 0;
+        //cpu_ram_data_i <= cpu_ram_addr_o; // only for debug
         base_is_writing <= 0;
         base_ram_ce_n <= 1;
         base_ram_we_n <= 1;
         base_ram_oe_n <= 1;
+        base_ram_addr <= 0;
         ext_is_writing <= 0;
         ext_ram_ce_n <= 1;
         ext_ram_we_n <= 1;
         ext_ram_oe_n <= 1;
+        ext_ram_addr <= 0;
         uart_rdn <= 1;
         uart_wrn <= 1;
         if (cpu_ram_ce_o) begin // 访存的优先级大于取指的优先级
             if (cpu_ram_addr_o>=32'h80000000 && cpu_ram_addr_o <= 32'h803FFFFF) begin// 访问baseram
                 base_ram_ce_n <= 0;
                 if (cpu_ram_we_o) begin // 如果是写状态
-                    base_ram_we_n <= 0;            
-                    base_ram_oe_n <= 1;
+                    base_ram_we_n <= 0; // 可写
+                    base_ram_oe_n <= 1; // 不可读
                     base_is_writing <= 1;
                     base_ram_addr <= cpu_ram_addr_o[19+2:0+2];
                     base_ram_be_n <= ~cpu_ram_sel_o; // 真值相反
@@ -302,12 +372,25 @@ always_comb begin
                 end else begin
                     uart_rdn <= 0;
                     uart_wrn <= 1;
+                    base_is_writing <= 0;
                     cpu_ram_data_i <= {24'b0, base_ram_data[7:0]};
                 end
             end else if (cpu_ram_addr_o == 32'hbfd003fc) begin
                 //base_ram_addr <= cpu_ram_addr_o[19+2:0+2]; // 仅调试
                 cpu_ram_data_i <= {30'b0, uart_dataready, uart_tsre & uart_tbre}; // uncertain
             end
+            // end else if (cpu_ram_addr_o == 32'hbfd003f8) begin // 改成直连串口试一试
+            //     if (cpu_ram_we_o) begin // 如果是写状态
+            //         ext_uart_tx <= cpu_ram_data_o[7:0];
+            //         ext_uart_start <= 1'b1;
+            //     end else begin
+            //         already_read_status <= serial_read_status;
+            //         cpu_ram_data_i <= { 24'b0, serial_read_data };
+            //     end
+            // end else if (cpu_ram_addr_o == 32'hbfd003fc) begin
+            //     //base_ram_addr <= cpu_ram_addr_o[19+2:0+2]; // 仅调试
+            //     cpu_ram_data_i <= { 30'b0, serial_read_status^already_read_status, ~ext_uart_busy }; // uncertain
+            // end
         end else if (rom_ce) begin // 指令是只读的
             if (inst_addr >= 32'h80000000 && inst_addr <= 32'h803FFFFF) begin // 访问baseram
                 base_ram_ce_n <= 0;

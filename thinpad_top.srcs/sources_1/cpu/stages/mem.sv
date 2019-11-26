@@ -111,16 +111,16 @@ always_comb begin
                 mem_ce_o <= 1;
                 case (mem_addr_i[1:0])
                     2'b11: begin
-                        mem_sel_o <= 4'b0001;
+                        mem_sel_o <= 4'b1000;
                     end
                     2'b10: begin
-                        mem_sel_o <= 4'b0010;
-                    end
-                    2'b01: begin
                         mem_sel_o <= 4'b0100;
                     end
+                    2'b01: begin
+                        mem_sel_o <= 4'b0010;
+                    end
                     2'b00: begin
-                        mem_sel_o <= 4'b1000;
+                        mem_sel_o <= 4'b0001;
                     end
                     default: begin
                         mem_sel_o <= 4'b0000;

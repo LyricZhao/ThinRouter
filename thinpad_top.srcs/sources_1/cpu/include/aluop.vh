@@ -54,7 +54,8 @@ typedef enum logic[`ALUOP_BUS] {
     EXE_LW_OP,
     EXE_SB_OP,
     EXE_SH_OP,
-    EXE_SW_OP
+    EXE_SW_OP,
+    PLACE_HOLDER
 } aluop_t;
 
 `endif
