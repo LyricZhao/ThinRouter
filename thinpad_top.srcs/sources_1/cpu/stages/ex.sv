@@ -135,7 +135,7 @@ always_comb begin
                 wdata_o <= (({32{reg2_i[31]}} << (6'd32-{1'b0, reg1_i[4:0]}))) | (reg2_i >> reg1_i[4:0]);
             end
             EXE_MUL_OP, EXE_MULT_OP, EXE_MULTU_OP: begin
-                wdata_o <= result_mul[`WORD_BUS];
+                wdata_o <= result_mul[`WORD_WIDTH-1:0];
             end
             EXE_SLT_OP, EXE_SLTU_OP: begin
                 wdata_o <= reg1_lt_reg2;
