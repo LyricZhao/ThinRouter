@@ -1,8 +1,3 @@
-/*
-赵成钢：
-把文件换成SystemVerilog，里面的PLL_Example也换成了新的
-*/
-
 `timescale 1ns / 1ps
 
 module thinpad_top(
@@ -141,51 +136,6 @@ pll clock_gen
 //     .eth_rgmii_txc(eth_rgmii_txc)
 // );
 
-
-// wire [7:0] ext_uart_rx;
-// reg [7:0] ext_uart_rx_reg;
-// reg [7:0] ext_uart_tx_reg, ext_uart_tx;
-// wire ext_uart_ready, ext_uart_busy;
-// reg ext_uart_start_reg, ext_uart_start, ext_uart_avai;
-// reg [1:0] counter;
-
-// always_ff @(posedge clk_10M) begin
-//     if (reset_btn) begin
-//         ext_uart_tx_reg <= 8'b0;
-//         ext_uart_start_reg <= 1'b0;
-//         counter <= 2'b0;
-//     end else begin
-//         if (ext_uart_start) begin
-//             ext_uart_tx_reg <= ext_uart_tx;
-//             ext_uart_start_reg <= 1'b1;
-//             counter <= 2'b0;
-//         end else begin
-//             counter <= counter + 1;
-//             if (&counter) begin
-//                 ext_uart_tx_reg <= 8'b0;
-//                 ext_uart_start_reg <= 1'b0;
-//             end
-//         end
-//     end
-// end
-// async_receiver #(.ClkFrequency(10000000),.Baud(9600)) //接收模块，9600无检验位
-//     ext_uart_r(
-//         .clk(clk_10M),                     //外部时钟信号
-//         .RxD(rxd),                         //外部串行信号输入
-//         .RxD_data_ready(ext_uart_ready),   //数据接收到标志
-//         .RxD_clear(ext_uart_ready),        //清除接收标志
-//         .RxD_data(ext_uart_rx)             //接收到的一字节数据
-//     );
-    
-// async_transmitter #(.ClkFrequency(10000000),.Baud(9600)) //发送模块，9600无检验位
-//     ext_uart_t(
-//         .clk(clk_10M),                     //外部时钟信号
-//         .TxD(txd),                         //串行信号输出
-//         .TxD_busy(ext_uart_busy),          //发送器忙状态指示
-//         .TxD_start(ext_uart_start_reg),    //开始发送信号
-//         .TxD_data(ext_uart_tx_reg)         //待发送的数据
-//     );
-
 inst_addr_t inst_addr; // cpu想读取得指令的地址
 word_t inst; // cpu读入的指令
 logic rom_ce;
@@ -196,7 +146,6 @@ word_t cpu_ram_addr_o;
 word_t cpu_ram_data_o;
 logic cpu_ram_we_o;
 logic[3:0] cpu_ram_sel_o;
-// 把cpu_top放到thinpad_top里面
 
 cpu_top cpu_top_inst(
     .clk(clk_11M0592),
@@ -214,12 +163,11 @@ cpu_top cpu_top_inst(
     .ram_ce_o(cpu_ram_ce_o)
 );
 
-/* Variables */
 logic base_is_writing;
 logic ext_is_writing;
 logic [31:0] base_bus_data_to_write;
 logic [31:0] ext_bus_data_to_write;
-/* Assigns */
+
 assign base_ram_data = base_is_writing ? base_bus_data_to_write : 32'bz;
 assign ext_ram_data = ext_is_writing ? ext_bus_data_to_write : 32'bz;
 
@@ -257,7 +205,7 @@ always_comb begin
         uart_rdn <= 1;
         uart_wrn <= 1;
         if (cpu_ram_ce_o) begin // 访存的优先级大于取指的优先级
-            if (cpu_ram_addr_o>=32'h80000000 && cpu_ram_addr_o <= 32'h803FFFFF) begin// 访问baseram
+            if (cpu_ram_addr_o >= 32'h80000000 && cpu_ram_addr_o <= 32'h803fffff) begin// 访问baseram
                 base_ram_ce_n <= 0;
                 if (cpu_ram_we_o) begin // 如果是写状态
                     base_ram_we_n <= 0; // 可写
@@ -274,7 +222,7 @@ always_comb begin
                     base_ram_be_n <= ~cpu_ram_sel_o; // 真值相反       
                     cpu_ram_data_i <= base_ram_data;
                 end
-            end else if (cpu_ram_addr_o>=32'h80400000 && cpu_ram_addr_o <= 32'h807FFFFF) begin // 访问extram
+            end else if (cpu_ram_addr_o >= 32'h80400000 && cpu_ram_addr_o <= 32'h807fffff) begin // 访问extram
                 ext_ram_ce_n <= 0;
                 if (cpu_ram_we_o) begin // 如果是写状态
                     ext_ram_we_n <= 0;            
@@ -292,7 +240,6 @@ always_comb begin
                     cpu_ram_data_i <= ext_ram_data;
                 end
             end else if (cpu_ram_addr_o == 32'hbfd003f8) begin // 访问串口
-                //base_ram_ce_n <= 1; // 把baseram禁止
                 if (cpu_ram_we_o) begin // 如果是写状态
                     uart_rdn <= 1;
                     uart_wrn <= 0;
