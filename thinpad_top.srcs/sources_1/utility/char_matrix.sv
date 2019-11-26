@@ -5,8 +5,8 @@
 
 输入控制字符:
 0x00: clear screen
-0x0A: \r
-0x0D: \n
+0x0A: \n
+0x0D: \r
 0x7F: backspace
 
 读取需要一拍的时间
@@ -40,6 +40,12 @@ module char_matrix #(
     input logic rst_n
 );
 
+always_ff @ (negedge clk_read) begin
+    if (rst_n) begin
+        // $display("read char %2x (%2x) from (%0d, %0d) %0d", char_read, char_mem_out, x_read, y_read, y_read_real);
+    end
+end
+
 // 下一个字符写入的横坐标
 logic [6:0] x_write;
 // 下一个字符写入的纵坐标
@@ -51,7 +57,7 @@ logic rolling;
 // 滚动行数
 logic [4:0] line_roll;
 // 实际读取纵坐标
-logic [4:0] y_read_real = y_read + line_roll;
+wire  [4:0] y_read_real = y_read + line_roll;
 // 读取出来的字符
 logic [6:0] char_mem_out;
 
@@ -77,6 +83,10 @@ xpm_memory_sdpram #(
     .doutb(char_mem_out),
     .ena(1),
     .enb(1),
+    .injectdbiterra(0),
+    .injectsbiterra(0),
+    .regceb(1),
+    .sleep(0),
     .wea(write_en)
 );
 
@@ -97,13 +107,8 @@ always_ff @ (posedge clk_write) begin
                 rolling <= 0;
                 line_roll <= 0;
             end
-            // \r
-            7'h0a: begin
-                line_length[y_write] <= 0;
-                x_write <= 0;
-            end
             // \n
-            7'h0d: begin
+            7'h0a: begin
                 line_length[y_write + 1'b1] <= 0;
                 x_write <= 0;
                 y_write <= y_write + 1'b1;
@@ -113,6 +118,12 @@ always_ff @ (posedge clk_write) begin
                 end else if (rolling) begin
                     line_roll <= line_roll + 1'b1;
                 end
+                
+            end
+            // \r
+            7'h0d: begin
+                line_length[y_write] <= 0;
+                x_write <= 0;
             end
             // backspace
             7'h7f: begin
@@ -124,6 +135,7 @@ always_ff @ (posedge clk_write) begin
             end
             // 可见字符
             default: begin
+                // $display("char_matrix write %2x at (%0d, %0d)", char_write, y_write, x_write);
                 if (x_write == 77) begin
                     x_write <= 0;
                     line_length[y_write] <= 78;
@@ -136,8 +148,8 @@ always_ff @ (posedge clk_write) begin
                         line_roll <= line_roll + 1'b1;
                     end
                 end else begin
-                    x_write <= line_length[y_write];
-                    line_length[y_write] <= line_length[y_write] + 1;
+                    x_write <= x_write + 1'b1;
+                    line_length[y_write] <= x_write + 1'b1;
                 end
             end
         endcase

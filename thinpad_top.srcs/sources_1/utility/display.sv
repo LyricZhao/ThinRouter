@@ -63,8 +63,8 @@ char_matrix #(
     .write_en,
 
     .clk_read(clk_50M),
-    .x_read(valid ? x_read : 0),
-    .y_read(valid ? y_read[4:0] : 0),
+    .x_read,
+    .y_read,
     .char_read,
 
     .sync_in('{valid, x_scan, y_scan, x_pix[2:0], y_pix[3:0]}),
@@ -81,6 +81,7 @@ typedef struct packed {
     logic [10:0] x_scan;
     // 屏幕扫描纵坐标
     logic [9:0] y_scan;
+    logic [6:0] ch;
 } font_sync_t;
 font_sync_t font_sync_out;
 // 根据字体，指定像素是否为白
@@ -90,10 +91,10 @@ font #(
     .SYNC_TYPE(font_sync_t)
 ) font_inst (
     .clk(clk_50M),
-    .char(char_read),
+    .char_in(char_read),
     .x(char_matrix_sync_out.x_pix),
     .y(char_matrix_sync_out.y_pix),
-    .sync_in('{valid, char_matrix_sync_out.x_scan, char_matrix_sync_out.y_scan}),
+    .sync_in('{valid, char_matrix_sync_out.x_scan, char_matrix_sync_out.y_scan, char_read}),
     .result(font_result),
     .sync_out(font_sync_out)
 );
@@ -112,12 +113,12 @@ always_ff @ (posedge clk_50M) begin
         y_scan <= 0;
         x_read <= 102;
         y_read <= 36;
-        x_pix <= 9;
+        x_pix <= 8;
         y_pix <= 5;
     end else begin
         // 扫描至下一个像素
         `INCR(x_pix, 10)
-        if (x_pix == 9) begin
+        if (x_pix == 8) begin
             `INCR(x_read, 104)
         end
         `INCR(x_scan, 1040)
@@ -128,17 +129,31 @@ always_ff @ (posedge clk_50M) begin
                 `INCR(y_read, 37);
             end
         end
+        if (font_sync_out.x_scan <= 160 && font_sync_out.y_scan <= 30) begin
+            if (font_sync_out.valid)
+                if (font_result)
+                    $write("X");
+                else
+                    $write("+");
+            else
+                $write("-");
+        end
+        if (font_sync_out.x_scan == 1039 && font_sync_out.y_scan <= 30)
+            $display("");
     end
 end
 
 always_ff @(negedge clk_50M) begin
-    if (1) begin
-        $display("(%0d, %0d) : char (%0d, %0d), pix (%0d, %0d)",
-            x_scan, y_scan, x_read, y_read, x_pix, y_pix);
-    end
-    if (font_sync_out.valid) begin
-        $display("%0d at (%0d, %0d)", font_result, font_sync_out.x_scan, font_sync_out.y_scan);
-    end
+    // if (1) begin
+    //     $display("(%0d, %0d) : char (%0d, %0d), pix (%0d, %0d)",
+    //         x_scan, y_scan, x_read, y_read, x_pix, y_pix);
+    // end
+    // $display("%d char %2x (%0d, %0d) (%0d, %0d)", char_matrix_sync_out.valid, char_read,
+    //     char_matrix_sync_out.x_scan, char_matrix_sync_out.y_scan, char_matrix_sync_out.x_pix, char_matrix_sync_out.y_pix);
+    // if (font_sync_out.valid && font_result) begin
+    //     $display("char '%c' (%0d, %0d)", font_sync_out.ch,
+    //         font_sync_out.x_scan, font_sync_out.y_scan);
+    // end
 end
 
 //图像输出演示，分辨率800x600@75Hz，像素时钟为50MHz
@@ -153,23 +168,32 @@ vga #(800, 856, 976, 1040, 600, 637, 643, 666, 1, 1) vga800x600at75 (
     .data_enable(video_de)
 );
 
-logic [4:0] init_write_cnt = 0;
-reg [6:0] init_str [0:12] = '{
-    7'h68, 7'h65, 7'h6c, 7'h6c, 7'h6f, 7'h2c, 7'h20, 7'h77, 7'h6f, 7'h72, 7'h6c, 7'h64, 7'h21
+// hello world
+integer cnt;
+logic [5:0] init_write_cnt;
+reg [6:0] init_str [0:33] = '{
+//  H      e      l      l      o      ,             w      o      r      l      d      !      \n
+    7'h48, 7'h65, 7'h6c, 7'h6c, 7'h6f, 7'h2c, 7'h20, 7'h77, 7'h6f, 7'h72, 7'h6c, 7'h64, 7'h21, 7'h0a,
+//                              -             f      r      o      m             o      u      r             C      P      U       \n     \n
+    7'h20, 7'h20, 7'h20, 7'h20, 7'h2d, 7'h20, 7'h66, 7'h72, 7'h6f, 7'h6d, 7'h20, 7'h6f, 7'h75, 7'h72, 7'h20, 7'h43, 7'h50, 7'h555, 7'h0a, 7'h0a
 };
-always_comb begin
-    if (init_write_cnt < 13) begin
-        char_write = init_str[init_write_cnt];
-        write_en = 1;
-    end else begin
-        char_write = 0;
-        write_en = 0;
-    end
-end
 
 always_ff @ (posedge clk_200M) begin
-    if (init_write_cnt < 14) begin
-        init_write_cnt <= init_write_cnt + 1'b1;
+    if (!rst_n) begin
+        cnt <= 0;
+        init_write_cnt <= 0;
+        write_en <= 1;
+        char_write <= '0;
+    end else begin
+        `INCR(cnt, 50_000_000)
+        if (cnt == 0) begin
+            `INCR(init_write_cnt, 34)
+            char_write <= init_str[init_write_cnt];
+            write_en <= 1;
+        end else begin
+            char_write <= 'x;
+            write_en <= 0;
+        end
     end
 end
 

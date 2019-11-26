@@ -11,7 +11,7 @@ module font #(
 )(
     input logic clk,
     
-    input logic [6:0] char,
+    input logic [6:0] char_in,
     input logic [2:0] x,
     input logic [3:0] y,
     input SYNC_TYPE sync_in,
@@ -21,23 +21,33 @@ module font #(
 );
 
 logic [7:0] mem_out;
-assign result = mem_out[x];
+assign result = mem_out[~x];
+logic [10:0] addra;
 xpm_memory_sprom #(
     .ADDR_WIDTH_A(11),
     .MEMORY_INIT_FILE("font.mem"),
     .MEMORY_SIZE(16384),
     .READ_DATA_WIDTH_A(8),
-    .READ_LATENCY(1)
+    .READ_LATENCY_A(1)
 ) memory_inst (
-    .addra({char, y}),
+    .addra({char_in, y}),
     .clka(clk),
     .douta(mem_out),
     .ena(1),
-    .rsta(0)
+    .injectdbiterra(0),
+    .injectsbiterra(0),
+    .regcea(1),
+    .rsta(0),
+    .sleep(0)
 );
 
 always_ff @(posedge clk) begin
     sync_out <= sync_in;
+end
+
+always_ff @(negedge clk) begin
+    // if (result && sync_out[0]) 
+    //     $display("%d at char '%c' (%0d, %0d)", result, char_in, y, x);
 end
 
 endmodule
