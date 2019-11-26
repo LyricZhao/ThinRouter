@@ -49,13 +49,14 @@ module id(
 );
 
 // 上条指令是否是访存指令
-logic pre_inst_is_load; 
+logic pre_inst_is_load;
+
 always_comb 
     case (ex_aluop_i)
         EXE_LB_OP, EXE_LBU_OP, EXE_LH_OP, EXE_LHU_OP, EXE_LW_OP:
-            pre_inst_is_load = 1;
+            pre_inst_is_load <= 1;
         default:
-            pre_inst_is_load = 0;
+            pre_inst_is_load <= 0;
     endcase
 
 logic stallreq_for_reg1_loadrelate; // 寄存器1是否数据相关
@@ -278,50 +279,48 @@ end
 
 // 下面两段是传递什么数据给ex阶段，如果不读寄存器就用立即数
 always_comb begin
-    stallreq_for_reg1_loadrelate = 0;
+    stallreq_for_reg1_loadrelate <= 0;
     if (rst) begin
-        reg1_o = '0;
+        reg1_o <= 0;
     end else if (reg1_read_o) begin
         if (pre_inst_is_load && ex_wd_i == reg1_addr_o) begin
             // 如果前一条指令是访存，而且当前要读的 reg1 就是正在访存的寄存器，则要求暂停
-            reg1_o = 'x;
-            stallreq_for_reg1_loadrelate = 1;
+            reg1_o <= 'x;
+            stallreq_for_reg1_loadrelate <= 1;
         end else if (ex_wreg_i && ex_wd_i == reg1_addr_o) begin
             // 如果要读的寄存器1与EX阶段要写的寄存器相同，则直接读入要写的值（先看近的指令）
             reg1_o = ex_wdata_i;
         end else if (mem_wreg_i && mem_wd_i == reg1_addr_o) begin
             // 如果要读的寄存器1与MEM阶段要写的寄存器相同，则直接读入要写的值（相隔1条指令）
-            reg1_o = mem_wdata_i;
+            reg1_o <= mem_wdata_i;
         end else begin
-            reg1_o = reg1_data_i;
+            reg1_o <= reg1_data_i;
         end
     end else begin
-        // reg1_read_o == 0
-        reg1_o = imm;
+        reg1_o <= imm;
     end
 end
 
 always_comb begin
-    stallreq_for_reg2_loadrelate = 0;
+    stallreq_for_reg2_loadrelate <= 0;
     if (rst) begin
-        reg2_o = '0;
+        reg2_o <= 0;
     end else if (reg2_read_o) begin
         if (pre_inst_is_load && ex_wd_i == reg2_addr_o) begin
             // 如果前一条指令是访存，而且当前要读的 reg2 就是正在访存的寄存器，则要求暂停
-            reg2_o = 'x;
-            stallreq_for_reg2_loadrelate = 1;
+            reg2_o <= 'x;
+            stallreq_for_reg2_loadrelate <= 1;
         end else if (ex_wreg_i && ex_wd_i == reg2_addr_o) begin
             // 如果要读的寄存器2与EX阶段要写的寄存器相同，则直接读入要写的值（先看近的指令）
-            reg2_o = ex_wdata_i;
+            reg2_o <= ex_wdata_i;
         end else if (mem_wreg_i && mem_wd_i == reg2_addr_o) begin
             // 如果要读的寄存器2与MEM阶段要写的寄存器相同，则直接读入要写的值（相隔1条指令）
-            reg2_o = mem_wdata_i;
+            reg2_o <= mem_wdata_i;
         end else begin
-            reg2_o = reg2_data_i;
+            reg2_o <= reg2_data_i;
         end
     end else begin
-        // reg2_read_o == 0
-        reg2_o = imm;
+        reg2_o <= imm;
     end
 end
 

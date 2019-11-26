@@ -55,11 +55,6 @@ always_comb begin
         mem_sel_o <= 4'b1111; // 默认四个字节都读/写
         stallreq_o <= 0;
         case (aluop_i)
-            /*
-            TODO: 见书的P250~P257，我认为这里需要一些宏定义来优化代码风格
-            先简单加两条指令测试一下有没有bug
-            !现在的实现方式是所有的访存指令都暂停流水线
-            */
             EXE_LW_OP: begin
                 stallreq_o <= 1;
                 mem_addr_o <= mem_addr_i;
