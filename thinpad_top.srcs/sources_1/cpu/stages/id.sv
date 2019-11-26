@@ -137,124 +137,122 @@ always_comb begin
         target_addr_o        <= 0;
         return_addr_o        <= 0;
         // 下面这部分判断详情见造CPU一书的121页
-        //if (inst_i[31:21] != 11'b00000000000) begin // 不是sll, srl, sra
-            case (op1) // 指令码
-                `EXE_SPECIAL_INST: begin
-                    case (op2)
-                        5'b00000: begin // op2暂时默认为0
-                            case (op3) //                             ALUOP         是否写入寄存器            是否读取寄存器1/2
-                                `EXE_OR:    begin `INST_KIND_1_COMMON(EXE_OR_OP,    1,              1, 1);  end
-                                `EXE_AND:   begin `INST_KIND_1_COMMON(EXE_AND_OP,   1,              1, 1);  end
-                                `EXE_XOR:   begin `INST_KIND_1_COMMON(EXE_XOR_OP,   1,              1, 1);  end
-                                `EXE_NOR:   begin `INST_KIND_1_COMMON(EXE_NOR_OP,   1,              1, 1);  end
-                                `EXE_SLLV:  begin `INST_KIND_1_COMMON(EXE_SLL_OP,   1,              1, 1);  end
-                                `EXE_SRLV:  begin `INST_KIND_1_COMMON(EXE_SRL_OP,   1,              1, 1);  end
-                                `EXE_SRAV:  begin `INST_KIND_1_COMMON(EXE_SRA_OP,   1,              1, 1);  end
-                                `EXE_SYNC:  begin `INST_KIND_1_COMMON(EXE_NOP_OP,   0,              0, 0);  end // 书上这里写了读第二个寄存器，暂时先不读
-                                `EXE_SLT:   begin `INST_KIND_1_COMMON(EXE_SLT_OP,   1,              1, 1);  end
-                                `EXE_SLTU:  begin `INST_KIND_1_COMMON(EXE_SLTU_OP,  1,              1, 1);  end
-                                `EXE_ADD:   begin `INST_KIND_1_COMMON(EXE_ADD_OP,   1,              1, 1);  end
-                                `EXE_ADDU:  begin `INST_KIND_1_COMMON(EXE_ADDU_OP,  1,              1, 1);  end
-                                `EXE_SUB:   begin `INST_KIND_1_COMMON(EXE_SUB_OP,   1,              1, 1);  end
-                                `EXE_SUBU:  begin `INST_KIND_1_COMMON(EXE_SUBU_OP,  1,              1, 1);  end
-                                `EXE_MULT:  begin `INST_KIND_1_COMMON(EXE_MULT_OP,  0,              1, 1);  end // 这里写到hilo寄存器，不写通用
-                                `EXE_MULTU: begin `INST_KIND_1_COMMON(EXE_MULTU_OP, 0,              1, 1);  end // 这里写到hilo寄存器，不写通用
-                                `EXE_MFHI:  begin `INST_KIND_1_COMMON(EXE_MFHI_OP,  1,              0, 0);  end // 从hi读并写到寄存器
-                                `EXE_MFLO:  begin `INST_KIND_1_COMMON(EXE_MFLO_OP,  1,              0, 0);  end // 从lo读并写到寄存器
-                                `EXE_MTHI:  begin `INST_KIND_1_COMMON(EXE_MTHI_OP,  0,              1, 0);  end // 从寄存器读并写到hi
-                                `EXE_MTLO:  begin `INST_KIND_1_COMMON(EXE_MTLO_OP,  0,              1, 0);  end // 从寄存器读并写到lo
-                                `EXE_MOVN:  begin `INST_KIND_1_COMMON(EXE_MOVN_OP,  (reg2_o != 0),  1, 1);  end // 如果非0就写
-                                `EXE_MOVZ:  begin `INST_KIND_1_COMMON(EXE_MOVZ_OP,  (reg2_o == 0),  1, 1);  end // 如果是0就写
-                                `EXE_JR: begin
-                                    `INST_KIND_1_COMMON(EXE_JR_OP, 0, 1, 0);
-                                    `BRANCH_ALL(0, reg1_o, 1, 1);
-                                end
-                                `EXE_JALR: begin // 书上还有一句wd_o <= inst_i[15:11] 这里直接归为默认情况
-                                    `INST_KIND_1_COMMON(EXE_JALR_OP, 1, 1, 0);
-                                    `BRANCH_ALL(pc_next_2, reg1_o, 1, 1);
-                                end
-                                default: begin end
-                            endcase
-                        end
-                        default: begin end
-                    endcase
-                end //                                ALUOP         立即数                             是否写入寄存器/是否读1/2
-                `EXE_ORI:   begin `INST_KIND_2_COMMON(EXE_OR_OP,    {16'h0, inst_i[15:0]},            1, 1, 0);   end // 高位补0
-                `EXE_ANDI:  begin `INST_KIND_2_COMMON(EXE_AND_OP,   {16'h0, inst_i[15:0]},            1, 1, 0);   end // 高位补0
-                `EXE_XORI:  begin `INST_KIND_2_COMMON(EXE_XOR_OP,   {16'h0, inst_i[15:0]},            1, 1, 0);   end // 高位补0
-                `EXE_LUI:   begin `INST_KIND_2_COMMON(EXE_OR_OP,    {inst_i[15:0], 16'h0},            1, 1, 0);   end // 高位load，低位保持
-                `EXE_PREF:  begin `INST_KIND_2_COMMON(EXE_NOP_OP,   0,                                0, 0, 0);   end
-                `EXE_SLTI:  begin `INST_KIND_2_COMMON(EXE_SLT_OP,   {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展
-                `EXE_SLTIU: begin `INST_KIND_2_COMMON(EXE_SLTU_OP,  {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展（并不是0扩展，参见MIPS32文档）
-                `EXE_ADDI:  begin `INST_KIND_2_COMMON(EXE_ADDI_OP,  {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展
-                `EXE_ADDIU: begin `INST_KIND_2_COMMON(EXE_ADDIU_OP, {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展（并不是0扩展，参见MIPS32文档）
-                `EXE_LB:    begin `INST_KIND_4_COMMON(EXE_LB_OP,                                      1, 1, 0);   end
-                `EXE_LBU:   begin `INST_KIND_4_COMMON(EXE_LBU_OP,                                     1, 1, 0);   end
-                `EXE_LH:    begin `INST_KIND_4_COMMON(EXE_LH_OP,                                      1, 1, 0);   end
-                `EXE_LHU:   begin `INST_KIND_4_COMMON(EXE_LHU_OP,                                     1, 1, 0);   end
-                `EXE_LW:    begin `INST_KIND_4_COMMON(EXE_LW_OP,                                      1, 1, 0);   end
-                `EXE_SB:    begin `INST_KIND_1_COMMON(EXE_SB_OP,                                      0, 1, 1);   end
-                `EXE_SH:    begin `INST_KIND_1_COMMON(EXE_SH_OP,                                      0, 1, 1);   end
-                `EXE_SW:    begin `INST_KIND_1_COMMON(EXE_SW_OP,                                      0, 1, 1);   end
-                `EXE_J: begin
-                    `INST_KIND_1_COMMON(EXE_J_OP, 0, 0, 0);
-                    `BRANCH_ALL(0, {pc_next[31:28], inst_i[25:0], 2'b00}, 1, 1);
-                end
-                `EXE_JAL: begin
-                    wd_o <= 31; // 31号寄存器
-                    `INST_KIND_1_COMMON(EXE_JAL_OP, 1, 0, 0);
-                    `BRANCH_ALL(pc_next_2, {pc_next[31:28], inst_i[25:0], 2'b00}, 1, 1);
-                end
-                `EXE_BEQ: begin
-                    `INST_KIND_1_COMMON(EXE_BEQ_OP, 0, 1, 1);
-                    `BRANCH_CONDITION((reg1_o == reg2_o), 0, pc_plus_offset, 1, 1);
-                end
-                `EXE_BGTZ: begin
-                    `INST_KIND_1_COMMON(EXE_BGTZ_OP, 0, 1, 0);
-                    `BRANCH_CONDITION((reg1_o[31] == 0 && reg1_o != 0), 0, pc_plus_offset, 1, 1);
-                end
-                `EXE_BLEZ: begin
-                    `INST_KIND_1_COMMON(EXE_BLEZ_OP, 0, 1, 0);
-                    `BRANCH_CONDITION((reg1_o[31] == 1 || reg1_o == 0), 0, pc_plus_offset, 1, 1);
-                end
-                `EXE_BNE: begin
-                    `INST_KIND_1_COMMON(EXE_BNE_OP, 0, 1, 1);
-                    `BRANCH_CONDITION((reg1_o != reg2_o), 0, pc_plus_offset, 1, 1);
-                end
-                `EXE_REGIMM_INST: begin
-                    case (op4)
-                        `EXE_BGEZ: begin
-                            `INST_KIND_1_COMMON(EXE_BGEZ_OP, 0, 1, 0);
-                            `BRANCH_CONDITION((reg1_o[31] == 0), 0, pc_plus_offset, 1, 1);
-                        end
-                        `EXE_BGEZAL: begin
-                            wd_o <= 31;
-                            `INST_KIND_1_COMMON(EXE_BGEZAL_OP, 1, 1, 0);
-                            `BRANCH_CONDITION((reg1_o[31] == 0), pc_next_2, pc_plus_offset, 1, 1); // 书上的返回地址写在了if外面我觉得是等价的
-                        end
-                        `EXE_BLTZ: begin
-                            `INST_KIND_1_COMMON(EXE_BLTZ_OP, 0, 1, 0);
-                            `BRANCH_CONDITION((reg1_o[31] == 1), 0, pc_plus_offset, 1, 1);
-                        end
-                        `EXE_BLTZAL: begin
-                            wd_o <= 31;
-                            `INST_KIND_1_COMMON(EXE_BLTZAL_OP, 1, 1, 0);
-                            `BRANCH_CONDITION((reg1_o[31] == 1), pc_next_2, pc_plus_offset, 1, 1); // 书上的返回地址写在了if外面我觉得是等价的
-                        end
-                        default: begin end
-                    endcase
-                end
-                `EXE_SPECIAL2_INST: begin
-                    case (op3) //                              ALUOP        是否写入寄存器/是否读1/2
-                        `EXE_CLZ:    begin `INST_KIND_1_COMMON(EXE_CLZ_OP,  1, 1, 0);  end
-                        `EXE_CLO:    begin `INST_KIND_1_COMMON(EXE_CLO_OP,  1, 1, 0);  end
-                        `EXE_MUL:    begin `INST_KIND_1_COMMON(EXE_MUL_OP,  1, 1, 1);  end
-                        default: begin end
-                    endcase
-                end
-                default: begin end
-            endcase
-        //end else begin
+        case (op1) // 指令码
+            `EXE_SPECIAL_INST: begin
+                case (op2)
+                    5'b00000: begin // op2暂时默认为0
+                        case (op3) //                             ALUOP         是否写入寄存器            是否读取寄存器1/2
+                            `EXE_OR:    begin `INST_KIND_1_COMMON(EXE_OR_OP,    1,              1, 1);  end
+                            `EXE_AND:   begin `INST_KIND_1_COMMON(EXE_AND_OP,   1,              1, 1);  end
+                            `EXE_XOR:   begin `INST_KIND_1_COMMON(EXE_XOR_OP,   1,              1, 1);  end
+                            `EXE_NOR:   begin `INST_KIND_1_COMMON(EXE_NOR_OP,   1,              1, 1);  end
+                            `EXE_SLLV:  begin `INST_KIND_1_COMMON(EXE_SLL_OP,   1,              1, 1);  end
+                            `EXE_SRLV:  begin `INST_KIND_1_COMMON(EXE_SRL_OP,   1,              1, 1);  end
+                            `EXE_SRAV:  begin `INST_KIND_1_COMMON(EXE_SRA_OP,   1,              1, 1);  end
+                            `EXE_SYNC:  begin `INST_KIND_1_COMMON(EXE_NOP_OP,   0,              0, 0);  end // 书上这里写了读第二个寄存器，暂时先不读
+                            `EXE_SLT:   begin `INST_KIND_1_COMMON(EXE_SLT_OP,   1,              1, 1);  end
+                            `EXE_SLTU:  begin `INST_KIND_1_COMMON(EXE_SLTU_OP,  1,              1, 1);  end
+                            `EXE_ADD:   begin `INST_KIND_1_COMMON(EXE_ADD_OP,   1,              1, 1);  end
+                            `EXE_ADDU:  begin `INST_KIND_1_COMMON(EXE_ADDU_OP,  1,              1, 1);  end
+                            `EXE_SUB:   begin `INST_KIND_1_COMMON(EXE_SUB_OP,   1,              1, 1);  end
+                            `EXE_SUBU:  begin `INST_KIND_1_COMMON(EXE_SUBU_OP,  1,              1, 1);  end
+                            `EXE_MULT:  begin `INST_KIND_1_COMMON(EXE_MULT_OP,  0,              1, 1);  end // 这里写到hilo寄存器，不写通用
+                            `EXE_MULTU: begin `INST_KIND_1_COMMON(EXE_MULTU_OP, 0,              1, 1);  end // 这里写到hilo寄存器，不写通用
+                            `EXE_MFHI:  begin `INST_KIND_1_COMMON(EXE_MFHI_OP,  1,              0, 0);  end // 从hi读并写到寄存器
+                            `EXE_MFLO:  begin `INST_KIND_1_COMMON(EXE_MFLO_OP,  1,              0, 0);  end // 从lo读并写到寄存器
+                            `EXE_MTHI:  begin `INST_KIND_1_COMMON(EXE_MTHI_OP,  0,              1, 0);  end // 从寄存器读并写到hi
+                            `EXE_MTLO:  begin `INST_KIND_1_COMMON(EXE_MTLO_OP,  0,              1, 0);  end // 从寄存器读并写到lo
+                            `EXE_MOVN:  begin `INST_KIND_1_COMMON(EXE_MOVN_OP,  (reg2_o != 0),  1, 1);  end // 如果非0就写
+                            `EXE_MOVZ:  begin `INST_KIND_1_COMMON(EXE_MOVZ_OP,  (reg2_o == 0),  1, 1);  end // 如果是0就写
+                            `EXE_JR: begin
+                                `INST_KIND_1_COMMON(EXE_JR_OP, 0, 1, 0);
+                                `BRANCH_ALL(0, reg1_o, 1, 1);
+                            end
+                            `EXE_JALR: begin // 书上还有一句wd_o <= inst_i[15:11] 这里直接归为默认情况
+                                `INST_KIND_1_COMMON(EXE_JALR_OP, 1, 1, 0);
+                                `BRANCH_ALL(pc_next_2, reg1_o, 1, 1);
+                            end
+                            default: begin end
+                        endcase
+                    end
+                    default: begin end
+                endcase
+            end //                                ALUOP         立即数                             是否写入寄存器/是否读1/2
+            `EXE_ORI:   begin `INST_KIND_2_COMMON(EXE_OR_OP,    {16'h0, inst_i[15:0]},            1, 1, 0);   end // 高位补0
+            `EXE_ANDI:  begin `INST_KIND_2_COMMON(EXE_AND_OP,   {16'h0, inst_i[15:0]},            1, 1, 0);   end // 高位补0
+            `EXE_XORI:  begin `INST_KIND_2_COMMON(EXE_XOR_OP,   {16'h0, inst_i[15:0]},            1, 1, 0);   end // 高位补0
+            `EXE_LUI:   begin `INST_KIND_2_COMMON(EXE_OR_OP,    {inst_i[15:0], 16'h0},            1, 1, 0);   end // 高位load，低位保持
+            `EXE_PREF:  begin `INST_KIND_2_COMMON(EXE_NOP_OP,   0,                                0, 0, 0);   end
+            `EXE_SLTI:  begin `INST_KIND_2_COMMON(EXE_SLT_OP,   {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展
+            `EXE_SLTIU: begin `INST_KIND_2_COMMON(EXE_SLTU_OP,  {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展（并不是0扩展，参见MIPS32文档）
+            `EXE_ADDI:  begin `INST_KIND_2_COMMON(EXE_ADDI_OP,  {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展
+            `EXE_ADDIU: begin `INST_KIND_2_COMMON(EXE_ADDIU_OP, {{16{inst_i[15]}}, inst_i[15:0]}, 1, 1, 0);   end // 符号扩展（并不是0扩展，参见MIPS32文档）
+            `EXE_LB:    begin `INST_KIND_4_COMMON(EXE_LB_OP,                                      1, 1, 0);   end
+            `EXE_LBU:   begin `INST_KIND_4_COMMON(EXE_LBU_OP,                                     1, 1, 0);   end
+            `EXE_LH:    begin `INST_KIND_4_COMMON(EXE_LH_OP,                                      1, 1, 0);   end
+            `EXE_LHU:   begin `INST_KIND_4_COMMON(EXE_LHU_OP,                                     1, 1, 0);   end
+            `EXE_LW:    begin `INST_KIND_4_COMMON(EXE_LW_OP,                                      1, 1, 0);   end
+            `EXE_SB:    begin `INST_KIND_1_COMMON(EXE_SB_OP,                                      0, 1, 1);   end
+            `EXE_SH:    begin `INST_KIND_1_COMMON(EXE_SH_OP,                                      0, 1, 1);   end
+            `EXE_SW:    begin `INST_KIND_1_COMMON(EXE_SW_OP,                                      0, 1, 1);   end
+            `EXE_J: begin
+                `INST_KIND_1_COMMON(EXE_J_OP, 0, 0, 0);
+                `BRANCH_ALL(0, {pc_next[31:28], inst_i[25:0], 2'b00}, 1, 1);
+            end
+            `EXE_JAL: begin
+                wd_o <= 31; // 31号寄存器
+                `INST_KIND_1_COMMON(EXE_JAL_OP, 1, 0, 0);
+                `BRANCH_ALL(pc_next_2, {pc_next[31:28], inst_i[25:0], 2'b00}, 1, 1);
+            end
+            `EXE_BEQ: begin
+                `INST_KIND_1_COMMON(EXE_BEQ_OP, 0, 1, 1);
+                `BRANCH_CONDITION((reg1_o == reg2_o), 0, pc_plus_offset, 1, 1);
+            end
+            `EXE_BGTZ: begin
+                `INST_KIND_1_COMMON(EXE_BGTZ_OP, 0, 1, 0);
+                `BRANCH_CONDITION((reg1_o[31] == 0 && reg1_o != 0), 0, pc_plus_offset, 1, 1);
+            end
+            `EXE_BLEZ: begin
+                `INST_KIND_1_COMMON(EXE_BLEZ_OP, 0, 1, 0);
+                `BRANCH_CONDITION((reg1_o[31] == 1 || reg1_o == 0), 0, pc_plus_offset, 1, 1);
+            end
+            `EXE_BNE: begin
+                `INST_KIND_1_COMMON(EXE_BNE_OP, 0, 1, 1);
+                `BRANCH_CONDITION((reg1_o != reg2_o), 0, pc_plus_offset, 1, 1);
+            end
+            `EXE_REGIMM_INST: begin
+                case (op4)
+                    `EXE_BGEZ: begin
+                        `INST_KIND_1_COMMON(EXE_BGEZ_OP, 0, 1, 0);
+                        `BRANCH_CONDITION((reg1_o[31] == 0), 0, pc_plus_offset, 1, 1);
+                    end
+                    `EXE_BGEZAL: begin
+                        wd_o <= 31;
+                        `INST_KIND_1_COMMON(EXE_BGEZAL_OP, 1, 1, 0);
+                        `BRANCH_CONDITION((reg1_o[31] == 0), pc_next_2, pc_plus_offset, 1, 1); // 书上的返回地址写在了if外面我觉得是等价的
+                    end
+                    `EXE_BLTZ: begin
+                        `INST_KIND_1_COMMON(EXE_BLTZ_OP, 0, 1, 0);
+                        `BRANCH_CONDITION((reg1_o[31] == 1), 0, pc_plus_offset, 1, 1);
+                    end
+                    `EXE_BLTZAL: begin
+                        wd_o <= 31;
+                        `INST_KIND_1_COMMON(EXE_BLTZAL_OP, 1, 1, 0);
+                        `BRANCH_CONDITION((reg1_o[31] == 1), pc_next_2, pc_plus_offset, 1, 1); // 书上的返回地址写在了if外面我觉得是等价的
+                    end
+                    default: begin end
+                endcase
+            end
+            `EXE_SPECIAL2_INST: begin
+                case (op3) //                              ALUOP        是否写入寄存器/是否读1/2
+                    `EXE_CLZ:    begin `INST_KIND_1_COMMON(EXE_CLZ_OP,  1, 1, 0);  end
+                    `EXE_CLO:    begin `INST_KIND_1_COMMON(EXE_CLO_OP,  1, 1, 0);  end
+                    `EXE_MUL:    begin `INST_KIND_1_COMMON(EXE_MUL_OP,  1, 1, 1);  end
+                    default: begin end
+                endcase
+            end
+            default: begin end
+        endcase
         if (inst_i[31:21] == 11'b00000000000) begin
             case (op3) //                             ALUOP       是否写入寄存器/是否读1/2
                 `EXE_SLL:   begin `INST_KIND_3_COMMON(EXE_SLL_OP, 1, 0, 1);     end

@@ -23,18 +23,6 @@ module comm_reg(
 
 word_t regs[0:`REG_NUM-1];
 
-// 清零逻辑
-// genvar i;
-// generate
-//     for (i = 0; i < `REG_NUM; i = i + 1) begin
-//         always_ff @ (posedge clk) begin
-//             if (rst == 1) begin
-//                 regs[i] <= 0;
-//             end
-//         end
-//     end
-// endgenerate
-
 // 同步写入
 always_ff @ (posedge clk) begin
     if (rst == 0) begin

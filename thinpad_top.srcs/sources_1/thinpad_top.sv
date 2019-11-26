@@ -186,8 +186,6 @@ pll clock_gen
 //         .TxD_data(ext_uart_tx_reg)         //待发送的数据
 //     );
 
-
-
 inst_addr_t inst_addr; // cpu想读取得指令的地址
 word_t inst; // cpu读入的指令
 logic rom_ce;
@@ -215,7 +213,6 @@ cpu_top cpu_top_inst(
     .ram_sel_o(cpu_ram_sel_o),
     .ram_ce_o(cpu_ram_ce_o)
 );
-
 
 /* Variables */
 logic base_is_writing;
@@ -333,7 +330,5 @@ always_comb begin
         end
     end
 end
-
-
 
 endmodule
