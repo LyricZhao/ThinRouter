@@ -31,7 +31,7 @@ always_ff @(posedge clk) begin
     if (rst || (stall.mem && !stall.wb)) begin
         wb_wd <= `NOP_REG_ADDR;
         {wb_wreg, wb_wdata, wb_hi, wb_lo, wb_whilo} <= 0;
-    end else if (stall.mem) begin
+    end else if (!stall.mem) begin
         wb_wd <= mem_wd;
         wb_wreg <= mem_wreg;
         wb_wdata <= mem_wdata;
