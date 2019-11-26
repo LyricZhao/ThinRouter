@@ -1,5 +1,8 @@
 `timescale 1ns / 1ps
-module testbench_thinpad();
+
+`include "cpu_defs.vh"
+
+module testbench_thinpad_cpu();
 
 wire clk_50M, clk_11M0592, clk_125M, clk_125M_90deg;
 
@@ -98,6 +101,8 @@ thinpad_top dut(
     .eth_rgmii_txc(eth_rgmii_txc)
 );
 
+parameter base_ram_init_file = "kernel.bin";
+
 // 时钟源
 clock osc(
     .clk_11M0592(clk_11M0592),
@@ -148,6 +153,28 @@ initial begin
     reset_btn = 1;
     #195;
     reset_btn = 0;
+end
+
+// 从文件加载 BaseRAM
+initial begin 
+    word_t tmp_array[0:1048575];
+    integer file_id, file_size;
+    file_id = $fopen(base_ram_init_file, "rb");
+    if (!file_id) begin 
+        file_size = 0;
+        $display("Failed to open BaseRAM init file");
+    end else begin
+        file_size = $fread(tmp_array, file_id);
+        file_size /= 4;
+        $fclose(file_id);
+    end
+    $display("BaseRAM Init Size(words): %d", file_size);
+    for (integer i = 0; i < file_size; i++) begin
+        base1.mem_array0[i] = tmp_array[i][24+:8];
+        base1.mem_array1[i] = tmp_array[i][16+:8];
+        base2.mem_array0[i] = tmp_array[i][8+:8];
+        base2.mem_array1[i] = tmp_array[i][0+:8];
+    end
 end
 
 // RGMII 仿真模型 这里从testbench_eth_frame的rgmmi上接过去
