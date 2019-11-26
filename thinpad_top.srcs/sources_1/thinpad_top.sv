@@ -85,11 +85,11 @@ module thinpad_top(
 
 // PLL分频
 
-logic locked, clk_10M, clk_20M, clk_125M, clk_200M;
+logic locked, clk_40M, clk_20M, clk_125M, clk_200M;
 pll clock_gen 
 (
     // Clock out ports
-    .clk_out1(clk_10M),               // 时钟输出1
+    .clk_out1(clk_40M),               // 时钟输出1
     .clk_out2(clk_20M),               // 时钟输出2
     .clk_out3(clk_125M),              // 时钟输出3
     .clk_out4(clk_200M),              // 时钟输出4
@@ -148,7 +148,7 @@ logic cpu_ram_we_o;
 logic[3:0] cpu_ram_sel_o;
 
 cpu_top cpu_top_inst(
-    .clk(clk_50M),
+    .clk(clk_40M),
     .rst(reset_btn),
 
     .rom_addr_o(inst_addr),
