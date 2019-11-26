@@ -131,7 +131,8 @@ always_comb begin
                 wdata_o <= reg2_i >> reg1_i[4:0];
             end
             EXE_SRA_OP: begin // 算术右移
-                wdata_o <= reg2_i >>> reg1_i[4:0];
+                //wdata_o <= reg2_i >>> reg1_i[4:0]; // 这个指令不知道为什么不行
+                wdata_o <= (({32{reg2_i[31]}} << (6'd32-{1'b0, reg1_i[4:0]}))) | (reg2_i >> reg1_i[4:0]);
             end
             EXE_MUL_OP, EXE_MULT_OP, EXE_MULTU_OP: begin
                 wdata_o <= result_mul[`WORD_BUS];

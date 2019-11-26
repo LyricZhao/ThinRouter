@@ -23,7 +23,7 @@ assign ce = ~rst;
 always_ff @ (posedge clk) begin
     if (ce == 0) begin
         //pc <= `INIT_PC; // 指令初始化
-        pc <= 32'h80000000 - 4; // 指令初始化
+        pc <= 32'h80000000 - 4; // 指令初始化，-4是为了避免松开reset时的那条指令不满一个周期
     end else if (stall[0] == 0) begin
         pc <= jump_flag ? target_addr : (pc + 4);
     end

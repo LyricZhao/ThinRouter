@@ -262,7 +262,7 @@ always_comb begin
                 `EXE_SRA:   begin `INST_KIND_3_COMMON(EXE_SRA_OP, 1, 0, 1);     end
                 default: begin end
             endcase
-        end
+        end // !这里的逻辑一开始有巨大问题，我修改好了
     end
 end
 
