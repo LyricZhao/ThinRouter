@@ -5,17 +5,17 @@ console 屏幕输出
 
 module display (
     input  logic clk_50M,
-    input  logic clk_200M,
+    input  logic clk_write,         // 写入字符的时钟
+    input  logic [6:0] char_write,  // 写入字符
+    input  logic write_en,          // 高电平同步写入
     input  logic rst_n,
-    output logic[2:0] video_red,     // 红色像素，3位
-    output logic[2:0] video_green,   // 绿色像素，3位
-    output logic[1:0] video_blue,    // 蓝色像素，2位
-    output logic video_hsync,        // 行同步（水平同步）信号
-    output logic video_vsync,        // 场同步（垂直同步）信号
-    output logic video_clk,          // 像素时钟输出
-    output logic video_de,           // 行数据有效信号，用于区分消隐区
-
-    input  logic demo_start          // 开启演示
+    output logic[2:0] video_red,    // 红色像素，3位
+    output logic[2:0] video_green,  // 绿色像素，3位
+    output logic[1:0] video_blue,   // 蓝色像素，2位
+    output logic video_hsync,       // 行同步（水平同步）信号
+    output logic video_vsync,       // 场同步（垂直同步）信号
+    output logic video_clk,         // 像素时钟输出
+    output logic video_de           // 行数据有效信号，用于区分消隐区
 );
 
 
@@ -60,7 +60,7 @@ char_matrix_sync_t char_matrix_sync_out;
 char_matrix #(
     .SYNC_TYPE(char_matrix_sync_t)
 ) char_matrix_inst (
-    .clk_write(clk_200M),
+    .clk_write,
     .char_write,
     .write_en,
 
@@ -147,246 +147,5 @@ vga #(800, 856, 976, 1040, 600, 637, 643, 666, 1, 1) vga800x600at75 (
     .vsync(video_vsync),
     .data_enable(video_de)
 );
-
-// YES! OH MY GOSH!
-enum logic [2:0] {
-    YES, OH, MY, GOSH, THUG, Nothing
-} yomg_state;
-logic [7:0] minor_cnt;
-logic [15:0] step_cnt; 
-logic [31:0] time_cnt;
-logic [6:0] char_yes [0:4] = '{7'h59, 7'h45, 7'h53, 7'h21, 7'h20};
-localparam len_oh = 82;
-logic [6:0] char_oh [0:len_oh-1] = '{
-    7'h0a, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h0a, 
-    7'h20, 7'h01, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 
-    7'h2f, 7'h01, 7'h0a, 7'h20, 7'h01, 7'h20, 7'h2f, 7'h01, 
-    7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h0a, 7'h20, 
-    7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 
-    7'h0a, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 
-    7'h2f, 7'h01, 7'h2f, 7'h01, 7'h0a, 7'h20, 7'h2f, 7'h01, 
-    7'h20, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 
-    7'h0a, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 
-    7'h2f, 7'h01, 7'h0a, 7'h20, 7'h2f, 7'h20, 7'h2f, 7'h20, 
-    7'h2f, 7'h20
-};
-logic [5:0] cnt_oh [0:len_oh-1] = '{
-    12, 30, 7, 4, 2, 6, 2, 1, 29, 2, 5, 2, 2, 1, 2, 5, 
-    1, 2, 1, 28, 2, 5, 2, 2, 1, 1, 2, 5, 1, 2, 1, 27, 
-    1, 2, 6, 1, 2, 1, 1, 10, 1, 27, 1, 2, 6, 1, 2, 1, 
-    1, 2, 6, 2, 1, 27, 2, 2, 5, 2, 2, 1, 2, 5, 1, 2, 
-    1, 28, 2, 7, 3, 1, 2, 5, 1, 2, 1, 29, 7, 4, 2, 6, 
-    2, 1
-};
-localparam len_my = 100;
-logic [6:0] char_my [0:len_my-1] = '{
-    7'h0a, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 
-    7'h01, 7'h0a, 7'h20, 7'h2f, 7'h01, 7'h2f, 7'h01, 7'h20, 
-    7'h01, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h01, 
-    7'h20, 7'h0a, 7'h20, 7'h2f, 7'h01, 7'h2f, 7'h01, 7'h20, 
-    7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 
-    7'h0a, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 
-    7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h0a, 7'h20, 
-    7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 
-    7'h20, 7'h2f, 7'h01, 7'h20, 7'h0a, 7'h20, 7'h2f, 7'h01, 
-    7'h20, 7'h2f, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 
-    7'h20, 7'h0a, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 
-    7'h20, 7'h2f, 7'h01, 7'h20, 7'h0a, 7'h20, 7'h2f, 7'h20, 
-    7'h2f, 7'h20, 7'h2f, 7'h20
-};
-logic [5:0] cnt_my [0:len_my-1] = '{
-    12, 28, 4, 5, 4, 2, 2, 4, 2, 1, 27, 1, 2, 1, 2, 3, 
-    2, 1, 2, 1, 2, 2, 2, 2, 1, 1, 27, 1, 2, 2, 2, 1, 
-    2, 1, 1, 2, 2, 2, 4, 2, 1, 27, 1, 2, 1, 2, 3, 2, 
-    1, 2, 3, 2, 2, 3, 1, 27, 1, 2, 2, 2, 1, 3, 1, 2, 
-    4, 1, 2, 3, 1, 27, 1, 2, 3, 1, 4, 1, 2, 4, 1, 2, 
-    3, 1, 27, 1, 2, 8, 1, 2, 4, 1, 2, 3, 1, 27, 2, 9, 
-    2, 5, 2, 4
-};
-localparam len_gosh = 153;
-logic [6:0] char_gosh [0:len_gosh-1] = '{
-    7'h0a, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 
-    7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h0a, 7'h20, 7'h01, 
-    7'h2f, 7'h01, 7'h20, 7'h01, 7'h2f, 7'h01, 7'h20, 7'h01, 
-    7'h2f, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 
-    7'h2f, 7'h01, 7'h0a, 7'h20, 7'h01, 7'h20, 7'h2f, 7'h20, 
-    7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 
-    7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 
-    7'h0a, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 
-    7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 
-    7'h20, 7'h2f, 7'h01, 7'h0a, 7'h20, 7'h2f, 7'h01, 7'h20, 
-    7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 
-    7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h2f, 7'h01, 7'h20, 
-    7'h2f, 7'h01, 7'h0a, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 
-    7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h01, 7'h20, 7'h2f, 
-    7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 
-    7'h2f, 7'h20, 7'h0a, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 
-    7'h01, 7'h20, 7'h01, 7'h20, 7'h2f, 7'h01, 7'h20, 7'h2f, 
-    7'h01, 7'h20, 7'h01, 7'h0a, 7'h20, 7'h2f, 7'h20, 7'h2f, 
-    7'h20, 7'h2f, 7'h20, 7'h2f, 7'h20, 7'h2f, 7'h20, 7'h2f, 
-    7'h20
-};
-logic [5:0] cnt_gosh [0:len_gosh-1] = '{
-    12, 16, 8, 5, 7, 5, 8, 2, 2, 6, 2, 2, 2, 1, 15, 2, 
-    6, 2, 3, 2, 5, 2, 3, 2, 6, 2, 1, 2, 5, 1, 2, 1, 
-    1, 2, 1, 14, 2, 6, 2, 3, 2, 5, 2, 2, 1, 1, 2, 8, 
-    1, 2, 5, 1, 2, 1, 1, 2, 1, 13, 1, 2, 10, 1, 2, 6, 
-    1, 2, 1, 1, 9, 1, 1, 10, 1, 1, 2, 1, 13, 1, 2, 4, 
-    5, 1, 1, 2, 6, 1, 2, 1, 8, 2, 1, 1, 2, 6, 2, 1, 
-    1, 2, 1, 13, 2, 2, 2, 4, 2, 1, 2, 2, 5, 2, 9, 1, 
-    2, 1, 1, 2, 5, 1, 2, 1, 2, 1, 1, 14, 2, 8, 3, 2, 
-    7, 4, 8, 2, 1, 2, 5, 1, 2, 2, 2, 1, 15, 8, 5, 7, 
-    4, 8, 3, 2, 6, 2, 2, 2, 1
-};
-localparam len_thug = 53;
-logic [6:0] char_thug [0:len_thug-1] = '{
-    7'h0a, 7'h20, 7'h01, 7'h0a, 7'h20, 7'h01, 7'h0a, 7'h20, 
-    7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 
-    7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 7'h0a, 7'h20, 
-    7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 
-    7'h01, 7'h20, 7'h01, 7'h0a, 7'h20, 7'h01, 7'h20, 7'h01, 
-    7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 
-    7'h0a, 7'h20, 7'h01, 7'h20, 7'h01
-};
-logic [5:0] cnt_thug [0:len_thug-1] = '{
-    13, 12, 58, 1, 8, 62, 1, 8, 6, 6, 4, 2, 2, 2, 12, 4, 
-    4, 2, 2, 2, 12, 2, 1, 22, 4, 2, 2, 2, 8, 8, 4, 2, 
-    2, 2, 8, 1, 24, 4, 2, 2, 2, 4, 12, 4, 2, 2, 2, 4, 
-    1, 26, 10, 16, 10
-};
-
-always_ff @ (posedge clk_200M) begin
-    if (demo_start) begin
-        yomg_state <= YES;
-        minor_cnt <= 0;
-        step_cnt <= 1;
-        time_cnt <= 1;
-        char_write <= 0;
-        write_en <= 1;
-    end else if (!rst_n || yomg_state == Nothing) begin
-        yomg_state <= Nothing;
-        minor_cnt <= 0;
-        step_cnt <= 1;
-        time_cnt <= 1;
-        char_write <= 0;
-        write_en <= 0;
-    end else begin
-        case (yomg_state)
-            YES: begin
-                `INCR(time_cnt, 112_000_000)
-                if (time_cnt == 0) begin
-                    yomg_state <= OH;
-                    step_cnt <= 1;
-                    minor_cnt <= 0;
-                    char_write <= 0;
-                    write_en <= 1;
-                end else begin
-                    `INCR(step_cnt, 22400)
-                    if (step_cnt == 0) begin
-                        char_write <= char_yes[minor_cnt];
-                        write_en <= 1;
-                        `INCR(minor_cnt, 5)
-                    end else begin
-                        char_write <= 'x;
-                        write_en <= 0;
-                    end
-                end
-            end
-            OH: begin
-                //$display("%0d, %0d", minor_cnt, step_cnt);
-                `INCR(time_cnt, 72_000_000)
-                if (time_cnt == 0) begin
-                    yomg_state <= MY;
-                    step_cnt <= 1;
-                    minor_cnt <= 0;
-                    char_write <= 0;
-                    write_en <= 1;
-                end else begin
-                    if (minor_cnt < len_oh) begin
-                        `INCR(step_cnt, cnt_oh[minor_cnt])
-                        if (step_cnt == 0 || cnt_oh[minor_cnt] == 1) begin
-                            minor_cnt <= minor_cnt + 1'b1;
-                        end
-                        char_write <= char_oh[minor_cnt];
-                        write_en <= 1;
-                    end else begin
-                        step_cnt <= 1;
-                        char_write <= 'x;
-                        write_en <= 0;
-                    end
-                end
-            end
-            MY: begin
-                `INCR(time_cnt, 72_000_000)
-                if (time_cnt == 0) begin
-                    yomg_state <= GOSH;
-                    step_cnt <= 1;
-                    minor_cnt <= 0;
-                    char_write <= 0;
-                    write_en <= 1;
-                end else begin
-                    if (minor_cnt < len_my) begin
-                        `INCR(step_cnt, cnt_my[minor_cnt])
-                        if (step_cnt == 0 || cnt_my[minor_cnt] == 1) begin
-                            minor_cnt <= minor_cnt + 1'b1;
-                        end
-                        char_write <= char_my[minor_cnt];
-                        write_en <= 1;
-                    end else begin
-                        step_cnt <= 1;
-                        char_write <= 'x;
-                        write_en <= 0;
-                    end
-                end
-            end
-            GOSH: begin
-                `INCR(time_cnt, 106_000_000)
-                if (time_cnt == 0) begin
-                    yomg_state <= THUG;
-                    step_cnt <= 1;
-                    minor_cnt <= 0;
-                    char_write <= 0;
-                    write_en <= 1;
-                end else begin
-                    if (minor_cnt < len_gosh) begin
-                        `INCR(step_cnt, cnt_gosh[minor_cnt])
-                        if (step_cnt == 0 || cnt_gosh[minor_cnt] == 1) begin
-                            minor_cnt <= minor_cnt + 1'b1;
-                        end
-                        char_write <= char_gosh[minor_cnt];
-                        write_en <= 1;
-                    end else begin
-                        step_cnt <= 1;
-                        char_write <= 'x;
-                        write_en <= 0;
-                    end
-                end
-            end
-            THUG: begin
-                `INCR(time_cnt, 800_000_000)
-                if (time_cnt == 0) begin
-                    yomg_state <= Nothing;
-                    step_cnt <= 1;
-                    minor_cnt <= 0;
-                    char_write <= 0;
-                    write_en <= 1;
-                end else begin
-                    if (minor_cnt < len_thug) begin
-                        `INCR(step_cnt, cnt_thug[minor_cnt])
-                        if (step_cnt == 0 || cnt_thug[minor_cnt] == 1) begin
-                            minor_cnt <= minor_cnt + 1'b1;
-                        end
-                        char_write <= char_thug[minor_cnt];
-                        write_en <= 1;
-                    end else begin
-                        step_cnt <= 1;
-                        char_write <= 'x;
-                        write_en <= 0;
-                    end
-                end
-            end
-        endcase
-    end
-end
 
 endmodule
