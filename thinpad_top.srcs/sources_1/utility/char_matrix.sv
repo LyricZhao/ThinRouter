@@ -61,7 +61,7 @@ wire  [4:0] y_read_real = y_read + line_roll;
 // 读取出来的字符
 logic [6:0] char_mem_out;
 
-assign char_read = x_read < line_length[y_read] ? char_mem_out : '0;
+assign char_read = x_read < line_length[y_read_real] ? char_mem_out : '0;
 always_ff @ (posedge clk_read)
     sync_out <= sync_in;
 
@@ -127,10 +127,15 @@ always_ff @ (posedge clk_write) begin
             end
             // backspace
             7'h7f: begin
-                x_write <= line_length[y_write - 1'b1] - 1'b1;
-                y_write <= y_write - 1'b1;
-                if (rolling) begin
-                    line_roll <= line_roll - 1'b1;
+                if (x_write) begin
+                    x_write <= x_write - 1'b1;
+                    line_length[y_write] <= x_write - 1'b1;
+                end else if (y_write || rolling) begin
+                    x_write <= line_length[y_write - 1'b1] - 1'b1;
+                    y_write <= y_write - 1'b1;
+                    if (rolling) begin
+                        line_roll <= line_roll - 1'b1;
+                    end
                 end
             end
             // 可见字符
