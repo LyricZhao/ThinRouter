@@ -68,6 +68,25 @@ always_comb begin
                 mem_sel_o <= 4'b1111;
                 mem_ce_o <= 1;
             end
+            EXE_LH_OP: begin
+                stallreq_o <= 1;
+                mem_addr_o <= mem_addr_i;
+                mem_we_o <= 0;
+                mem_ce_o <= 1;
+                case (mem_addr_i[1:0])
+                    2'b00: begin
+                        wdata_o <= {{16{mem_data_i[15]}}, mem_data_i[15:0]};
+                        mem_sel_o <= 4'b1111;
+                    end
+                    2'b10: begin
+                        wdata_o <= {{16{mem_data_i[31]}}, mem_data_i[31:16]};
+                        mem_sel_o <= 4'b1111;
+                    end
+                    default: begin
+                        wdata_o <= 0;
+                    end
+                endcase
+            end
             EXE_LB_OP: begin
                 stallreq_o <= 1;
                 mem_addr_o <= mem_addr_i;
