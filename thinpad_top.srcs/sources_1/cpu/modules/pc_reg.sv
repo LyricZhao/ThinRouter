@@ -20,11 +20,14 @@ module pc_reg(
 
 assign ce = ~rst;
 
-always_ff @ (posedge clk) begin
-    if (ce == 0) begin
-        pc <= `INIT_PC - 4; // 指令初始化，-4是为了避免松开reset时的那条指令不满一个周期
-    end else if (stall[0] == 0) begin
+// 同步启动，异步重置
+always_ff @ (posedge clk or posedge rst) begin
+    if (rst) begin
+        pc <= `INIT_PC - 4;
+        ce <= 0;
+    end else if (!stall.pc) begin
         pc <= jump_flag ? target_addr : (pc + 4);
+        ce <= 1;
     end
 end
 

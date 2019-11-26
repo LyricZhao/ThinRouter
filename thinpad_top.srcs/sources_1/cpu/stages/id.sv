@@ -48,21 +48,33 @@ module id(
     output logic                    stallreq_o              // 暂停请求
 );
 
-
-logic pre_inst_is_load; // 上条指令是否是访存指令
+// 上条指令是否是访存指令
+logic pre_inst_is_load; 
+always_comb 
+    case (ex_aluop_i)
+        EXE_LB_OP, EXE_LBU_OP, EXE_LH_OP, EXE_LHU_OP, EXE_LW_OP:
+            pre_inst_is_load = 1;
+        default:
+            pre_inst_is_load = 0;
+    endcase
 
 logic stallreq_for_reg1_loadrelate; // 寄存器1是否数据相关
 logic stallreq_for_reg2_loadrelate; // 寄存器2是否数据相关
 
 // 暂停请求
 assign stallreq_o = stallreq_for_reg1_loadrelate | stallreq_for_reg2_loadrelate;
-assign inst_o = inst_i; //输入的指令原样输出到下一阶段
+
+//输入的指令原样输出到下一阶段
+assign inst_o = inst_i; 
+
+// 当前指令是否在延迟槽
+assign in_delayslot_o = rst ? 0 : in_delayslot_i;
 
 // 四段码，参见书的121页，需要根据这个来判断指令类型
-logic[5:0] op1; assign op1 = inst_i[31:26];
-logic[4:0] op2; assign op2 = inst_i[10:6];
-logic[5:0] op3; assign op3 = inst_i[5:0];
-logic[4:0] op4; assign op4 = inst_i[20:16];
+wire [5:0] op1 = inst_i[31:26];
+wire [4:0] op2 = inst_i[10:6];
+wire [5:0] op3 = inst_i[5:0];
+wire [4:0] op4 = inst_i[20:16];
 
 // 指令中的立即数
 word_t imm;
@@ -264,56 +276,53 @@ always_comb begin
     end
 end
 
-// 当前指令是否在延迟槽
-assign in_delayslot_o = rst ? 0 : in_delayslot_i;
-
 // 下面两段是传递什么数据给ex阶段，如果不读寄存器就用立即数
 always_comb begin
-    stallreq_for_reg1_loadrelate <= 0;
-    if (rst == 1) begin
-        reg1_o <= 0;
-    end else if ((pre_inst_is_load == 1) && (ex_wd_i == reg1_addr_o) && (reg1_read_o == 1)) begin
-        stallreq_for_reg1_loadrelate <= 1;
-    end else if ((reg1_read_o == 1) && (ex_wreg_i == 1) && (ex_wd_i == reg1_addr_o)) begin    // 如果要读的寄存器1与EX阶段要写的寄存器相同，则直接读入要写的值（先看近的指令）
-        reg1_o <= ex_wdata_i;
-    end else if ((reg1_read_o == 1) && (mem_wreg_i == 1) && (mem_wd_i == reg1_addr_o)) begin  // 如果要读的寄存器1与MEM阶段要写的寄存器相同，则直接读入要写的值（相隔1条指令）
-        reg1_o <= mem_wdata_i;
-    end else if (reg1_read_o == 1) begin
-        reg1_o <= reg1_data_i;
-    end else if (reg1_read_o == 0) begin
-        reg1_o <= imm;
+    stallreq_for_reg1_loadrelate = 0;
+    if (rst) begin
+        reg1_o = '0;
+    end else if (reg1_read_o) begin
+        if (pre_inst_is_load && ex_wd_i == reg1_addr_o) begin
+            // 如果前一条指令是访存，而且当前要读的 reg1 就是正在访存的寄存器，则要求暂停
+            reg1_o = 'x;
+            stallreq_for_reg1_loadrelate = 1;
+        end else if (ex_wreg_i && ex_wd_i == reg1_addr_o) begin
+            // 如果要读的寄存器1与EX阶段要写的寄存器相同，则直接读入要写的值（先看近的指令）
+            reg1_o = ex_wdata_i;
+        end else if (mem_wreg_i && mem_wd_i == reg1_addr_o) begin
+            // 如果要读的寄存器1与MEM阶段要写的寄存器相同，则直接读入要写的值（相隔1条指令）
+            reg1_o = mem_wdata_i;
+        end else begin
+            reg1_o = reg1_data_i;
+        end
     end else begin
-        reg1_o <= 0;
+        // reg1_read_o == 0
+        reg1_o = imm;
     end
 end
 
 always_comb begin
-    stallreq_for_reg2_loadrelate <= 0;
-    if (rst == 1) begin
-        reg2_o <= 0;
-    end else if ((pre_inst_is_load == 1) && (ex_wd_i == reg2_addr_o) && (reg2_read_o == 1)) begin
-        stallreq_for_reg2_loadrelate <= 1;
-    end else if ((reg2_read_o == 1) && (ex_wreg_i == 1) && (ex_wd_i == reg2_addr_o)) begin    // 如果要读的寄存器2与EX阶段要写的寄存器相同，则直接读入要写的值（先看近的指令）
-        reg2_o <= ex_wdata_i;
-    end else if ((reg2_read_o == 1) && (mem_wreg_i == 1) && (mem_wd_i == reg2_addr_o)) begin  // 如果要读的寄存器2与MEM阶段要写的寄存器相同，则直接读入要写的值（相隔1条指令）
-        reg2_o <= mem_wdata_i;
-    end else if (reg2_read_o == 1) begin
-        reg2_o <= reg2_data_i;
-    end else if (reg2_read_o == 0) begin
-        reg2_o <= imm;
+    stallreq_for_reg2_loadrelate = 0;
+    if (rst) begin
+        reg2_o = '0;
+    end else if (reg2_read_o) begin
+        if (pre_inst_is_load && ex_wd_i == reg2_addr_o) begin
+            // 如果前一条指令是访存，而且当前要读的 reg2 就是正在访存的寄存器，则要求暂停
+            reg2_o = 'x;
+            stallreq_for_reg2_loadrelate = 1;
+        end else if (ex_wreg_i && ex_wd_i == reg2_addr_o) begin
+            // 如果要读的寄存器2与EX阶段要写的寄存器相同，则直接读入要写的值（先看近的指令）
+            reg2_o = ex_wdata_i;
+        end else if (mem_wreg_i && mem_wd_i == reg2_addr_o) begin
+            // 如果要读的寄存器2与MEM阶段要写的寄存器相同，则直接读入要写的值（相隔1条指令）
+            reg2_o = mem_wdata_i;
+        end else begin
+            reg2_o = reg2_data_i;
+        end
     end else begin
-        reg2_o <= 0;
+        // reg2_read_o == 0
+        reg2_o = imm;
     end
 end
 
-always_comb begin
-    case (ex_aluop_i)
-        EXE_LB_OP, EXE_LBU_OP, EXE_LH_OP, EXE_LHU_OP, EXE_LW_OP: begin
-            pre_inst_is_load <= 1;
-        end
-        default: begin
-            pre_inst_is_load <= 0;
-        end
-    endcase
-end
 endmodule

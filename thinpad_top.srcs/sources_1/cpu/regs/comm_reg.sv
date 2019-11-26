@@ -23,37 +23,32 @@ module comm_reg(
 
 word_t regs[0:`REG_NUM-1];
 
-// 同步写入
 always_ff @ (posedge clk) begin
-    if (rst == 0) begin
-        if ((we == 1) && (waddr != 0)) begin
-            regs[waddr] <= wdata;
-        end
-    end 
+    if (rst == 1) begin
+        regs <= '{default:0};
+    end else if ((we == 1) && (waddr != 0)) begin
+        regs[waddr] <= wdata;
+    end
 end
 
 // 下面两个读是异步的组合逻辑，下面的数据前传解决了相隔2个指令的数据冲突
 always_comb begin
-    if (rst == 1) begin
-        rdata1 <= 0;
-    end else if (raddr1 == 0) begin // 如果读0号寄存器
-        rdata1 <= 0;
+    if (rst == 1 || raddr1 == 0) begin // 重置或读0号寄存器
+        rdata1 = 0;
     end else if ((raddr1 == waddr) && (we == 1)) begin // 如果读的寄存器正准备被写，直接读即将被写的值（数据前传）
-        rdata1 <= wdata;
+        rdata1 = wdata;
     end else begin
-        rdata1 <= regs[raddr1];
+        rdata1 = regs[raddr1];
     end
 end
 
 always_comb begin
-    if (rst == 1) begin
-        rdata2 <= 0;
-    end else if (raddr2 == 0) begin // 如果读0号寄存器
-        rdata2 <= 0;
+    if (rst == 1 || raddr2 == 0) begin // 重置或读0号寄存器
+        rdata2 = 0;
     end else if ((raddr2 == waddr) && (we == 1)) begin // 如果读的寄存器正准备被写，直接读即将被写的值（数据前传）
-        rdata2 <= wdata;
+        rdata2 = wdata;
     end else begin
-        rdata2 <= regs[raddr2];
+        rdata2 = regs[raddr2];
     end
 end
 

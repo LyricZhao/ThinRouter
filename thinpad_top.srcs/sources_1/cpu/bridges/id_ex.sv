@@ -39,15 +39,15 @@ module id_ex(
 
 // 同步写入
 always_ff @ (posedge clk) begin
-    if (rst == 1) begin
+    if (rst) begin
         ex_aluop <= EXE_NOP_OP;
         ex_wd    <= `NOP_REG_ADDR;
         {ex_reg1, ex_reg2, ex_wreg, ex_return_addr, ex_in_delayslot, id_in_delayslot_o, ex_inst} <= 0;
-    end else if (stall[2] == 1 && stall[3] == 0) begin // id暂停ex阶段没暂停就给ex空指令
+    end else if (stall.id  && !stall.ex) begin // id暂停ex阶段没暂停就给ex空指令
         ex_aluop <= EXE_NOP_OP;
         ex_wd    <= `NOP_REG_ADDR;
         {ex_reg1, ex_reg2, ex_wreg, ex_return_addr, ex_in_delayslot, ex_inst} <= 0; // 注意这里不能清空id_in_delayslot_o，id暂停了但是是否在延迟槽状态保持，ex没暂停一定不是在延迟槽
-    end else if (stall[2] == 0) begin
+    end else if (!stall.id) begin
         ex_aluop <= id_aluop;
         ex_reg1  <= id_reg1;
         ex_reg2  <= id_reg2;
