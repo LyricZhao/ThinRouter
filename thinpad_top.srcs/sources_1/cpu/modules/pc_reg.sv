@@ -18,10 +18,7 @@ module pc_reg(
     output logic        ce                  // 指令rom的使能
 );
 
-assign ce = ~rst;
-
-// 同步启动，异步重置
-always_ff @ (posedge clk or posedge rst) begin
+always_ff @ (posedge clk) begin
     if (rst) begin
         pc <= `INIT_PC - 4;
         ce <= 0;

@@ -17,11 +17,10 @@ module hilo_reg(
     output word_t   lo_o    // 保存的lo值
 );
 
-// 同步写入
 always_ff @(posedge clk) begin
-    if (rst == 1) begin
+    if (rst) begin
         {hi_o, lo_o} <= 0;
-    end else if (we == 1) begin
+    end else if (we) begin
         {hi_o, lo_o} <= {hi_i, lo_i};
     end
 end

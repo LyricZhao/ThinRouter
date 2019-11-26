@@ -24,7 +24,7 @@ module comm_reg(
 word_t regs[0:`REG_NUM-1];
 
 always_ff @ (posedge clk) begin
-    if (rst == 1) begin
+    if (rst) begin
         regs <= '{default:0};
     end else if ((we == 1) && (waddr != 0)) begin
         regs[waddr] <= wdata;

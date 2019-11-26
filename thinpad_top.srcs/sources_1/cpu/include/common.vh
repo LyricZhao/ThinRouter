@@ -5,16 +5,15 @@
 `ifndef _COMMON_VH_
 `define _COMMON_VH_
 
-`define BYTE_BUS            7:0
-`define WORD_BUS            31:0
-`define DWORD_BUS           63:0
+`define BYTE_WITDH          8
+`define DWORD_WIDTH         64
 `define WORD_WIDTH          32
 `define WORD_WIDTH_LOG2     5
 `define CLZO_FILL           26  // clz, clo两个操作的结果是6位的，这里的意思是补26个0
 
-typedef logic[`BYTE_BUS]        byte_t;
-typedef logic[`WORD_BUS]        word_t;
-typedef logic[`DWORD_BUS]       dword_t;
+typedef logic[`BYTE_BUS-1:0]        byte_t;
+typedef logic[`WORD_BUS-1:0]        word_t;
+typedef logic[`DWORD_BUS-1:0]       dword_t;
 
 typedef struct {
     logic pc;
