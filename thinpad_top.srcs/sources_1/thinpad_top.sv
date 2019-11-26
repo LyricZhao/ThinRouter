@@ -148,7 +148,7 @@ logic cpu_ram_we_o;
 logic[3:0] cpu_ram_sel_o;
 
 cpu_top cpu_top_inst(
-    .clk(clk_20M),
+    .clk(clk_50M),
     .rst(reset_btn),
 
     .rom_addr_o(inst_addr),
