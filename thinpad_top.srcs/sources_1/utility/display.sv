@@ -150,7 +150,7 @@ vga #(800, 856, 976, 1040, 600, 637, 643, 666, 1, 1) vga800x600at75 (
 
 // YES! OH MY GOSH!
 enum logic [2:0] {
-    YES, OH, MY, GOSH, Nothing
+    YES, OH, MY, GOSH, THUG, Nothing
 } yomg_state;
 logic [7:0] minor_cnt;
 logic [15:0] step_cnt; 
@@ -238,6 +238,22 @@ logic [5:0] cnt_gosh [0:len_gosh-1] = '{
     7, 4, 8, 2, 1, 2, 5, 1, 2, 2, 2, 1, 15, 8, 5, 7, 
     4, 8, 3, 2, 6, 2, 2, 2, 1
 };
+localparam len_thug = 53;
+logic [6:0] char_thug [0:len_thug-1] = '{
+    7'h0a, 7'h20, 7'h01, 7'h0a, 7'h20, 7'h01, 7'h0a, 7'h20, 
+    7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 
+    7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 7'h0a, 7'h20, 
+    7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 
+    7'h01, 7'h20, 7'h01, 7'h0a, 7'h20, 7'h01, 7'h20, 7'h01, 
+    7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 7'h20, 7'h01, 
+    7'h0a, 7'h20, 7'h01, 7'h20, 7'h01
+};
+logic [5:0] cnt_thug [0:len_thug-1] = '{
+    13, 12, 58, 1, 8, 62, 1, 8, 6, 6, 4, 2, 2, 2, 12, 4, 
+    4, 2, 2, 2, 12, 2, 1, 22, 4, 2, 2, 2, 8, 8, 4, 2, 
+    2, 2, 8, 1, 24, 4, 2, 2, 2, 4, 12, 4, 2, 2, 2, 4, 
+    1, 26, 10, 16, 10
+};
 
 always_ff @ (posedge clk_200M) begin
     if (demo_start) begin
@@ -277,6 +293,7 @@ always_ff @ (posedge clk_200M) begin
                 end
             end
             OH: begin
+                //$display("%0d, %0d", minor_cnt, step_cnt);
                 `INCR(time_cnt, 72_000_000)
                 if (time_cnt == 0) begin
                     yomg_state <= MY;
@@ -287,7 +304,7 @@ always_ff @ (posedge clk_200M) begin
                 end else begin
                     if (minor_cnt < len_oh) begin
                         `INCR(step_cnt, cnt_oh[minor_cnt])
-                        if (step_cnt == 0) begin
+                        if (step_cnt == 0 || cnt_oh[minor_cnt] == 1) begin
                             minor_cnt <= minor_cnt + 1'b1;
                         end
                         char_write <= char_oh[minor_cnt];
@@ -310,7 +327,7 @@ always_ff @ (posedge clk_200M) begin
                 end else begin
                     if (minor_cnt < len_my) begin
                         `INCR(step_cnt, cnt_my[minor_cnt])
-                        if (step_cnt == 0) begin
+                        if (step_cnt == 0 || cnt_my[minor_cnt] == 1) begin
                             minor_cnt <= minor_cnt + 1'b1;
                         end
                         char_write <= char_my[minor_cnt];
@@ -325,7 +342,7 @@ always_ff @ (posedge clk_200M) begin
             GOSH: begin
                 `INCR(time_cnt, 106_000_000)
                 if (time_cnt == 0) begin
-                    yomg_state <= Nothing;
+                    yomg_state <= THUG;
                     step_cnt <= 1;
                     minor_cnt <= 0;
                     char_write <= 0;
@@ -333,10 +350,33 @@ always_ff @ (posedge clk_200M) begin
                 end else begin
                     if (minor_cnt < len_gosh) begin
                         `INCR(step_cnt, cnt_gosh[minor_cnt])
-                        if (step_cnt == 0) begin
+                        if (step_cnt == 0 || cnt_gosh[minor_cnt] == 1) begin
                             minor_cnt <= minor_cnt + 1'b1;
                         end
                         char_write <= char_gosh[minor_cnt];
+                        write_en <= 1;
+                    end else begin
+                        step_cnt <= 1;
+                        char_write <= 'x;
+                        write_en <= 0;
+                    end
+                end
+            end
+            THUG: begin
+                `INCR(time_cnt, 800_000_000)
+                if (time_cnt == 0) begin
+                    yomg_state <= Nothing;
+                    step_cnt <= 1;
+                    minor_cnt <= 0;
+                    char_write <= 0;
+                    write_en <= 1;
+                end else begin
+                    if (minor_cnt < len_thug) begin
+                        `INCR(step_cnt, cnt_thug[minor_cnt])
+                        if (step_cnt == 0 || cnt_thug[minor_cnt] == 1) begin
+                            minor_cnt <= minor_cnt + 1'b1;
+                        end
+                        char_write <= char_thug[minor_cnt];
                         write_en <= 1;
                     end else begin
                         step_cnt <= 1;
