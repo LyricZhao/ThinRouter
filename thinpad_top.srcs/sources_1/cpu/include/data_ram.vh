@@ -8,5 +8,4 @@
 `define DATA_MEM_NUM        131071
 `define DATA_MEM_NUM_LOG2   17
 
-
 `endif

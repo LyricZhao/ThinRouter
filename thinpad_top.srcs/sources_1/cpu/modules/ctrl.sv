@@ -12,7 +12,7 @@ module ctrl(
     input  logic        stallreq_from_ex,   // 从ex来的暂停请求
     input  logic        stallreq_from_mem,  // 从mem来的暂停请求
 
-    output stall_t      stall     // 给几个模块的暂停信号
+    output stall_t      stall               // 给几个模块的暂停信号
 );
 
 always_comb begin
