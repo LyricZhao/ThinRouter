@@ -321,3 +321,5 @@ set_property CONFIG_VOLTAGE 3.3 [current_design]
 connect_debug_port dbg_hub/clk [get_nets u_ila_1_CLK]
 
 
+
+set_false_path -from [get_pins -hierarchical *line_roll*]

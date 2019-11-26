@@ -342,6 +342,7 @@ assign lock_n = ~locked;
 
 display display_inst(
     .rst_n(locked),
+    .demo_start(touch_btn[0]),
     .*
 );
 

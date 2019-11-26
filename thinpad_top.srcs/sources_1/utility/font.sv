@@ -2,6 +2,8 @@
 字体
 给定字符和横纵坐标（字体宽 8，高 16），取得对应 1/0
 
+0x01: 方块
+
 同步信号：
 虽然出入数据有延迟，同步信号与出入数据一定是一一匹配的
 */
@@ -43,11 +45,6 @@ xpm_memory_sprom #(
 
 always_ff @(posedge clk) begin
     sync_out <= sync_in;
-end
-
-always_ff @(negedge clk) begin
-    // if (result && sync_out[0]) 
-    //     $display("%d at char '%c' (%0d, %0d)", result, char_in, y, x);
 end
 
 endmodule
