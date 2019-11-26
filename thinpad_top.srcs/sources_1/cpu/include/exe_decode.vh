@@ -1,7 +1,6 @@
 /*
 指令码和功能码：
     见动手造CPU一书的121页
-    TODO：不保证这里没有抄错，检查
 */
 
 `ifndef _EXE_DECODE_VH_

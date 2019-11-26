@@ -1,3 +1,8 @@
+/*
+DataROM:
+    一个简单的数据储存器
+*/
+
 `include "cpu_defs.vh"
 
 module data_ram(
@@ -17,9 +22,7 @@ byte_t data_mem2[0:`DATA_MEM_NUM-1];
 byte_t data_mem3[0:`DATA_MEM_NUM-1];
 
 always_ff @ (posedge clk) begin
-    if (ce == 0) begin
-        //data_o <= ZeroWord;
-    end else if(we == 1) begin
+    if(ce == 1 && we == 1) begin
         if (sel[3] == 1) begin
             data_mem3[addr[`DATA_MEM_NUM_LOG2+1:2]] <= data_i[31:24];
         end
@@ -31,7 +34,7 @@ always_ff @ (posedge clk) begin
         end
         if (sel[0] == 1) begin
             data_mem0[addr[`DATA_MEM_NUM_LOG2+1:2]] <= data_i[7:0];
-        end			   	    
+        end
     end
 end
 
@@ -46,6 +49,6 @@ always_comb begin
     end else begin
         data_o <= 0;
     end
-end		
+end
 
 endmodule
