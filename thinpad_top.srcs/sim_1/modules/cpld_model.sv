@@ -86,8 +86,12 @@ module cpld_model(
         .b_rst_n     (clk_out2_rst_n)
     );
 
-    enum logic[3:0] { 
-        ridle
+    enum logic[3:0] {
+        r_idle,
+        r_t_hi, r_t_lo0, r_t_lo1,
+        r_regs,
+        r_d_num,
+        r_g_start, r_g_end
     } recv_state;
 
     enum logic[3:0] {
@@ -98,12 +102,13 @@ module cpld_model(
         g_addr
     } send_state;
 
-    integer recv_length;
+    integer recv_length, recv_count;
     integer send_length;
-    logic[31:0] recv_word, send_word;
+    logic inited;
+    logic[31:0] recv_word, send_word, recv_addr;
 
     initial begin
-        {recv_length, send_length, recv_state, send_state} = 0;
+        {recv_length, send_length, recv_state, send_state, inited} = 0;
     end
 
     always begin
@@ -112,7 +117,97 @@ module cpld_model(
             @(posedge clk_out2);
         uart_tsre = 0;
         #10000 // 实际串口发送时间更长，为了加快仿真，等待时间较短
-        $display("recv %02x", TxD_data_sync);
+        case (recv_state)
+            r_t_hi: begin
+                recv_word = recv_word | (TxD_data_sync << (recv_length * 8));
+                recv_length = recv_length + 1;
+                if (recv_length == 4) begin
+                    $display("RECV: HI (T): 0x%08x", TxD_data_sync);
+                    recv_state = r_t_lo0;
+                    recv_word = 0;
+                    recv_length = 0;
+                end
+            end
+            r_t_lo0: begin
+                recv_word = recv_word | (TxD_data_sync << (recv_length * 8));
+                recv_length = recv_length + 1;
+                if (recv_length == 4) begin
+                    $display("RECV: LO0 (T): 0x%08x", TxD_data_sync);
+                    recv_state = r_t_lo1;
+                    recv_word = 0;
+                    recv_length = 0;
+                end
+            end
+            r_t_lo1: begin
+                recv_word = recv_word | (TxD_data_sync << (recv_length * 8));
+                recv_length = recv_length + 1;
+                if (recv_length == 4) begin
+                    $display("RECV: LO1 (T): 0x%08x", TxD_data_sync);
+                    recv_state = r_idle;
+                    recv_word = 0;
+                    recv_length = 0;
+                end
+            end
+            r_regs: begin
+                recv_word = recv_word | (TxD_data_sync << (recv_length * 8));
+                recv_length = recv_length + 1;
+                if (recv_length == 4) begin
+                    $display("RECV: R%d (R): 0x%08x", 32 - recv_count, TxD_data_sync);
+                    recv_count = recv_count - 1;
+                    recv_state = recv_count == 0 ? r_idle : r_regs;
+                    recv_word = 0;
+                    recv_length = 0;
+                end
+            end
+            r_d_num: begin
+                recv_word = recv_word | (TxD_data_sync << (recv_length * 8));
+                recv_length = recv_length + 1;
+                if (recv_length == 4) begin
+                    $display("RECV: (D) 0x%08x: 0x%08x", recv_addr, TxD_data_sync);
+                    recv_count = recv_count - 1;
+                    recv_addr = recv_addr + 4;
+                    recv_state = recv_count == 0 ? r_idle : r_d_num;
+                    recv_word = 0;
+                    recv_length = 0;
+                end
+            end
+            r_g_start: begin
+                if (TxD_data_sync == 'h80) begin
+                    $display("RECV: (G) Trap at start");
+                    recv_state = r_idle;
+                end else if (TxD_data_sync == 'h06) begin
+                    $display("RECV: (G) Start running");
+                    recv_state = r_g_end;
+                end else begin
+                    $display("RECV: (G) Invalid start (BUG)");
+                    recv_state = r_idle;
+                end
+            end
+            r_g_end: begin
+                if (TxD_data_sync == 'h80) begin
+                    $display("RECV: (G) Trap at end");
+                    recv_state = r_idle;
+                end else if (TxD_data_sync == 'h07) begin
+                    $display("RECV: (G) End running");
+                    recv_state = r_g_end;
+                end else begin
+                    $display("RECV: Running (G): %02x", TxD_data_sync);
+                    recv_state = r_g_end;
+                end
+            end
+            default: begin
+                if (!inited) begin
+                    $write("%c", TxD_data_sync);
+                end else begin
+                    $display("RECV: Invalid state (BUG)");
+                end
+                
+                if (TxD_data_sync == ".") begin
+                    inited = 1;
+                    $write("\n");
+                end
+            end
+        endcase
         uart_tsre = 1;
     end
 
@@ -127,26 +222,30 @@ module cpld_model(
                 case(arg)
                     "A": begin
                         send_state = a_addr;
-                        $display("Send: command A");
+                        $display("SEND: Command A");
                     end
                     "T": begin
                         send_state = t_entry;
-                        $display("Send: command T");
+                        $display("SEND: Command T");
                     end
                     "D": begin
                         send_state = d_addr;
-                        $display("Send: command D");
+                        $display("SEND: Command D");
                     end
                     "R": begin
                         send_state = idle;
-                        $display("Send: command R");
+                        recv_state = r_regs;
+                        recv_count = 31;
+                        recv_length = 0;
+                        recv_word = 0;
+                        $display("SEND: Command R");
                     end
                     "G": begin
                         send_state = g_addr;
-                        $display("Send: command G");
+                        $display("SEND: Command G");
                     end
                     default: begin
-                        $display("Invalid command");
+                        $display("SEND: Invalid command");
                     end
                 endcase
             end
@@ -154,7 +253,7 @@ module cpld_model(
                 send_word = send_word | (arg << (send_length * 8));
                 send_length = send_length + 1;
                 if (send_length == 4) begin
-                    $display("Addr (A): 0x%08x", send_word);
+                    $display("SEND: Addr (A): 0x%08x", send_word);
                     send_state = a_length;
                     send_word = 0;
                     send_length = 0;
@@ -164,7 +263,7 @@ module cpld_model(
                 send_word = send_word | (arg << (send_length * 8));
                 send_length = send_length + 1;
                 if (send_length == 4) begin
-                    $display("Length (A): %d", send_word);
+                    $display("SEND: Length (A): %d", send_word);
                     send_state = a_inst;
                     send_word = 0;
                     send_length = 0;
@@ -174,7 +273,7 @@ module cpld_model(
                 send_word = send_word | (arg << (send_length * 8));
                 send_length = send_length + 1;
                 if (send_length == 4) begin
-                    $display("Inst (A): 0x%08x", send_word);
+                    $display("SEND: Inst (A): 0x%08x", send_word);
                     send_state = idle;
                     send_word = 0;
                     send_length = 0;
@@ -184,17 +283,21 @@ module cpld_model(
                 send_word = send_word | (arg << (send_length * 8));
                 send_length = send_length + 1;
                 if (send_length == 4) begin
-                    $display("Entry (T): %d", send_word);
+                    $display("SEND: Entry (T): %d", send_word);
                     send_state = idle;
                     send_word = 0;
                     send_length = 0;
+                    recv_state = r_t_hi;
+                    recv_length = 0;
+                    recv_word = 0;
                 end
             end
             d_addr: begin
                 send_word = send_word | (arg << (send_length * 8));
                 send_length = send_length + 1;
                 if (send_length == 4) begin
-                    $display("Addr (D): 0x%08x", send_word);
+                    $display("SEND: Addr (D): 0x%08x", send_word);
+                    recv_addr = send_word;
                     send_state = d_num;
                     send_word = 0;
                     send_length = 0;
@@ -204,24 +307,29 @@ module cpld_model(
                 send_word = send_word | (arg << (send_length * 8));
                 send_length = send_length + 1;
                 if (send_length == 4) begin
-                    $display("Num (D): %d", send_word);
+                    $display("SEND: Num (D): %d", send_word);
                     send_state = idle;
                     send_word = 0;
                     send_length = 0;
+                    recv_state = r_d_num;
+                    recv_count = send_word;
+                    recv_length = 0;
+                    recv_word = 0;
                 end
             end
             g_addr: begin
                 send_word = send_word | (arg << (send_length * 8));
                 send_length = send_length + 1;
                 if (send_length == 4) begin
-                    $display("Addr (G): 0x%08x", send_word);
+                    $display("SEND: Addr (G): 0x%08x", send_word);
                     send_state = idle;
                     send_word = 0;
                     send_length = 0;
+                    recv_state = r_g_start;
                 end
             end
             default: begin
-                $display("Invalid state. (BUG)");
+                $display("SEND: Invalid state. (BUG)");
             end
         endcase
 
