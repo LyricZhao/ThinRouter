@@ -151,18 +151,18 @@ module cpld_model(
                 endcase
             end
             a_addr: begin
+                send_word = send_word | (arg << (send_length * 8));
                 send_length = send_length + 1;
-                send_word = (send_word << 8) | arg;
                 if (send_length == 4) begin
-                    $display("Addr (A): 0x%032x", send_word);
+                    $display("Addr (A): 0x%08x", send_word);
                     send_state = a_length;
                     send_word = 0;
                     send_length = 0;
                 end
             end
             a_length: begin
+                send_word = send_word | (arg << (send_length * 8));
                 send_length = send_length + 1;
-                send_word = (send_word << 8) | arg;
                 if (send_length == 4) begin
                     $display("Length (A): %d", send_word);
                     send_state = a_inst;
@@ -171,18 +171,18 @@ module cpld_model(
                 end
             end
             a_inst: begin
+                send_word = send_word | (arg << (send_length * 8));
                 send_length = send_length + 1;
-                send_word = (send_word << 8) | arg;
                 if (send_length == 4) begin
-                    $display("Inst (A): 0x%032x", send_word);
+                    $display("Inst (A): 0x%08x", send_word);
                     send_state = idle;
                     send_word = 0;
                     send_length = 0;
                 end
             end
             t_entry: begin
+                send_word = send_word | (arg << (send_length * 8));
                 send_length = send_length + 1;
-                send_word = (send_word << 8) | arg;
                 if (send_length == 4) begin
                     $display("Entry (T): %d", send_word);
                     send_state = idle;
@@ -191,18 +191,18 @@ module cpld_model(
                 end
             end
             d_addr: begin
+                send_word = send_word | (arg << (send_length * 8));
                 send_length = send_length + 1;
-                send_word = (send_word << 8) | arg;
                 if (send_length == 4) begin
-                    $display("Addr (D): 0x%032x", send_word);
+                    $display("Addr (D): 0x%08x", send_word);
                     send_state = d_num;
                     send_word = 0;
                     send_length = 0;
                 end
             end
             d_num: begin
+                send_word = send_word | (arg << (send_length * 8));
                 send_length = send_length + 1;
-                send_word = (send_word << 8) | arg;
                 if (send_length == 4) begin
                     $display("Num (D): %d", send_word);
                     send_state = idle;
@@ -211,10 +211,10 @@ module cpld_model(
                 end
             end
             g_addr: begin
+                send_word = send_word | (arg << (send_length * 8));
                 send_length = send_length + 1;
-                send_word = (send_word << 8) | arg;
                 if (send_length == 4) begin
-                    $display("Addr (G): 0x%032x", send_word);
+                    $display("Addr (G): 0x%08x", send_word);
                     send_state = idle;
                     send_word = 0;
                     send_length = 0;
