@@ -257,7 +257,7 @@ def InitializeFile(path):
     outp = open(path, 'wb')
 
 if __name__ == "__main__":
-    InitializeFile('cpu_sv_test.mem')
+    InitializeFile('../../cpu_sv_test.mem')
     if not test_programs():
         exit(1)
     MainLoop()
