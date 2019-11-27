@@ -165,7 +165,7 @@ logic[3:0] cpu_ram_sel_o;
 
 cpu_top cpu_top_inst(
     .clk(clk_40M),
-    .rst(locked),
+    .rst(~locked),
 
     .rom_addr_o(inst_addr),
     .rom_data_i(inst),
