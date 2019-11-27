@@ -26,7 +26,7 @@ module cp0(
     output logic                    timer_int_o     // 是否有定时中断
 );
 
-always_comb begin
+always @(posedge clk) begin
     if (rst) begin
         {count_o, compare_o, cause_o, epc_o, timer_int_o} <= 0;
         status_o <= 32'b00010000000000000000000000000000; // CU字段为0001表示CP0存在
