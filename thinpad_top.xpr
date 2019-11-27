@@ -31,7 +31,7 @@
     <Option Name="EnableBDX" Val="FALSE"/>
     <Option Name="DSAVendor" Val="xilinx"/>
     <Option Name="DSANumComputeUnits" Val="16"/>
-    <Option Name="WTXSimLaunchSim" Val="807"/>
+    <Option Name="WTXSimLaunchSim" Val="834"/>
     <Option Name="WTModelSimLaunchSim" Val="0"/>
     <Option Name="WTQuestaLaunchSim" Val="0"/>
     <Option Name="WTIesLaunchSim" Val="0"/>
@@ -364,6 +364,13 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
+      <File Path="$PSRCDIR/sim_1/modules/cpld_model.v">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
       <File Path="$PSRCDIR/sim_1/modules/sram_model.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
@@ -372,13 +379,6 @@
         </FileInfo>
       </File>
       <File Path="$PSRCDIR/sources_1/utility/count_lead_zero.sv">
-        <FileInfo>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/testbenchs/testbench_eth_frame.sv">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
@@ -434,6 +434,14 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
+      <File Path="$PSRCDIR/sim_1/testbenchs/testbench_eth_frame.sv">
+        <FileInfo>
+          <Attr Name="AutoDisabled" Val="1"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
       <File Path="$PSRCDIR/sim_1/testbenchs/testbench_arp_table.sv">
         <FileInfo>
           <Attr Name="AutoDisabled" Val="1"/>
@@ -462,22 +470,8 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sim_1/imports/runtime/cpu_branch_test.mem">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/cpu_branch_test.mem"/>
-          <Attr Name="ImportTime" Val="1573221583"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/imports/runtime/cpu_load_test.mem">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/cpu_load_test.mem"/>
-          <Attr Name="ImportTime" Val="1574496654"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
+      <File Path="$PSRCDIR/sim_1/runtime/kernel.bin"/>
+      <File Path="$PSRCDIR/sim_1/runtime/kernel-fpga.bin"/>
       <Config>
         <Option Name="DesignMode" Val="RTL"/>
         <Option Name="TopModule" Val="testbench_thinpad_cpu"/>
