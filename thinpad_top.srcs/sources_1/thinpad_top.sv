@@ -165,7 +165,7 @@ logic[3:0] cpu_ram_sel_o;
 
 cpu_top cpu_top_inst(
     .clk(clk_40M),
-    .rst(reset_btn),
+    .rst(locked),
 
     .rom_addr_o(inst_addr),
     .rom_data_i(inst),
@@ -189,6 +189,7 @@ assign ext_ram_data = ext_is_writing ? ext_bus_data_to_write : 32'bz;
 
 assign leds = inst_addr[31:16];
 
+// TODO: 把下面改成一个总线控制器
 always_comb begin
     if (reset_btn) begin
         inst <= 0;
