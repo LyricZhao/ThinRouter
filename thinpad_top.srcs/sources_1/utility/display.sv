@@ -136,7 +136,7 @@ always_ff @ (posedge clk_50M) begin
     end
 end
 
-//图像输出演示，分辨率800x600@75Hz，像素时钟为50MHz
+// 图像输出演示，分辨率800x600@75Hz，像素时钟为50MHz
 assign video_clk = clk_50M;
 assign {video_red, video_green, video_blue} = (font_sync_out.valid && font_result) ? '1 : '0;
 vga #(800, 856, 976, 1040, 600, 637, 643, 666, 1, 1) vga800x600at75 (

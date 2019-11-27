@@ -140,7 +140,7 @@ always_ff @ (posedge clk_write) begin
             end
             // 可见字符
             default: begin
-                $display("'%c' at (%0d, %0d)", char_write, y_write, x_write);
+                // $display("'%c' at (%0d, %0d)", char_write, y_write, x_write);
                 if (x_write == 77) begin
                     x_write <= 0;
                     line_length[y_write] <= 78;

@@ -104,25 +104,15 @@ pll clock_gen
  * 向模块输入任意时钟，在时钟正沿工作
  */
 // 外部提供时钟
-logic clk_write;
+wire clk_write = clk_40M;
 // 写入字符
-logic [6:0] char_write;
+wire [6:0] char_write = base_bus_data_to_write[6:0];
 // 高电平写入
-logic write_en;
+wire write_en = ~uart_wrn;
 display display_inst(
     .rst_n(locked),
     .*
 );
-
-// 屏幕显示样例
-// 按下 clock_btn 时，输入拨码开关 [6:0] 的字符
-assign clk_write = clk_50M;
-assign char_write = dip_sw[6:0];
-logic btn_last;
-always_ff @ (posedge clk_write) begin
-    write_en <= !btn_last && clock_btn;
-    btn_last <= clock_btn;
-end
 
 // 这里应该是KSZ8795芯片的一些设置，初始化用
 
@@ -270,7 +260,7 @@ always_comb begin
                     uart_rdn <= 1;
                     uart_wrn <= 0;
                     base_is_writing <= 1;
-                    base_bus_data_to_write[7:0] <= cpu_ram_data_o[7:0];  
+                    base_bus_data_to_write[7:0] <= cpu_ram_data_o[7:0];
                 end else begin
                     uart_rdn <= 0;
                     uart_wrn <= 1;
