@@ -31,7 +31,7 @@
     <Option Name="EnableBDX" Val="FALSE"/>
     <Option Name="DSAVendor" Val="xilinx"/>
     <Option Name="DSANumComputeUnits" Val="16"/>
-    <Option Name="WTXSimLaunchSim" Val="805"/>
+    <Option Name="WTXSimLaunchSim" Val="834"/>
     <Option Name="WTModelSimLaunchSim" Val="0"/>
     <Option Name="WTQuestaLaunchSim" Val="0"/>
     <Option Name="WTIesLaunchSim" Val="0"/>
@@ -397,6 +397,13 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
+      <File Path="$PSRCDIR/sim_1/modules/cpld_model.v">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
       <File Path="$PSRCDIR/sim_1/modules/sram_model.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
@@ -411,10 +418,45 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sim_1/testbenchs/testbench_eth_frame.sv">
+      <File Path="$PSRCDIR/sources_1/cpu/include/reg.vh">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/cpu/include/common.vh">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/cpu/include/cpu_defs.vh">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/cpu/include/aluop.vh">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/cpu/include/exe_decode.vh">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/cpu/include/inst_rom.vh">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sources_1/cpu/include/data_ram.vh">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
@@ -425,37 +467,7 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sim_1/testbenchs/testbench_thinpad.sv">
-        <FileInfo>
-          <Attr Name="AutoDisabled" Val="1"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/modules/inst_rom.sv">
-        <FileInfo>
-          <Attr Name="AutoDisabled" Val="1"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/testbenchs/testbench_cpu.sv">
-        <FileInfo>
-          <Attr Name="AutoDisabled" Val="1"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="implementation"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/runtime/eth_frame_test.mem">
-        <FileInfo>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/testbenchs/testbench_routing_table.sv">
+      <File Path="$PSRCDIR/sim_1/testbenchs/testbench_eth_frame.sv">
         <FileInfo>
           <Attr Name="AutoDisabled" Val="1"/>
           <Attr Name="UsedIn" Val="synthesis"/>
@@ -471,59 +483,7 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PSRCDIR/sim_1/runtime/cpu_inst_test.mem">
-        <FileInfo>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/imports/runtime/cpu_branch_test.mem">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/cpu_branch_test.mem"/>
-          <Attr Name="ImportTime" Val="1573221583"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/imports/runtime/cpu_load_test.mem">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/cpu_load_test.mem"/>
-          <Attr Name="ImportTime" Val="1574496654"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/imports/cpu/cpu_inst_test.bin">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/scripts/cpu/cpu_inst_test.bin"/>
-          <Attr Name="ImportTime" Val="1573216944"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/imports/cpu/kernel.bin">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/scripts/cpu/kernel.bin"/>
-          <Attr Name="ImportTime" Val="1568562372"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/imports/cpu/kernel-fpga-prebuilt.bin">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/scripts/cpu/kernel-fpga-prebuilt.bin"/>
-          <Attr Name="ImportTime" Val="1567394439"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/imports/cpu/kernel-fpga-notlb-noint.bin">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/scripts/cpu/kernel-fpga-notlb-noint.bin"/>
-          <Attr Name="ImportTime" Val="1574564199"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/imports/cpu/cpu_load_test.bin">
-        <FileInfo>
-          <Attr Name="ImportPath" Val="$PSRCDIR/sim_1/runtime/scripts/cpu/cpu_load_test.bin"/>
-          <Attr Name="ImportTime" Val="1574750099"/>
-        </FileInfo>
-      </File>
-      <File Path="$PSRCDIR/sim_1/modules/data_ram.sv">
+      <File Path="$PSRCDIR/sim_1/testbenchs/testbench_routing_table.sv">
         <FileInfo>
           <Attr Name="AutoDisabled" Val="1"/>
           <Attr Name="UsedIn" Val="synthesis"/>
@@ -531,10 +491,25 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
+      <File Path="$PSRCDIR/sim_1/runtime/eth_frame_test.mem">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/runtime/cpu_inst_test.mem">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PSRCDIR/sim_1/runtime/kernel.bin"/>
+      <File Path="$PSRCDIR/sim_1/runtime/kernel-fpga.bin"/>
       <Config>
         <Option Name="DesignMode" Val="RTL"/>
-        <Option Name="TopModule" Val="testbench_thinpad"/>
+        <Option Name="TopModule" Val="testbench_thinpad_cpu"/>
         <Option Name="TopLib" Val="xil_defaultlib"/>
+        <Option Name="TopAutoSet" Val="TRUE"/>
         <Option Name="TransportPathDelay" Val="0"/>
         <Option Name="TransportIntDelay" Val="0"/>
         <Option Name="SrcSet" Val="sources_1"/>

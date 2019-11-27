@@ -73,5 +73,8 @@ sim: $(TARGET)
 commits-num:
 	@git log --pretty=format:"commit %H" | grep -c 'commit'
 
+cp_to_runtime: kernel.bin
+	cp kernel.bin ../../
+
 clean:
 	-$(RM) -r $(OBJDIR)
