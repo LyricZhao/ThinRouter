@@ -106,7 +106,7 @@ pll clock_gen
 // 外部提供时钟
 wire clk_write = clk_40M;
 // 写入字符
-wire [6:0] char_write = base_bus_data_to_write[6:0];
+wire [6:0] char_write = cpu_ram_data_o[6:0];
 // 高电平写入
 wire write_en = ~uart_wrn;
 display display_inst(
