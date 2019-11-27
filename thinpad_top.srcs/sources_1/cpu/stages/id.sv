@@ -65,7 +65,7 @@ logic stallreq_for_reg2_loadrelate; // 寄存器2是否数据相关
 // 暂停请求
 assign stallreq_o = stallreq_for_reg1_loadrelate | stallreq_for_reg2_loadrelate;
 
-//输入的指令原样输出到下一阶段
+// 输入的指令原样输出到下一阶段
 assign inst_o = inst_i; 
 
 // 当前指令是否在延迟槽
@@ -273,7 +273,12 @@ always_comb begin
                 `EXE_SRA:   begin `INST_KIND_3_COMMON(EXE_SRA_OP, 1, 0, 1);     end
                 default: begin end
             endcase
-        end // !这里的逻辑一开始有巨大问题，我修改好了
+        end else if (inst_i[31:21] == 11'b01000000000 && inst_i[10:0] == 0) begin
+            `INST_KIND_4_COMMON(EXE_MFC0_OP, 1, 0, 0);
+        end else if (inst_i[31:21] == 11'b01000000100 && inst_i[10:0] == 0) begin
+            `INST_KIND_1_COMMON(EXE_MTC0_OP, 0, 1, 0);
+            reg1_addr_o <= inst_i[20:16];
+        end
     end
 end
 

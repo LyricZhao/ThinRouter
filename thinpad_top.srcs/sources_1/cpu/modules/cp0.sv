@@ -23,7 +23,7 @@ module cp0(
     output word_t                   epc_o,          // EPC寄存器
     output word_t                   config_o,       // Config寄存器
     output word_t                   prid_o,         // PRId寄存器
-    output logic                    timer_int_o,    // 是否有定时中断
+    output logic                    timer_int_o     // 是否有定时中断
 );
 
 always_comb begin
@@ -41,7 +41,7 @@ always_comb begin
         end
 
         if (we_i) begin
-            case (waddr_i) begin
+            case (waddr_i)
                 `CP0_REG_COUNT: begin
                     count_o <= data_i;
                 end
@@ -60,7 +60,7 @@ always_comb begin
                     cause_o[23:22] <= data_i[23:22];
                 end
                 default: begin end
-            end
+            endcase
         end
     end
 end
@@ -69,7 +69,7 @@ always_comb begin
     if (rst) begin
         data_o <= 0;
     end else begin
-        case (raddr_i) begin
+        case (raddr_i)
             `CP0_REG_COUNT: begin
                 data_o <= count_o;
             end
@@ -92,7 +92,7 @@ always_comb begin
                 data_o <= config_o;
             end
             default: begin end
-        end
+        endcase
     end
 end
 

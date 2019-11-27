@@ -163,6 +163,9 @@ word_t cpu_ram_data_o;
 logic cpu_ram_we_o;
 logic[3:0] cpu_ram_sel_o;
 
+wire[5:0] cpu_int_i = 0;
+logic cpu_timer_int_o;
+
 cpu_top cpu_top_inst(
     .clk(clk_40M),
     .rst(~locked),
@@ -176,7 +179,10 @@ cpu_top cpu_top_inst(
     .ram_data_o(cpu_ram_data_o),
     .ram_we_o(cpu_ram_we_o),
     .ram_sel_o(cpu_ram_sel_o),
-    .ram_ce_o(cpu_ram_ce_o)
+    .ram_ce_o(cpu_ram_ce_o),
+
+    .int_i(cpu_int_i),
+    .timer_int_o(cpu_timer_int_o)
 );
 
 logic base_is_writing;

@@ -8,19 +8,22 @@ CPU顶层设计：
 `include "cpu_defs.vh"
 
 module cpu_top(
-    input  logic            clk,
-    input  logic            rst,
+    input  logic                        clk,
+    input  logic                        rst,
 
-    input  word_t           rom_data_i,
-    output addr_t           rom_addr_o,
-    output logic            rom_ce_o,
+    input  word_t                       rom_data_i,
+    output addr_t                       rom_addr_o,
+    output logic                        rom_ce_o,
 
-    input  word_t           ram_data_i,
-    output word_t           ram_addr_o,
-    output word_t           ram_data_o,
-    output logic            ram_we_o,
-    output logic[3:0]       ram_sel_o,
-    output logic            ram_ce_o // data ram的使能信号
+    input  logic[`NUM_DEVICES-1:0]      int_i,
+    output logic                        timer_int_o,
+
+    input  word_t                       ram_data_i,
+    output word_t                       ram_addr_o,
+    output word_t                       ram_data_o,
+    output logic                        ram_we_o,
+    output logic[3:0]                   ram_sel_o,
+    output logic                        ram_ce_o
 );
 
 /* ---------------- 模块出线 ----------------- */
@@ -31,10 +34,9 @@ addr_t pc_reg_pc;
 // pc_reg给rom的连线
 logic pc_reg_ce;
 
-
-/** rom的出线 **/
-// rom给if_id的连线: 
-// rom_data_i，也就是ROM读进来的指令，在接口处已经声明了
+/** CP0的出线 **/
+// cp0给ex的出线
+word_t cp0_data_o;
 
 
 /** comm_reg的出线 **/
@@ -100,8 +102,13 @@ logic ex_whilo_o;
 aluop_t ex_aluop_o;
 word_t ex_mem_addr_o;
 word_t ex_reg2_o;
+word_t ex_cp0_reg_data_o;
+reg_addr_t ex_cp0_write_addr_o;
+logic ex_cp0_reg_we_o;
 // ex给ctrl的连线
 logic ex_stallreq_o;
+// ex给cp0的出线
+reg_addr_t ex_cp0_reg_read_addr_o;
 
 
 /** ex_mem的出线 **/
@@ -114,15 +121,21 @@ word_t ex_mem_mem_wdata;
 aluop_t ex_mem_mem_aluop;
 word_t ex_mem_mem_mem_addr;
 word_t ex_mem_mem_reg2;
+word_t ex_mem_mem_cp0_reg_data;
+reg_addr_t ex_mem_mem_cp0_reg_write_addr;
+logic ex_mem_mem_cp0_reg_we;
 
 /** mem的出线 **/
 // mem给id（数据回传）和给mem_wb的连线
 reg_addr_t mem_wd_o;
 logic mem_wreg_o;
 word_t mem_wdata_o;
-// mem给ex（hilo数据回传）和给mem_wb的连线
+// mem给ex（hilo、cp0数据回传）和给mem_wb的连线
 word_t mem_hi_o, mem_lo_o;
 logic mem_whilo_o;
+word_t mem_cp0_reg_data_o;
+reg_addr_t mem_cp0_reg_write_addr_o;
+logic mem_cp0_reg_we_o;
 // mem给ctrl的连线
 logic mem_stallreq_o;
 
@@ -131,9 +144,12 @@ logic mem_stallreq_o;
 reg_addr_t mem_wb_wb_wd;
 logic mem_wb_wb_wreg;
 word_t mem_wb_wb_wdata;
-// mem_wb给ex（hilo数据回传）和给hilo_reg的连线
+// mem_wb给ex（hilo、cp0数据回传）和给hilo_reg的连线
 word_t mem_wb_wb_hi, mem_wb_wb_lo;
 logic mem_wb_wb_whilo;
+word_t mem_wb_wb_cp0_reg_data;
+reg_addr_t mem_wb_wb_cp0_reg_write_addr;
+logic mem_wb_wb_cp0_reg_we;
 
 
 /** cpu_top的两个出线 **/
@@ -184,6 +200,22 @@ hilo_reg hilo_reg_inst(
 
     .hi_o(hilo_reg_hi_o),
     .lo_o(hilo_reg_lo_o)
+);
+
+// CP0
+cp0 cp0_inst(
+    .clk(clk),
+    .rst(rst),
+    .int_i(int_i),
+
+    .timer_int_o(timer_int_o),
+
+    .raddr_i(ex_cp0_reg_read_addr_o),
+    .data_i(mem_wb_wb_cp0_reg_data),
+    .waddr_i(mem_wb_wb_cp0_reg_write_addr),
+    .we_i(mem_wb_wb_cp0_reg_we),
+
+    .data_o(cp0_data_o)
 );
 
 // ctrl暂停控制器
@@ -299,9 +331,21 @@ ex ex_inst(
     .mem_lo_i(mem_lo_o),
     .mem_whilo_i(mem_whilo_o),
 
+    .mem_cp0_reg_data(mem_cp0_reg_data_o),
+    .mem_cp0_reg_write_addr(mem_cp0_reg_write_addr_o),
+    .mem_cp0_reg_we(mem_cp0_reg_we_o),
+
     .wb_hi_i(mem_wb_wb_hi),
     .wb_lo_i(mem_wb_wb_lo),
     .wb_whilo_i(mem_wb_wb_whilo),
+
+    .wb_cp0_reg_data(mem_wb_wb_cp0_reg_data),
+    .wb_cp0_reg_write_addr(mem_wb_wb_cp0_reg_write_addr),
+    .wb_cp0_reg_we(mem_wb_wb_cp0_reg_we),
+
+    .cp0_reg_data_o(ex_cp0_reg_data_o),
+    .cp0_reg_write_addr_o(ex_cp0_write_addr_o),
+    .cp0_reg_we_o(ex_cp0_reg_we_o),
 
     .in_delayslot_i(id_ex_ex_in_delayslot),
     .return_addr_i(id_ex_ex_return_addr),
@@ -317,6 +361,9 @@ ex ex_inst(
     .stallreq_o(ex_stallreq_o),
 
     .inst_i(id_ex_ex_inst),
+
+    .cp0_reg_read_addr_o(ex_cp0_reg_read_addr_o),
+    .cp0_reg_data_i(cp0_data_o),
 
     .aluop_o(ex_aluop_o),
     .mem_addr_o(ex_mem_addr_o),
@@ -337,6 +384,10 @@ ex_mem ex_mem_inst(
     .ex_lo(ex_lo_o),
     .ex_whilo(ex_whilo_o),
 
+    .ex_cp0_reg_data(ex_cp0_reg_data_o),
+    .ex_cp0_reg_write_addr(ex_cp0_reg_write_addr_o),
+    .ex_cp0_reg_we(ex_cp0_reg_we_o),
+
     .mem_hi(ex_mem_mem_hi),
     .mem_lo(ex_mem_mem_lo),
     .mem_whilo(ex_mem_mem_whilo),
@@ -351,7 +402,11 @@ ex_mem ex_mem_inst(
 
     .mem_aluop(ex_mem_mem_aluop),
     .mem_mem_addr(ex_mem_mem_mem_addr),
-    .mem_reg2(ex_mem_mem_reg2)
+    .mem_reg2(ex_mem_mem_reg2),
+
+    .mem_cp0_reg_data(ex_mem_mem_cp0_reg_data),
+    .mem_cp0_reg_write_addr(ex_mem_mem_cp0_reg_write_addr),
+    .mem_cp0_reg_we(ex_mem_mem_cp0_reg_we)
 );
 
 // MEM（异步的组合逻辑）
@@ -364,6 +419,10 @@ mem mem_inst(
     .hi_i(ex_mem_mem_hi),
     .lo_i(ex_mem_mem_lo),
     .whilo_i(ex_mem_mem_whilo),
+
+    .cp0_reg_data_i(ex_mem_mem_cp0_reg_data),
+    .cp0_reg_write_addr_i(ex_mem_mem_cp0_reg_write_addr),
+    .cp0_reg_we_i(ex_mem_mem_cp0_reg_we),
 
     .wd_o(mem_wd_o),
     .wreg_o(mem_wreg_o),
@@ -378,6 +437,10 @@ mem mem_inst(
     .mem_sel_o(ram_sel_o),
     .mem_data_o(ram_data_o),
     .mem_ce_o(ram_ce_o),
+
+    .cp0_reg_data_o(mem_cp0_reg_data_o),
+    .cp0_reg_write_addr_o(mem_cp0_reg_write_addr_o),
+    .cp0_reg_we_o(mem_cp0_reg_we_o),
 
     .aluop_i(ex_mem_mem_aluop),
     .mem_addr_i(ex_mem_mem_mem_addr),
@@ -401,12 +464,20 @@ mem_wb mem_wb_inst(
     .mem_lo(mem_lo_o),
     .mem_whilo(mem_whilo_o),
 
+    .mem_cp0_reg_data(mem_cp0_reg_data_o),
+    .mem_cp0_reg_write_addr(mem_cp0_reg_write_addr_o),
+    .mem_cp0_reg_we(mem_cp0_reg_we_o),
+
     .wb_wd(mem_wb_wb_wd),
     .wb_wreg(mem_wb_wb_wreg),
     .wb_wdata(mem_wb_wb_wdata),
     .wb_hi(mem_wb_wb_hi),
     .wb_lo(mem_wb_wb_lo),
-    .wb_whilo(mem_wb_wb_whilo)
+    .wb_whilo(mem_wb_wb_whilo),
+
+    .wb_cp0_reg_data(mem_wb_wb_cp0_reg_data),
+    .wb_cp0_reg_write_addr(mem_wb_wb_cp0_reg_write_addr),
+    .wb_cp0_reg_we(mem_wb_wb_cp0_reg_we)
 );
 
 endmodule
