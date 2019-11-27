@@ -189,7 +189,7 @@ initial begin
         $fclose(file_id);
     end
     $display("term size(bytes): %d", file_size);
-    #1000000;
+    wait(cpld.inited == 1);
     for (integer i = 0; i < file_size; i ++) begin
         #1000;
         cpld.pc_send_byte(term_array[i]);

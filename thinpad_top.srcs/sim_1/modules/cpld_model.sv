@@ -116,7 +116,7 @@ module cpld_model(
         repeat(2)
             @(posedge clk_out2);
         uart_tsre = 0;
-        #10000 // 实际串口发送时间更长，为了加快仿真，等待时间较短
+        #100 // 实际串口发送时间更长，为了加快仿真，等待时间较短
         case (recv_state)
             r_t_hi: begin
                 recv_word = recv_word | (TxD_data_sync << (recv_length * 8));
@@ -189,7 +189,7 @@ module cpld_model(
                     recv_state = r_idle;
                 end else if (TxD_data_sync == 'h07) begin
                     $display("RECV: (G) End running");
-                    recv_state = r_g_end;
+                    recv_state = r_idle;
                 end else begin
                     $display("RECV: Running (G): %02x", TxD_data_sync);
                     recv_state = r_g_end;
@@ -197,14 +197,13 @@ module cpld_model(
             end
             default: begin
                 if (!inited) begin
-                    $write("%c", TxD_data_sync);
+                    $display("RECV: %02x (%c)", TxD_data_sync, TxD_data_sync);
                 end else begin
                     $display("RECV: Invalid state (BUG)");
                 end
-                
+
                 if (TxD_data_sync == ".") begin
                     inited = 1;
-                    $write("\n");
                 end
             end
         endcase
@@ -215,6 +214,7 @@ module cpld_model(
     task pc_send_byte;
     input [7:0] arg;
     begin
+        wait(recv_state == r_idle);
         case(send_state)
             idle: begin
                 send_length = 0;
@@ -235,7 +235,7 @@ module cpld_model(
                     "R": begin
                         send_state = idle;
                         recv_state = r_regs;
-                        recv_count = 31;
+                        recv_count = 30;
                         recv_length = 0;
                         recv_word = 0;
                         $display("SEND: Command R");
