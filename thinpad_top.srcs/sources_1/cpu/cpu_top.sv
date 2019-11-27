@@ -12,7 +12,7 @@ module cpu_top(
     input  logic            rst,
 
     input  word_t           rom_data_i,
-    output inst_addr_t      rom_addr_o,
+    output addr_t           rom_addr_o,
     output logic            rom_ce_o,
 
     input  word_t           ram_data_i,
@@ -27,7 +27,7 @@ module cpu_top(
 
 /** pc_reg的出线 **/
 // pc_reg给rom和给if_id的连线
-inst_addr_t pc_reg_pc;
+addr_t pc_reg_pc;
 // pc_reg给rom的连线
 logic pc_reg_ce;
 
@@ -54,7 +54,7 @@ stall_t ctrl_stall;
 
 /** if_id的出线 **/
 // if_id给id的连线
-inst_addr_t if_id_id_pc;
+addr_t if_id_id_pc;
 word_t if_id_id_inst;
 
 
@@ -67,13 +67,13 @@ word_t id_reg1_o, id_reg2_o;
 reg_addr_t id_wd_o;
 logic id_wreg_o;
 logic id_next_in_delayslot_o, id_in_delayslot_o;
-inst_addr_t id_return_addr_o;
+addr_t id_return_addr_o;
 word_t id_inst_o;
 // id给ctrl的连线
 logic id_stallreq_o;
 // id给pc_reg的出线
 logic id_jump_flag_o;
-inst_addr_t id_target_addr_o;
+addr_t id_target_addr_o;
 
 
 /** id_ex的出线 **/
@@ -83,7 +83,7 @@ word_t id_ex_ex_reg1, id_ex_ex_reg2;
 reg_addr_t id_ex_ex_wd;
 logic id_ex_ex_wreg;
 logic id_ex_ex_in_delayslot;
-inst_addr_t id_ex_ex_return_addr;
+addr_t id_ex_ex_return_addr;
 word_t id_ex_ex_inst;
 // id_ex给id的连线
 logic id_ex_id_in_delayslot_o;

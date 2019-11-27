@@ -8,7 +8,7 @@ ID(Decode)模块：
 module id(
     input  logic                    rst,
     
-    input  inst_addr_t              pc_i,                   // PC
+    input  addr_t                   pc_i,                   // PC
     input  word_t                   inst_i,                 // 指令
 
     input  word_t                   reg1_data_i,            // 读寄存器
@@ -36,8 +36,8 @@ module id(
     output logic                    in_delayslot_o,         // 当前指令在不在延迟槽
     output logic                    next_in_delayslot_o,    // 下一条在不在延迟槽
     output logic                    jump_flag_o,            // 是否跳转
-    output inst_addr_t              target_addr_o,          // 跳转地址
-    output inst_addr_t              return_addr_o,          // 返回地址
+    output addr_t                   target_addr_o,          // 跳转地址
+    output addr_t                   return_addr_o,          // 返回地址
 
     output aluop_t                  aluop_o,                // 要ex执行的alu操作
     output word_t                   reg1_o,                 // 寄存器或者立即数的值（源操作数1）
@@ -85,7 +85,7 @@ logic reg1_read_o;
 logic reg2_read_o;
 
 // 下一二条PC以及偏移跳转的结果
-inst_addr_t pc_next, pc_next_2, pc_plus_offset;
+addr_t pc_next, pc_next_2, pc_plus_offset;
 assign pc_next = pc_i + 4;
 assign pc_next_2 = pc_i + 8;
 assign pc_plus_offset = pc_next + {{14{inst_i[15]}}, inst_i[15:0], 2'b00}; // 地址偏移要乘4

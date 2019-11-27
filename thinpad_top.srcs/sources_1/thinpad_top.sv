@@ -152,7 +152,7 @@ display display_inst(
 //     .eth_rgmii_txc(eth_rgmii_txc)
 // );
 
-inst_addr_t inst_addr; // cpu想读取得指令的地址
+addr_t inst_addr; // cpu想读取得指令的地址
 word_t inst; // cpu读入的指令
 logic rom_ce;
 

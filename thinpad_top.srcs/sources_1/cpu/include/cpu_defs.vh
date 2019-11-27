@@ -8,8 +8,7 @@
 `include "common.vh"
 `include "aluop.vh"
 `include "exe_decode.vh"
-`include "inst_rom.vh"
-`include "data_ram.vh"
 `include "reg.vh"
+`include "cp0.vh"
 
 `endif

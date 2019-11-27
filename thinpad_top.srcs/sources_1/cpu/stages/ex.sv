@@ -26,7 +26,7 @@ module ex(
     input  logic            wb_whilo_i,     // wb阶段要不要写hilo（数据回传）
 
     input  logic            in_delayslot_i, // 当前的指令在不在延迟槽（会在异常处理的地方用到暂时没有用）
-    input  inst_addr_t      return_addr_i,  // 要返回的地址
+    input  addr_t           return_addr_i,  // 要返回的地址
 
     input  word_t           inst_i,         // 指令码
 

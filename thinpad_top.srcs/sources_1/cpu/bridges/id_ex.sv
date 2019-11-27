@@ -17,7 +17,7 @@ module id_ex(
     input  reg_addr_t       id_wd,                  // id要写入的寄存器编号
     input  logic            id_wreg,                // id是否要写入寄存器
 
-    input  inst_addr_t      id_return_addr,         // id传来的要返回的地址
+    input  addr_t           id_return_addr,         // id传来的要返回的地址
     input  logic            id_in_delayslot_i,      // id是否在延迟槽（用来更新ex_in_delayslot）
     input  logic            id_next_in_delayslot,   // 下一条是否在延迟槽（用来更新id_in_delayslot_o）
 
@@ -29,7 +29,7 @@ module id_ex(
     output reg_addr_t       ex_wd,                  // 传给ex要写入的寄存器编号
     output logic            ex_wreg,                // 传给ex是否要写入寄存器
 
-    output inst_addr_t      ex_return_addr,         // 传给ex要返回的地址
+    output addr_t           ex_return_addr,         // 传给ex要返回的地址
     output logic            ex_in_delayslot,        // 传给ex该指令是否在延迟槽
     output logic            id_in_delayslot_o,      // 传给ex下一条指令是否在延迟槽
 

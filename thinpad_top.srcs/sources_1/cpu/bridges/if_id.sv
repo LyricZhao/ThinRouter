@@ -11,9 +11,9 @@ module if_id(
     
     input  stall_t          stall,
 	
-    input  inst_addr_t      if_pc,      // if得到的pc
+    input  addr_t           if_pc,      // if得到的pc
     input  word_t           if_inst,    // if得到的地址
-    output inst_addr_t      id_pc,      // 传给id的pc
+    output addr_t           id_pc,      // 传给id的pc
     output word_t           id_inst     // 传给id的指令
 );
 
