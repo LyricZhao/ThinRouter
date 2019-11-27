@@ -98,6 +98,32 @@ pll clock_gen
     .clk_in1(clk_50M)                 // 外部时钟输入
 );
 
+/*
+ * 屏幕显示
+ * 支持 \n (0xa) \r (0xd) 回退 (0x7f) 清空 (0x0) 符号
+ * 向模块输入任意时钟，在时钟正沿工作
+ */
+// 外部提供时钟
+logic clk_write;
+// 写入字符
+logic [6:0] char_write;
+// 高电平写入
+logic write_en;
+display display_inst(
+    .rst_n(locked),
+    .*
+);
+
+// 屏幕显示样例
+// 按下 clock_btn 时，输入拨码开关 [6:0] 的字符
+assign clk_write = clk_50M;
+assign char_write = dip_sw[6:0];
+logic btn_last;
+always_ff @ (posedge clk_write) begin
+    write_en <= !btn_last && clock_btn;
+    btn_last <= clock_btn;
+end
+
 // 这里应该是KSZ8795芯片的一些设置，初始化用
 
 // eth_conf conf(
