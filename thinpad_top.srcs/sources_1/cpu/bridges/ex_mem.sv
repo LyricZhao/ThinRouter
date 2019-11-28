@@ -46,7 +46,7 @@ module ex_mem(
 
     output logic                mem_cp0_reg_we,         // 传给mem是否要写CP0
     output reg_addr_t           mem_cp0_reg_write_addr, // 传给mem要写的CP0的地址
-    output word_t               mem_cp0_reg_data        // 传给mem要写的数据
+    output word_t               mem_cp0_reg_data,       // 传给mem要写的数据
 
     output word_t               mem_except_type,        // 异常类型
     output addr_t               mem_current_inst_addr,  // 执行阶段的指令地址

@@ -53,7 +53,7 @@ module mem(
     output reg_addr_t       cp0_reg_write_addr_o,   // 要写CP0的地址
     output word_t           cp0_reg_data_o,         // 要写入的数据
 
-    output logic            stallreq_o              // 暂停请求
+    output logic            stallreq_o,             // 暂停请求
 
     output word_t           except_type_o,          // 异常类型
     output word_t           cp0_epc_o,              // CP0中epc寄存器的最新值
@@ -61,6 +61,8 @@ module mem(
 
     output addr_t           current_inst_addr_o     // 当前指令的地址
 );
+
+logic mem_we; // TODO
 
 assign in_delayslot_o = in_delayslot_i;
 assign current_inst_addr_o = current_inst_addr_i;

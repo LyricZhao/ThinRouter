@@ -44,7 +44,7 @@ always @(posedge clk) begin
             timer_int_o <= 1;
         end
 
-        case (except_type_i) begin
+        case (except_type_i)
             32'h1: begin
                 if (in_delayslot_i) begin
                     epc_o <= current_inst_addr_i - 4;
@@ -104,7 +104,7 @@ always @(posedge clk) begin
                 status_o[1] <= 0;
             end
             default: begin end
-        end
+        endcase
 
         if (we_i) begin
             case (waddr_i)
