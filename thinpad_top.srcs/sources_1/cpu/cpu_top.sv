@@ -39,6 +39,8 @@ logic pc_reg_ce;
 word_t cp0_data_o;
 // cp0给mem的出线
 word_t cp0_status_o, cp0_cause_o, cp0_epc_o;
+// cp0给ctrl的出线
+word_t cp0_ebase_o;
 
 
 /** comm_reg的出线 **/
@@ -245,7 +247,8 @@ cp0 cp0_inst(
     .current_inst_addr_i(mem_current_inst_addr_o),
     .in_delayslot_i(mem_in_delayslot_o),
 
-    .data_o(cp0_data_o)
+    .data_o(cp0_data_o),
+    .ebase_o(cp0_ebase_o)
 );
 
 // ctrl暂停控制器
@@ -257,6 +260,7 @@ ctrl ctrl_inst(
     .stallreq_from_mem(mem_stallreq_o),
 
     .cp0_epc_i(mem_cp0_epc_o),
+    .cp0_ebase_i(cp0_ebase_o),
     .except_type_i(mem_except_type_o),
 
     .new_pc(ctrl_new_pc),

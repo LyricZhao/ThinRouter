@@ -14,6 +14,7 @@ module ctrl(
 
     input  word_t       except_type_i,      // 异常类型
     input  word_t       cp0_epc_i,          // CP0的EPC寄存器
+    input  word_t       cp0_ebase_i,        // CP0的EBase寄存器
 
     output addr_t       new_pc,             // 新PC地址
     output logic        flush,              // 是否清除流水线
@@ -27,24 +28,30 @@ always_comb begin
     end else if (except_type_i) begin
         flush <= 1;
         stall <= '{default: '0};
-        case (except_type_i) // TODO: 这里的地址写什么
-            32'h1: begin
-                new_pc <= 32'h20;
+        case (except_type_i) // 所有的异常处理都在0x80001180
+            32'h00000001: begin
+                new_pc <= cp0_ebase_i + 32'h180;  // interrupt
             end
-            32'h8: begin
-                new_pc <= 32'h40;
+            32'h00000004: begin
+                new_pc <= cp0_ebase_i + 32'h180;  // AdEL
             end
-            32'ha: begin
-                new_pc <= 32'h40;
+            32'h00000005: begin
+                new_pc <= cp0_ebase_i + 32'h180;  // AdES
             end
-            32'hd: begin
-                new_pc <= 32'h40;
+            32'h00000008: begin
+                new_pc <= cp0_ebase_i + 32'h180;  // syscall
             end
-            32'hc: begin
-                new_pc <= 32'h40;
+            32'h0000000a: begin
+                new_pc <= cp0_ebase_i + 32'h180;  // invalid instruction
             end
-            32'he: begin
-                new_pc <= cp0_epc_i; // 异常返回
+            32'h0000000d: begin
+                new_pc <= cp0_ebase_i + 32'h180;  // break
+            end
+            32'h0000000c: begin
+                new_pc <= cp0_ebase_i + 32'h180;  // overflow
+            end
+            32'h0000000e: begin
+                new_pc <= cp0_epc_i;              // eret
             end
             default: begin end
         endcase

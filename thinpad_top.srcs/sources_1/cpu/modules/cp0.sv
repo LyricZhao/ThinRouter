@@ -1,6 +1,9 @@
 /*
 cp0模块：
     0号协处理器
+
+TODO：
+    加些注释
 */
 
 `include "cpu_defs.vh"
@@ -20,6 +23,7 @@ module cp0(
     input  logic                    in_delayslot_i,         // 是否在延迟槽
 
     output word_t                   data_o,                 // 读出的寄存器的值
+    output word_t                   ebase_o,                // EBase寄存器
     output word_t                   count_o,                // Count寄存器
     output word_t                   compare_o,              // Compare寄存器
     output word_t                   status_o,               // Status寄存器
@@ -30,9 +34,18 @@ module cp0(
     output logic                    timer_int_o             // 是否有定时中断
 );
 
+/*
+需要实现的：
+    Status: IM4, EXL, IE
+    Ebase: ExceptionBase
+    Cause: BD, IP4, ExcCode
+    EPC
+*/
+
 always @(posedge clk) begin
     if (rst) begin
         {count_o, compare_o, cause_o, epc_o, timer_int_o} <= 0;
+        ebase_o  <= 32'h80001000;
         status_o <= 32'b00010000000000000000000000000000; // CU字段为0001表示CP0存在
         config_o <= 32'b00000000000000000000000000000000; // BE字段为0表示小端模式
         prid_o   <= 32'b00000000010011000000000100000010; // PRId寄存器 Company Options/Company ID/CPU ID/Revision
@@ -125,6 +138,9 @@ always @(posedge clk) begin
                     cause_o[9:8] <= data_i[9:8];
                     cause_o[23:22] <= data_i[23:22];
                 end
+                `CP0_REG_EBASE: begin
+                    ebase_o[29:12] <= data_i[29:12];
+                end
                 default: begin end
             endcase
         end
@@ -156,6 +172,9 @@ always_comb begin
             end
             `CP0_REG_CONFIG: begin
                 data_o <= config_o;
+            end
+            `CP0_REG_EBASE: begin
+                data_o <= {2'b00, ebase_o[29:12], 2'b00, ebase_o[9:0]};
             end
             default: begin end
         endcase
