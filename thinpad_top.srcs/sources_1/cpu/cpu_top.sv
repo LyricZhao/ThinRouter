@@ -37,6 +37,8 @@ logic pc_reg_ce;
 /** CP0的出线 **/
 // cp0给ex的出线
 word_t cp0_data_o;
+// cp0给mem的出线
+word_t cp0_status_o, cp0_cause_o, cp0_epc_o;
 
 
 /** comm_reg的出线 **/
@@ -52,6 +54,9 @@ word_t hilo_reg_hi_o, hilo_reg_lo_o;
 /** ctrl的出线 **/
 // ctrl给ex_mem、给id_ex、给if_id、给mem_wb、给pc_reg的连线
 stall_t ctrl_stall;
+logic ctrl_flush;
+// ctrl给pc的连线
+addr_t ctrl_new_pc;
 
 
 /** if_id的出线 **/
@@ -71,6 +76,8 @@ logic id_wreg_o;
 logic id_next_in_delayslot_o, id_in_delayslot_o;
 addr_t id_return_addr_o;
 word_t id_inst_o;
+word_t id_except_type_o;
+addr_t id_current_inst_addr_o;
 // id给ctrl的连线
 logic id_stallreq_o;
 // id给pc_reg的出线
@@ -87,6 +94,8 @@ logic id_ex_ex_wreg;
 logic id_ex_ex_in_delayslot;
 addr_t id_ex_ex_return_addr;
 word_t id_ex_ex_inst;
+word_t id_ex_ex_except_type;
+addr_t id_ex_ex_current_inst_addr;
 // id_ex给id的连线
 logic id_ex_id_in_delayslot_o;
 
@@ -105,6 +114,9 @@ word_t ex_reg2_o;
 word_t ex_cp0_reg_data_o;
 reg_addr_t ex_cp0_write_addr_o;
 logic ex_cp0_reg_we_o;
+word_t ex_except_type_o;
+addr_t ex_current_inst_addr_o;
+logic ex_in_delayslot_o;
 // ex给ctrl的连线
 logic ex_stallreq_o;
 // ex给cp0的出线
@@ -124,6 +136,9 @@ word_t ex_mem_mem_reg2;
 word_t ex_mem_mem_cp0_reg_data;
 reg_addr_t ex_mem_mem_cp0_reg_write_addr;
 logic ex_mem_mem_cp0_reg_we;
+word_t ex_mem_mem_except_type;
+addr_t ex_mem_mem_current_inst_addr;
+logic ex_mem_mem_in_delayslot;
 
 /** mem的出线 **/
 // mem给id（数据回传）和给mem_wb的连线
@@ -138,15 +153,23 @@ reg_addr_t mem_cp0_reg_write_addr_o;
 logic mem_cp0_reg_we_o;
 // mem给ctrl的连线
 logic mem_stallreq_o;
+word_t mem_cp0_epc_o;
+// mem给cp0的连线
+addr_t mem_current_inst_addr_o;
+logic mem_in_delayslot_o;
+// mem给cp0、给ctrl的连线
+word_t mem_except_type_o;
+
 
 /** mem_wb的出线 **/
 // mem_wb给hilo_reg的连线
 reg_addr_t mem_wb_wb_wd;
 logic mem_wb_wb_wreg;
 word_t mem_wb_wb_wdata;
-// mem_wb给ex（hilo、cp0数据回传）和给hilo_reg的连线
+// mem_wb给ex（hilo）和给hilo_reg的连线
 word_t mem_wb_wb_hi, mem_wb_wb_lo;
 logic mem_wb_wb_whilo;
+// mem_wb给ex（cp0数据回传）和给mem（cp0数据回传）的连线
 word_t mem_wb_wb_cp0_reg_data;
 reg_addr_t mem_wb_wb_cp0_reg_write_addr;
 logic mem_wb_wb_cp0_reg_we;
@@ -164,7 +187,10 @@ assign rom_ce_o = pc_reg_ce;
 pc_reg pc_reg_inst(
     .clk(clk),
     .rst(rst),
+
     .stall(ctrl_stall),
+    .flush(ctrl_flush),
+    .new_pc(ctrl_new_pc),
 
     .jump_flag(id_jump_flag_o),
     .target_addr(id_target_addr_o),
@@ -215,6 +241,10 @@ cp0 cp0_inst(
     .waddr_i(mem_wb_wb_cp0_reg_write_addr),
     .we_i(mem_wb_wb_cp0_reg_we),
 
+    .except_type_i(mem_except_type_o),
+    .current_inst_addr_i(mem_current_inst_addr_o),
+    .in_delayslot_i(mem_in_delayslot_o),
+
     .data_o(cp0_data_o)
 );
 
@@ -226,7 +256,13 @@ ctrl ctrl_inst(
     .stallreq_from_ex(ex_stallreq_o),
     .stallreq_from_mem(mem_stallreq_o),
 
-    .stall(ctrl_stall)
+    .cp0_epc_i(mem_cp0_epc_o),
+    .except_type_i(mem_except_type_o),
+
+    .new_pc(ctrl_new_pc),
+
+    .stall(ctrl_stall),
+    .flush(ctrl_flush)
 );
 
 // IF到ID的连接（IF相当于在这里实现了，同步把数据传给ID）
@@ -235,6 +271,7 @@ if_id if_id_inst(
     .rst(rst),
 
     .stall(ctrl_stall),
+    .flush(ctrl_flush),
 
     .if_pc(pc_reg_pc),
     .if_inst(rom_data_i),
@@ -280,7 +317,10 @@ id id_inst(
 
     .stallreq_o(id_stallreq_o),
 
-    .inst_o(id_inst_o)
+    .inst_o(id_inst_o),
+
+    .except_type_o(id_except_type_o),
+    .current_inst_addr_o(id_current_inst_addr_o)
 );
 
 // ID到EX的连接（同步把数据传给EX）
@@ -289,6 +329,7 @@ id_ex id_ex_inst(
     .rst(rst),
 
     .stall(ctrl_stall),
+    .flush(ctrl_flush),
 
     .id_aluop(id_aluop_o),
     .id_reg1(id_reg1_o),
@@ -300,6 +341,9 @@ id_ex id_ex_inst(
     .id_in_delayslot_i(id_in_delayslot_o),
     .id_next_in_delayslot(id_next_in_delayslot_o),
 
+    .id_except_type(id_except_type_o),
+    .id_current_inst_addr(id_current_inst_addr_o),
+
     .ex_aluop(id_ex_ex_aluop),
     .ex_reg1(id_ex_ex_reg1),
     .ex_reg2(id_ex_ex_reg2),
@@ -309,6 +353,9 @@ id_ex id_ex_inst(
     .ex_return_addr(id_ex_ex_return_addr),
     .ex_in_delayslot(id_ex_ex_in_delayslot),
     .id_in_delayslot_o(id_ex_id_in_delayslot_o),
+
+    .ex_except_type(id_ex_ex_except_type),
+    .ex_current_inst_addr(id_ex_ex_current_inst_addr),
 
     .id_inst(id_inst_o),
     .ex_inst(id_ex_ex_inst)
@@ -334,6 +381,9 @@ ex ex_inst(
     .mem_cp0_reg_data(mem_cp0_reg_data_o),
     .mem_cp0_reg_write_addr(mem_cp0_reg_write_addr_o),
     .mem_cp0_reg_we(mem_cp0_reg_we_o),
+
+    .except_type_i(id_ex_ex_except_type),
+    .current_inst_addr_i(id_ex_ex_current_inst_addr),
 
     .wb_hi_i(mem_wb_wb_hi),
     .wb_lo_i(mem_wb_wb_lo),
@@ -365,6 +415,10 @@ ex ex_inst(
     .cp0_reg_read_addr_o(ex_cp0_reg_read_addr_o),
     .cp0_reg_data_i(cp0_data_o),
 
+    .except_type_o(ex_except_type_o),
+    .current_inst_addr_o(ex_current_inst_addr_o),
+    .in_delayslot_o(ex_in_delayslot_o),
+
     .aluop_o(ex_aluop_o),
     .mem_addr_o(ex_mem_addr_o),
     .reg2_o(ex_reg2_o)
@@ -376,6 +430,7 @@ ex_mem ex_mem_inst(
     .rst(rst),
 
     .stall(ctrl_stall),
+    .flush(ctrl_flush),
 
     .ex_wd(ex_wd_o),
     .ex_wreg(ex_wreg_o),
@@ -388,6 +443,10 @@ ex_mem ex_mem_inst(
     .ex_cp0_reg_write_addr(ex_cp0_reg_write_addr_o),
     .ex_cp0_reg_we(ex_cp0_reg_we_o),
 
+    .ex_except_type(ex_except_type_o),
+    .ex_current_inst_addr(ex_current_inst_addr_o),
+    .ex_in_delayslot(ex_in_delayslot_o),
+
     .mem_hi(ex_mem_mem_hi),
     .mem_lo(ex_mem_mem_lo),
     .mem_whilo(ex_mem_mem_whilo),
@@ -395,6 +454,10 @@ ex_mem ex_mem_inst(
     .mem_wd(ex_mem_mem_wd),
     .mem_wreg(ex_mem_mem_wreg),
     .mem_wdata(ex_mem_mem_wdata),
+
+    .mem_except_type(ex_mem_mem_except_type),
+    .mem_current_inst_addr(ex_mem_mem_current_inst_addr),
+    .mem_in_delayslot(ex_mem_mem_in_delayslot),
 
     .ex_aluop(ex_aluop_o),
     .ex_mem_addr(ex_mem_addr_o),
@@ -438,6 +501,18 @@ mem mem_inst(
     .mem_data_o(ram_data_o),
     .mem_ce_o(ram_ce_o),
 
+    .except_type_i(ex_mem_mem_except_type),
+    .current_inst_addr_i(ex_mem_mem_current_inst_addr),
+    .in_delayslot_i(ex_mem_mem_in_delayslot),
+
+    .cp0_status_i(cp0_status_o),
+    .cp0_cause_i(cp0_cause_o),
+    .cp0_epc_i(cp0_epc_o),
+
+    .wb_cp0_reg_we(mem_wb_wb_cp0_reg_we),
+    .wb_cp0_reg_write_addr(mem_wb_wb_cp0_reg_write_addr),
+    .wb_cp0_reg_data(mem_wb_wb_cp0_reg_data),
+
     .cp0_reg_data_o(mem_cp0_reg_data_o),
     .cp0_reg_write_addr_o(mem_cp0_reg_write_addr_o),
     .cp0_reg_we_o(mem_cp0_reg_we_o),
@@ -446,8 +521,12 @@ mem mem_inst(
     .mem_addr_i(ex_mem_mem_mem_addr),
     .reg2_i(ex_mem_mem_reg2),
 
-    .stallreq_o(mem_stallreq_o)
+    .stallreq_o(mem_stallreq_o),
 
+    .cp0_epc_o(mem_cp0_epc_o),
+    .except_type_o(mem_except_type_o),
+    .current_inst_addr_o(mem_current_inst_addr_o),
+    .in_delayslot_o(mem_in_delayslot_o)
 );
 
 // MEM到WB（同步），写回的信号直接接到寄存器（寄存器会同步下一个周期写入）
@@ -456,6 +535,7 @@ mem_wb mem_wb_inst(
     .rst(rst),
 
     .stall(ctrl_stall),
+    .flush(ctrl_flush),
 
     .mem_wd(mem_wd_o),
     .mem_wreg(mem_wreg_o),
