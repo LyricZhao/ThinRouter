@@ -22,6 +22,8 @@ module mem_wb(
     input  reg_addr_t       mem_cp0_reg_write_addr, // 要写的地址
     input  word_t           mem_cp0_reg_data,       // 要写的数据
 
+    input  logic            flush,                  // 清除流水线
+
     output reg_addr_t       wb_wd,                  // 传给wb要写入的寄存器编号
     output logic            wb_wreg,                // 传给wb是否要写入寄存器
     output word_t           wb_wdata,               // 传给wb要写入的数据
@@ -36,7 +38,7 @@ module mem_wb(
 
 // 同步传递
 always_ff @(posedge clk) begin
-    if (rst || (stall.mem && !stall.wb)) begin
+    if (rst || (stall.mem && !stall.wb) || flush) begin
         wb_wd <= `NOP_REG_ADDR;
         {wb_wreg, wb_wdata, wb_hi, wb_lo, wb_whilo, wb_cp0_reg_data, wb_cp0_reg_we, wb_cp0_reg_write_addr} <= 0;
     end else if (!stall.mem) begin
