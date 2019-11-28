@@ -23,6 +23,10 @@ module id_ex(
 
     input  word_t           id_inst,                // 来自ID模块的指令码
 
+    input  logic            flush,                  // 流水线清除
+    input  word_t           id_except_type,         // 异常类型
+    input  addr_t           id_current_inst_addr,   // 当前的地址
+
     output aluop_t          ex_aluop,               // 传给ex要执行的alu操作
     output word_t           ex_reg1,                // 传给ex源操作数1
     output word_t           ex_reg2,                // 传给ex源操作数2
@@ -33,20 +37,23 @@ module id_ex(
     output logic            ex_in_delayslot,        // 传给ex该指令是否在延迟槽
     output logic            id_in_delayslot_o,      // 传给ex下一条指令是否在延迟槽
 
+    output word_t           ex_except_type,         // 异常类型
+    output addr_t           ex_current_inst_addr,   // 当前的地址
+
     output word_t           ex_inst                 // 把来自ID模块的指令码传给EX
 
 );
 
 // 同步写入
 always_ff @ (posedge clk) begin
-    if (rst) begin
+    if (rst || flush) begin
         ex_aluop <= EXE_NOP_OP;
         ex_wd    <= `NOP_REG_ADDR;
-        {ex_reg1, ex_reg2, ex_wreg, ex_return_addr, ex_in_delayslot, id_in_delayslot_o, ex_inst} <= 0;
+        {ex_reg1, ex_reg2, ex_wreg, ex_return_addr, ex_in_delayslot, id_in_delayslot_o, ex_inst, ex_except_type, ex_current_inst_addr} <= 0;
     end else if (stall.id  && !stall.ex) begin // id暂停ex阶段没暂停就给ex空指令
         ex_aluop <= EXE_NOP_OP;
         ex_wd    <= `NOP_REG_ADDR;
-        {ex_reg1, ex_reg2, ex_wreg, ex_return_addr, ex_in_delayslot, ex_inst} <= 0; // 注意这里不能清空id_in_delayslot_o，id暂停了但是是否在延迟槽状态保持，ex没暂停一定不是在延迟槽
+        {ex_reg1, ex_reg2, ex_wreg, ex_return_addr, ex_in_delayslot, ex_inst, ex_except_type, ex_current_inst_addr} <= 0; // 注意这里不能清空id_in_delayslot_o，id暂停了但是是否在延迟槽状态保持，ex没暂停一定不是在延迟槽
     end else if (!stall.id) begin
         ex_aluop <= id_aluop;
         ex_reg1  <= id_reg1;
@@ -56,6 +63,8 @@ always_ff @ (posedge clk) begin
         ex_inst  <= id_inst;
         ex_return_addr <= id_return_addr;
         ex_in_delayslot <= id_in_delayslot_i;
+        ex_except_type <= id_except_type;
+        ex_current_inst_addr <= id_current_inst_addr;
         id_in_delayslot_o <= id_next_in_delayslot; // 用下一条是否在延迟槽更新id的状态，这样下个时钟周期这个变量正好可以表示当前的id状态
     end
 end

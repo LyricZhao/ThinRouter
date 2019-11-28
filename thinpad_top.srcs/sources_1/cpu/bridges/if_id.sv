@@ -10,6 +10,7 @@ module if_id(
     input  logic            rst,
     
     input  stall_t          stall,
+    input  logic            flush,
 	
     input  addr_t           if_pc,      // if得到的pc
     input  word_t           if_inst,    // if得到的地址
@@ -18,7 +19,7 @@ module if_id(
 );
 
 always_ff @ (posedge clk) begin
-    if (rst || (stall.ifetch && !stall.id)) begin // 译码阶段在继续传一个nop给id
+    if (rst || (stall.ifetch && !stall.id) || flush) begin // 译码阶段在继续传一个nop给id
         {id_pc, id_inst} <= 0;
     end else if (!stall.ifetch) begin
         id_pc <= if_pc;

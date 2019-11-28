@@ -57,6 +57,20 @@ typedef enum logic[`ALUOP_WIDTH-1:0] {
     EXE_SW_OP,
     EXE_MFC0_OP,
     EXE_MTC0_OP,
+    EXE_SYSCALL_OP,
+    EXE_TEQ_OP,
+    EXE_TEQI_OP,
+    EXE_TGE_OP,
+    EXE_TGEI_OP,
+    EXE_TGEIU_OP,
+    EXE_TGEU_OP,
+    EXE_TLT_OP,
+    EXE_TLTI_OP,
+    EXE_TLTIU_OP,
+    EXE_TLTU_OP,
+    EXE_TNE_OP,
+    EXE_TNEI_OP,
+    EXE_ERET_OP,
     PLACE_HOLDER
 } aluop_t;
 

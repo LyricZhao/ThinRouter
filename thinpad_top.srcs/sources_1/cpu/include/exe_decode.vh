@@ -76,4 +76,21 @@
 `define EXE_SH              6'b101001
 `define EXE_SW              6'b101011
 
+`define EXE_SYSCALL         6'b001100
+
+`define EXE_TEQ             6'b110100
+`define EXE_TEQI            5'b01100
+`define EXE_TGE             6'b110000
+`define EXE_TGEI            5'b01000
+`define EXE_TGEIU           5'b01001
+`define EXE_TGEU            6'b110001
+`define EXE_TLT             6'b110010
+`define EXE_TLTI            5'b01010
+`define EXE_TLTIU           5'b01011
+`define EXE_TLTU            6'b110011
+`define EXE_TNE             6'b110110
+`define EXE_TNEI            5'b01110
+   
+`define EXE_ERET            32'b01000010000000000000000000011000
+
 `endif
