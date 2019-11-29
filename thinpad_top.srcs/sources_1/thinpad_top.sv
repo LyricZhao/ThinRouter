@@ -163,7 +163,8 @@ word_t cpu_ram_data_o;
 logic cpu_ram_we_o;
 logic[3:0] cpu_ram_sel_o;
 
-wire[5:0] cpu_int_i = 0;
+logic[5:0] cpu_int_i;
+assign cpu_int_i = {3'b0, uart_dataready, 2'b0}; // UART是IP4
 logic cpu_timer_int_o;
 
 cpu_top cpu_top_inst(

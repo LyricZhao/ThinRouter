@@ -141,6 +141,7 @@ always_comb begin
         reg1_addr_o <= `NOP_REG_ADDR;
         reg2_addr_o <= `NOP_REG_ADDR;
         {wreg_o, reg1_read_o, reg2_read_o, imm, next_in_delayslot_o, jump_flag_o, target_addr_o, return_addr_o} <= 0;
+        {except_type_is_syscall, except_type_is_eret} <= 0;
     end else begin
         // 默认情况
         aluop_o     <= EXE_NOP_OP;

@@ -30,7 +30,6 @@ module cp0(
     output word_t                   cause_o,                // Cause寄存器
     output word_t                   epc_o,                  // EPC寄存器
     output word_t                   config_o,               // Config寄存器
-    output word_t                   prid_o,                 // PRId寄存器
     output logic                    timer_int_o             // 是否有定时中断
 );
 
@@ -48,13 +47,39 @@ always @(posedge clk) begin
         ebase_o  <= 32'h80001000;
         status_o <= 32'b00010000000000000000000000000000; // CU字段为0001表示CP0存在
         config_o <= 32'b00000000000000000000000000000000; // BE字段为0表示小端模式
-        prid_o   <= 32'b00000000010011000000000100000010; // PRId寄存器 Company Options/Company ID/CPU ID/Revision
+        // prid_o   <= 32'b00000000010011000000000100000010; // PRId寄存器 Company Options/Company ID/CPU ID/Revision
     end else begin
         count_o <= count_o + 1;
         cause_o[15:10] <= int_i;
 
         if (compare_o != 0 && count_o == compare_o) begin
             timer_int_o <= 1;
+        end
+
+        if (we_i) begin
+            case (waddr_i)
+                `CP0_REG_COUNT: begin
+                    count_o <= data_i;
+                end
+                `CP0_REG_COMPARE: begin
+                    compare_o <= data_i;
+                    timer_int_o <= 0;
+                end
+                `CP0_REG_STATUS: begin
+                    status_o <= data_i;
+                end
+                `CP0_REG_EPC: begin
+                    epc_o <= data_i;
+                end
+                `CP0_REG_CAUSE: begin
+                    cause_o[9:8] <= data_i[9:8];
+                    cause_o[23:22] <= data_i[23:22];
+                end
+                `CP0_REG_EBASE: begin
+                    ebase_o[29:12] <= data_i[29:12];
+                end
+                default: begin end
+            endcase
         end
 
         case (except_type_i)
@@ -118,32 +143,6 @@ always @(posedge clk) begin
             end
             default: begin end
         endcase
-
-        if (we_i) begin
-            case (waddr_i)
-                `CP0_REG_COUNT: begin
-                    count_o <= data_i;
-                end
-                `CP0_REG_COMPARE: begin
-                    compare_o <= data_i;
-                    timer_int_o <= 0;
-                end
-                `CP0_REG_STATUS: begin
-                    status_o <= data_i;
-                end
-                `CP0_REG_EPC: begin
-                    epc_o <= data_i;
-                end
-                `CP0_REG_CAUSE: begin
-                    cause_o[9:8] <= data_i[9:8];
-                    cause_o[23:22] <= data_i[23:22];
-                end
-                `CP0_REG_EBASE: begin
-                    ebase_o[29:12] <= data_i[29:12];
-                end
-                default: begin end
-            endcase
-        end
     end
 end
 
@@ -166,9 +165,6 @@ always_comb begin
             end
             `CP0_REG_EPC: begin
                 data_o <= epc_o;
-            end
-            `CP0_REG_PRId: begin
-                data_o <= prid_o;
             end
             `CP0_REG_CONFIG: begin
                 data_o <= config_o;

@@ -18,7 +18,7 @@ module pc_reg(
     input  addr_t       new_pc,             // 异常处理入口地址
 	
     output addr_t       pc,                 // 程序计数器
-    output logic        ce                  // 指令rom的使能
+    output logic        ce                  // 指令RAM的使能
 );
 
 always_ff @ (posedge clk) begin
@@ -26,7 +26,7 @@ always_ff @ (posedge clk) begin
         pc <= `INIT_PC - 4;
         ce <= 0;
     end else begin
-        ce <= 1; // TODO：是不是应该放在这里
+        ce <= 1;
         if (flush) begin
             pc <= new_pc;
         end else if (!stall.pc) begin

@@ -91,7 +91,7 @@ dword_t hilo_temp, result_mul;
 logic [`WORD_WIDTH_LOG2:0] result_clz, result_clo; // 注意这里的长度是6位的，前导零可能有32个
 
 // 异常相关
-assign except_type_o = {except_type_i[31:12], ov_assert, trap_assert, except_type_i[9:8], 8'b0};
+assign except_type_o = {except_type_i[31:12], ov_assert, trap_assert, except_type_i[9:8], 8'h0};
 assign in_delayslot_o = in_delayslot_i;
 assign current_inst_addr_o = current_inst_addr_i;
 

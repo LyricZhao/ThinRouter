@@ -5,6 +5,8 @@
 `ifndef _COMMON_VH_
 `define _COMMON_VH_
 
+`define INIT_PC             32'h80000000
+
 `define BYTE_WITDH          8
 `define DWORD_WIDTH         64
 `define WORD_WIDTH          32
