@@ -113,14 +113,14 @@ always_comb begin
             if (((cp0_cause[15:8] & (cp0_status[15:8])) != 0) && (cp0_status[1] == 0) && (cp0_status[0] == 1)) begin
                 except_type_o <= 32'h1; // 中断
             end else if (except_type_i[8]) begin
-                except_type_o <= 32'h8;
+                except_type_o <= 32'h8; // syscall
             end else if (except_type_i[9]) begin
                 except_type_o <= 32'ha;
             end else if (except_type_i[10]) begin
                 except_type_o <= 32'hd;
             end else if (except_type_i[11]) begin
                 except_type_o <= 32'hc;
-            end else if (except_type_i[13]) begin
+            end else if (except_type_i[12]) begin
                 except_type_o <= 32'he;
             end
         end
@@ -135,6 +135,7 @@ always_comb begin
     if (rst) begin
         wd_o <= `NOP_REG_ADDR;
         {wreg_o, wdata_o, hi_o, lo_o, whilo_o, mem_addr_o, mem_we, mem_sel_o, mem_data_o, mem_ce_o} <= 0;
+        {cp0_reg_write_addr_o, cp0_reg_we_o, cp0_reg_data_o} <= 0;
         stallreq_o <= 0;
     end else begin
         wd_o <= wd_i;

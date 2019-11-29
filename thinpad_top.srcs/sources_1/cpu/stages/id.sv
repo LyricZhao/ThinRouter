@@ -183,7 +183,7 @@ always_comb begin
                             `EXE_TLT:       begin `INST_KIND_1_COMMON(EXE_TLT_OP,       0,              1, 1);  end
                             `EXE_TLTU:      begin `INST_KIND_1_COMMON(EXE_TLTU_OP,      0,              1, 1);  end
                             `EXE_TNE:       begin `INST_KIND_1_COMMON(EXE_TNE_OP,       0,              1, 1);  end
-                            `EXE_SYSCALL:   begin `INST_KIND_1_COMMON(EXE_SYSCALL_OP,   0,              0, 0); except_type_is_syscall = 1; end
+                            `EXE_SYSCALL:   begin `INST_KIND_1_COMMON(EXE_SYSCALL_OP,   0,              0, 0); except_type_is_syscall <= 1; end
                             `EXE_JR: begin
                                 `INST_KIND_1_COMMON(EXE_JR_OP, 0, 1, 0);
                                 `BRANCH_ALL(0, reg1_o, 1, 1);

@@ -117,6 +117,7 @@ module cpld_model(
             @(posedge clk_out2);
         uart_tsre = 0;
         #100 // 实际串口发送时间更长，为了加快仿真，等待时间较短
+        $display("RECV: %02x", TxD_data_sync);
         case (recv_state)
             r_t_hi: begin
                 recv_word = recv_word | (TxD_data_sync << (recv_length * 8));
@@ -215,6 +216,7 @@ module cpld_model(
     input [7:0] arg;
     begin
         wait(recv_state == r_idle);
+        $display("SEND: %02x", arg);
         case(send_state)
             idle: begin
                 send_length = 0;

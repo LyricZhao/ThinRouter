@@ -114,7 +114,7 @@ aluop_t ex_aluop_o;
 word_t ex_mem_addr_o;
 word_t ex_reg2_o;
 word_t ex_cp0_reg_data_o;
-reg_addr_t ex_cp0_write_addr_o;
+reg_addr_t ex_cp0_reg_write_addr_o;
 logic ex_cp0_reg_we_o;
 word_t ex_except_type_o;
 addr_t ex_current_inst_addr_o;
@@ -248,7 +248,10 @@ cp0 cp0_inst(
     .in_delayslot_i(mem_in_delayslot_o),
 
     .data_o(cp0_data_o),
-    .ebase_o(cp0_ebase_o)
+    .ebase_o(cp0_ebase_o),
+    .status_o(cp0_status_o),
+    .cause_o(cp0_cause_o),
+    .epc_o(cp0_epc_o)
 );
 
 // ctrl暂停控制器
@@ -398,7 +401,7 @@ ex ex_inst(
     .wb_cp0_reg_we(mem_wb_wb_cp0_reg_we),
 
     .cp0_reg_data_o(ex_cp0_reg_data_o),
-    .cp0_reg_write_addr_o(ex_cp0_write_addr_o),
+    .cp0_reg_write_addr_o(ex_cp0_reg_write_addr_o),
     .cp0_reg_we_o(ex_cp0_reg_we_o),
 
     .in_delayslot_i(id_ex_ex_in_delayslot),
