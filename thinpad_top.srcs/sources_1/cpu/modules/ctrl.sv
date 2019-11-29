@@ -25,6 +25,7 @@ module ctrl(
 always_comb begin
     if (rst == 1) begin
         stall <= '{default: '0};
+        {flush, new_pc} <= 0;
     end else if (except_type_i) begin
         flush <= 1;
         stall <= '{default: '0};
@@ -51,6 +52,7 @@ always_comb begin
                 new_pc <= cp0_ebase_i + 32'h180;  // overflow
             end
             32'h0000000e: begin
+                // $display("%x", cp0_epc_i);
                 new_pc <= cp0_epc_i;              // eret
             end
             default: begin end

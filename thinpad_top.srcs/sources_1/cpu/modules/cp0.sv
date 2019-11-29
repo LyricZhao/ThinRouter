@@ -96,44 +96,52 @@ always @(posedge clk) begin
             end
             32'h8: begin
                 if (status_o[1] == 0) begin
-                    epc_o <= current_inst_addr_i - 4;
-                    cause_o[31] <= 1;
-                end else begin
-                    epc_o <= current_inst_addr_i;
-                    cause_o[31] <= 0;
+                    if (in_delayslot_i) begin
+                        epc_o <= current_inst_addr_i - 4;
+                        cause_o[31] <= 1;
+                    end else begin
+                        epc_o <= current_inst_addr_i;
+                        cause_o[31] <= 0;
+                    end
                 end
                 status_o[1] <= 1;
                 cause_o[6:2] <= 5'b01000;
             end
             32'ha: begin
                 if (status_o[1] == 0) begin
-                    epc_o <= current_inst_addr_i - 4;
-                    cause_o[31] <= 1;
-                end else begin
-                    epc_o <= current_inst_addr_i;
-                    cause_o[31] <= 0;
+                    if (in_delayslot_i) begin
+                        epc_o <= current_inst_addr_i - 4;
+                        cause_o[31] <= 1;
+                    end else begin
+                        epc_o <= current_inst_addr_i;
+                        cause_o[31] <= 0;
+                    end
                 end
                 status_o[1] <= 1;
                 cause_o[6:2] <= 5'b01010;
             end
             32'hd: begin
                 if (status_o[1] == 0) begin
-                    epc_o <= current_inst_addr_i - 4;
-                    cause_o[31] <= 1;
-                end else begin
-                    epc_o <= current_inst_addr_i;
-                    cause_o[31] <= 0;
+                    if (in_delayslot_i) begin
+                        epc_o <= current_inst_addr_i - 4;
+                        cause_o[31] <= 1;
+                    end else begin
+                        epc_o <= current_inst_addr_i;
+                        cause_o[31] <= 0;
+                    end
                 end
                 status_o[1] <= 1;
                 cause_o[6:2] <= 5'b01101;
             end
             32'hc: begin
                 if (status_o[1] == 0) begin
-                    epc_o <= current_inst_addr_i - 4;
-                    cause_o[31] <= 1;
-                end else begin
-                    epc_o <= current_inst_addr_i;
-                    cause_o[31] <= 0;
+                    if (in_delayslot_i) begin
+                        epc_o <= current_inst_addr_i - 4;
+                        cause_o[31] <= 1;
+                    end else begin
+                        epc_o <= current_inst_addr_i;
+                        cause_o[31] <= 0;
+                    end
                 end
                 status_o[1] <= 1;
                 cause_o[6:2] <= 5'b01100;

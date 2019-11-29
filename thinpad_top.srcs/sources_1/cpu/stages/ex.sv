@@ -307,6 +307,7 @@ always_comb begin
         cp0_reg_write_addr_o <= inst_i[15:11];
         cp0_reg_we_o <= 1;
         cp0_reg_data_o <= reg1_i;
+        // $display("%x to %x", cp0_reg_write_addr_o, cp0_reg_data_o);
     end
 end
 

@@ -295,11 +295,6 @@ WELCOME:
     bne a0, zero, .Loop0            // 打印循环至0结束符
     nop
 
-    ori v0, zero, SYS_putc          // 系统调用号
-    ori a0, zero, 0x4F              // 'O'
-    syscall SYSCALL_BASE
-    nop
-
     j SHELL                         // 开始交互
     nop
 
