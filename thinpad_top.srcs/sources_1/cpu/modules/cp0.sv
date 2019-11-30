@@ -30,7 +30,7 @@ module cp0(
     input  reg_addr_t               waddr_i,                // 要写的寄存器的编号
     input  reg_addr_t               raddr_i,                // 要读的寄存器的编号
     input  word_t                   data_i,                 // 要写入的值
-    input  logic[`NUM_DEVICES-1:0]  int_i,                  // 外部硬件的中断
+    input  int_t                    int_i,                  // 外部硬件的中断
 
     input  word_t                   except_type_i,          // 最终的异常类型
     input  addr_t                   current_inst_addr_i,    // 当前指令地址

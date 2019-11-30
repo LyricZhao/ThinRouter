@@ -19,4 +19,6 @@
 `define EXC_OVERFLOW        32'hc
 `define EXC_ERET            32'he
 
+typedef logic[`NUM_DEVICES-1:0]        int_t;
+
 `endif

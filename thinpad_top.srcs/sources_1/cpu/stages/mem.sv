@@ -45,7 +45,7 @@ module mem(
 
     output word_t           mem_addr_o,             // 送到RAM中的信号，RAM的地址
     output logic            mem_we_o,               // 送到RAM中的信号，写使能
-    output logic[3:0]       mem_sel_o,              // 送到RAM中的信号，从一个word中四个字节选取若干个
+    output sel_t            mem_sel_o,              // 送到RAM中的信号，从一个word中四个字节选取若干个
     output word_t           mem_data_o,             // 送到RAM中的信号
     output logic            mem_ce_o,               // 送到RAM中的信号
 

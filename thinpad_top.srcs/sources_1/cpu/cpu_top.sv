@@ -11,27 +11,31 @@ module cpu_top(
     input  logic                        clk,
     input  logic                        rst,
 
-    input  word_t                       rom_data_i,
-    output addr_t                       rom_addr_o,
-    output logic                        rom_ce_o,
+    input  int_t                        int_i,
 
-    input  logic[`NUM_DEVICES-1:0]      int_i,
+    input  word_t                       ram_data_r,
 
-    input  word_t                       ram_data_i,
-    output word_t                       ram_addr_o,
-    output word_t                       ram_data_o,
-    output logic                        ram_we_o,
-    output logic[3:0]                   ram_sel_o,
-    output logic                        ram_ce_o
+    output word_t                       ram_addr,
+    output word_t                       ram_data_w,
+    output logic                        ram_we,
+    output sel_t                        ram_sel,
+    output logic                        ram_ce
 );
 
 /* ---------------- 模块出线 ----------------- */
 
+/** addr_ctrl的出线 **/
+// addr_ctrl给if_id的出线
+word_t addr_ctrl_inst_data;
+// addr_ctrl给mem的出线
+word_t addr_ctrl_ram_data;
+
 /** pc的出线 **/
-// pc给rom和给if_id的连线
+// pc给addr_ctrl和给if_id的连线
 addr_t pc_pc;
-// pc给rom的连线
+// pc给addr_ctrl的连线
 logic pc_ce;
+
 
 /** CP0的出线 **/
 // cp0给ex的出线
@@ -160,6 +164,11 @@ addr_t mem_current_inst_addr_o;
 logic mem_in_delayslot_o;
 // mem给cp0、给ctrl的连线
 word_t mem_except_type_o;
+// mem给addr_ctrl的出线
+addr_t mem_ram_addr_o;
+logic mem_ram_we_o, mem_ram_ce_o;
+sel_t mem_ram_sel_o;
+word_t mem_ram_data_o;
 
 
 /** mem_wb的出线 **/
@@ -178,8 +187,8 @@ logic mem_wb_wb_cp0_reg_we;
 
 /** cpu_top的两个出线 **/
 // cpu_top给rom的连线
-assign rom_addr_o = pc_pc;
-assign rom_ce_o = pc_ce;
+assign inst_addr_o = pc_pc;
+assign inst_ce_o = pc_ce;
 
 
 /* ---------------- 模块声明 ----------------- */
@@ -278,7 +287,7 @@ if_id if_id_inst(
     .flush(ctrl_flush),
 
     .if_pc(pc_pc),
-    .if_inst(rom_data_i),
+    .if_inst(addr_ctrl_inst_data),
     .id_pc(if_id_id_pc),
     .id_inst(if_id_id_inst)
 );
@@ -498,12 +507,12 @@ mem mem_inst(
     .lo_o(mem_lo_o),
     .whilo_o(mem_whilo_o),
 
-    .mem_data_i(ram_data_i),
-    .mem_addr_o(ram_addr_o),
-    .mem_we_o(ram_we_o),
-    .mem_sel_o(ram_sel_o),
-    .mem_data_o(ram_data_o),
-    .mem_ce_o(ram_ce_o),
+    .mem_data_i(addr_ctrl_ram_data),
+    .mem_addr_o(mem_ram_addr_o),
+    .mem_we_o(mem_ram_we_o),
+    .mem_sel_o(mem_ram_sel_o),
+    .mem_data_o(mem_ram_data_o),
+    .mem_ce_o(mem_ram_ce_o),
 
     .except_type_i(ex_mem_mem_except_type),
     .current_inst_addr_i(ex_mem_mem_current_inst_addr),
