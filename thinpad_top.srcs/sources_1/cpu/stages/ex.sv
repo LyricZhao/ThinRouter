@@ -95,14 +95,24 @@ assign except_type_o = {except_type_i[31:12], ov_assert, trap_assert, except_typ
 assign in_delayslot_o = in_delayslot_i;
 assign current_inst_addr_o = current_inst_addr_i;
 
+`ifndef TRAP_ON
+    assign trap_assert = 0;
+`endif
+
 // 如果是减法或者有符号比较则reg2取相反数，否则不变（目的是转换成加法）
-assign reg2_i_mux = ((aluop_i == EXE_SUB_OP)  ||
-                     (aluop_i == EXE_SUBU_OP) ||
-                     (aluop_i == EXE_SLT_OP)  ||
-                     (aluop_i == EXE_TLT_OP)  ||
-                     (aluop_i == EXE_TLTI_OP) ||
-                     (aluop_i == EXE_TGE_OP)  ||
-                     (aluop_i == EXE_TGEI_OP)) ? ((~reg2_i) + 1) : reg2_i;
+assign reg2_i_mux = (
+                    `ifdef TRAP_ON
+                        (aluop_i == EXE_TLT_OP)  ||
+                        (aluop_i == EXE_TLTI_OP) ||
+                        (aluop_i == EXE_TGE_OP)  ||
+                        (aluop_i == EXE_TGEI_OP) ||
+                    `endif
+                        (aluop_i == EXE_SUB_OP)  ||
+                        (aluop_i == EXE_SUBU_OP) ||
+                        (aluop_i == EXE_SLT_OP)
+                     )
+                     ? ((~reg2_i) + 1) : reg2_i;
+
 assign result_sum = reg1_i + reg2_i_mux;
 
 // 正正和为负，或者负负和为正，则溢出（有符号）
@@ -113,13 +123,16 @@ reg1是否小于reg2：
     第一个情况是SLT有符号比较时：A 1为负2为正 B 同号并且相减为负
     第二个情况是无符号比较：直接比
 */
-assign reg1_lt_reg2 = ((aluop_i == EXE_SLT_OP)  ||
-                       (aluop_i == EXE_TLT_OP)  ||
-                       (aluop_i == EXE_TLTI_OP) ||
-                       (aluop_i == EXE_TGE_OP)  ||
-                       (aluop_i == EXE_TGEI_OP)) ?
-                       ((reg1_i[31] && !reg2_i[31]) || ((reg1_i[31] == reg2_i[31]) && result_sum[31])):
-                       (reg1_i < reg2_i);
+assign reg1_lt_reg2 = (
+                        `ifdef TRAP_ON
+                            (aluop_i == EXE_TLT_OP)  ||
+                            (aluop_i == EXE_TLTI_OP) ||
+                            (aluop_i == EXE_TGE_OP)  ||
+                            (aluop_i == EXE_TGEI_OP) ||
+                        `endif
+                            (aluop_i == EXE_SLT_OP)
+                        )
+                        ? ((reg1_i[31] && !reg2_i[31]) || ((reg1_i[31] == reg2_i[31]) && result_sum[31])) : (reg1_i < reg2_i);
 
 // 前导零和前导一
 count_lead_zero clz_inst(.in( reg1_i), .out(result_clz) );
@@ -146,6 +159,7 @@ always_comb begin
     end
 end
 
+`ifdef TRAP_ON
 // 自陷指令
 always_comb begin
     if (rst) begin
@@ -170,6 +184,7 @@ always_comb begin
         endcase
     end
 end
+`endif
 
 // 运算结果（要写入寄存器的值）
 always_comb begin

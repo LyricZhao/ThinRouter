@@ -6,6 +6,6 @@
 `define _OPTIONS_VH_
 
 `define MUL_ON
-`define TRAP_ON
+// `define TRAP_ON
 
 `endif

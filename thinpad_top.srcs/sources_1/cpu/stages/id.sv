@@ -173,12 +173,14 @@ always_comb begin
                             `EXE_MTLO:      begin `INST_KIND_1_COMMON(EXE_MTLO_OP,      0,              1, 0);  end // 从寄存器读并写到lo
                             `EXE_MOVN:      begin `INST_KIND_1_COMMON(EXE_MOVN_OP,      (reg2_o != 0),  1, 1);  end // 如果非0就写
                             `EXE_MOVZ:      begin `INST_KIND_1_COMMON(EXE_MOVZ_OP,      (reg2_o == 0),  1, 1);  end // 如果是0就写
+                        `ifdef TRAP_ON
                             `EXE_TEQ:       begin `INST_KIND_1_COMMON(EXE_TEQ_OP,       0,              1, 1);  end
                             `EXE_TGE:       begin `INST_KIND_1_COMMON(EXE_TGE_OP,       0,              1, 1);  end
                             `EXE_TGEU:      begin `INST_KIND_1_COMMON(EXE_TGEU_OP,      0,              1, 1);  end
                             `EXE_TLT:       begin `INST_KIND_1_COMMON(EXE_TLT_OP,       0,              1, 1);  end
                             `EXE_TLTU:      begin `INST_KIND_1_COMMON(EXE_TLTU_OP,      0,              1, 1);  end
                             `EXE_TNE:       begin `INST_KIND_1_COMMON(EXE_TNE_OP,       0,              1, 1);  end
+                        `endif
                             `EXE_SYSCALL:   begin `INST_KIND_1_COMMON(EXE_SYSCALL_OP,   0,              0, 0); except_type_is_syscall <= 1; end
                             `EXE_JR: begin
                                 `INST_KIND_1_COMMON(EXE_JR_OP, 0, 1, 0);
@@ -256,12 +258,14 @@ always_comb begin
                         `INST_KIND_1_COMMON(EXE_BLTZAL_OP, 1, 1, 0);
                         `BRANCH_CONDITION((reg1_o[31] == 1), pc_next_2, pc_plus_offset, 1, 1); // 书上的返回地址写在了if外面我觉得是等价的
                     end
+                `ifdef TRAP_ON
                     `EXE_TEQI:  begin `INST_KIND_5_COMMON(EXE_TEQI_OP,  0, 1, 0, {{16{inst_i[15]}}, inst_i[15:0]}); end
                     `EXE_TGEI:  begin `INST_KIND_5_COMMON(EXE_TGEI_OP,  0, 1, 0, {{16{inst_i[15]}}, inst_i[15:0]}); end
                     `EXE_TGEIU: begin `INST_KIND_5_COMMON(EXE_TGEIU_OP, 0, 1, 0, {{16{inst_i[15]}}, inst_i[15:0]}); end
                     `EXE_TLTI:  begin `INST_KIND_5_COMMON(EXE_TLTI_OP,  0, 1, 0, {{16{inst_i[15]}}, inst_i[15:0]}); end
                     `EXE_TLTIU: begin `INST_KIND_5_COMMON(EXE_TLTIU_OP, 0, 1, 0, {{16{inst_i[15]}}, inst_i[15:0]}); end
                     `EXE_TNEI:  begin `INST_KIND_5_COMMON(EXE_TNEI_OP,  0, 1, 0, {{16{inst_i[15]}}, inst_i[15:0]}); end
+                `endif
                     default: begin end
                 endcase
             end
