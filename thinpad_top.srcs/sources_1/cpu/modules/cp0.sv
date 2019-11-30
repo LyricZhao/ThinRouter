@@ -23,7 +23,7 @@ module cp0(
     output word_t                   ebase_o,                // EBase寄存器
     output word_t                   status_o,               // Status寄存器
     output word_t                   cause_o,                // Cause寄存器
-    output word_t                   epc_o,                  // EPC寄存器
+    output word_t                   epc_o                   // EPC寄存器
 );
 
 `define EPC_CAUSE_SET()         if (in_delayslot_i) begin \
