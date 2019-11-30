@@ -274,7 +274,7 @@ always_comb begin
                     cpu_ram_data_i <= {24'b0, base_ram_data[7:0]};
                 end
             end else if (cpu_ram_addr_o == 32'hbfd003fc) begin
-                cpu_ram_data_i <= {30'b0, uart_dataready, uart_tsre & uart_tbre}; // uncertain
+                cpu_ram_data_i <= {30'b0, uart_dataready, uart_tsre & uart_tbre};
             end
         end else if (rom_ce) begin // 指令是只读的
             if (inst_addr >= 32'h80000000 && inst_addr <= 32'h803FFFFF) begin // 访问baseram

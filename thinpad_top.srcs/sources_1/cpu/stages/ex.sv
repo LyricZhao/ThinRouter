@@ -220,7 +220,6 @@ always_comb begin
                 wdata_o <= reg2_i >> reg1_i[4:0];
             end
             EXE_SRA_OP: begin // 算术右移
-                // wdata_o <= reg2_i >>> reg1_i[4:0]; // 这个指令不知道为什么不行
                 wdata_o <= (({32{reg2_i[31]}} << (6'd32 - {1'b0, reg1_i[4:0]}))) | (reg2_i >> reg1_i[4:0]);
             end
         `ifdef MUL_ON
@@ -334,7 +333,6 @@ always_comb begin
         cp0_reg_write_addr_o <= inst_i[15:11];
         cp0_reg_we_o <= 1;
         cp0_reg_data_o <= reg1_i;
-        // $display("%x to %x", cp0_reg_write_addr_o, cp0_reg_data_o);
     end
 end
 

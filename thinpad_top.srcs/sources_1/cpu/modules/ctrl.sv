@@ -30,16 +30,16 @@ always_comb begin
         flush <= 1;
         stall <= '{default: '0};
         case (except_type_i) // 所有的异常处理都在0x80001180
-            32'h00000001: begin
+            `EXC_INTERRUPT: begin
                 new_pc <= cp0_ebase_i + 32'h180;  // 中断
             end
-            32'h00000008: begin
+            `EXC_SYSCALL: begin
                 new_pc <= cp0_ebase_i + 32'h180;  // syscall
             end
-            32'h0000000c: begin
+            `EXC_OVERFLOW: begin
                 new_pc <= cp0_ebase_i + 32'h180;  // 溢出
             end
-            32'h0000000e: begin
+            `EXC_ERET: begin
                 new_pc <= cp0_epc_i;              // eret
             end
             default: begin end

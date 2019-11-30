@@ -111,17 +111,13 @@ always_comb begin
         except_type_o <= 0;
         if (current_inst_addr_i) begin
             if (((cp0_cause[15:8] & (cp0_status[15:8])) != 0) && (cp0_status[1] == 0) && (cp0_status[0] == 1)) begin
-                except_type_o <= 32'h1; // 中断
+                except_type_o <= `EXC_INTERRUPT;
             end else if (except_type_i[8]) begin
-                except_type_o <= 32'h8; // syscall
-            end else if (except_type_i[9]) begin
-                except_type_o <= 32'ha;
-            end else if (except_type_i[10]) begin
-                except_type_o <= 32'hd;
+                except_type_o <= `EXC_SYSCALL;
             end else if (except_type_i[11]) begin
-                except_type_o <= 32'hc;
+                except_type_o <= `EXC_OVERFLOW;
             end else if (except_type_i[12]) begin
-                except_type_o <= 32'he;
+                except_type_o <= `EXC_ERET;
             end
         end
     end

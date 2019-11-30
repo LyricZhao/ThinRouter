@@ -62,26 +62,26 @@ always @(posedge clk) begin
         end
 
         case (except_type_i)
-            32'h1: begin // 中断
+            `EXC_INTERRUPT: begin // 中断
                 EPC_CAUSE_SET();
                 status_o[1] <= 1;
                 cause_o[6:2] <= 5'b00000;
             end
-            32'h8: begin // syscall
+            `EXC_SYSCALL: begin // syscall
                 if (status_o[1] == 0) begin
                     EPC_CAUSE_SET();
                 end
                 status_o[1] <= 1;
                 cause_o[6:2] <= 5'b01000;
             end
-            32'hc: begin // 溢出
+            `EXC_OVERFLOW: begin // 溢出
                 if (status_o[1] == 0) begin
                     EPC_CAUSE_SET();
                 end
                 status_o[1] <= 1;
                 cause_o[6:2] <= 5'b01100;
             end
-            32'he: begin
+            `EXC_ERET: begin // eret
                 status_o[1] <= 0;
             end
             default: begin end
