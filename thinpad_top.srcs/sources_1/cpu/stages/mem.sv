@@ -176,7 +176,12 @@ always_comb begin
             EXE_SB_OP: begin
                 `SET_SAWC(1);
                 mem_data_o <= {reg2_i[7:0], reg2_i[7:0], reg2_i[7:0], reg2_i[7:0]}; // 这样写仅仅是为了接下来选择某个字节进行写入时方便
-                mem_sel_o <= (1'b1 << mem_addr_i[1:0]);
+                case (mem_addr_i[1:0])
+                    2'b11: mem_sel_o <= 4'b1000;
+                    2'b10: mem_sel_o <= 4'b0100;
+                    2'b01: mem_sel_o <= 4'b0010;
+                    2'b00: mem_sel_o <= 4'b0001;
+                endcase
             end
             default: begin end
         endcase

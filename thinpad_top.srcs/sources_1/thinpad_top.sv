@@ -167,7 +167,7 @@ logic[5:0] cpu_int_i;
 assign cpu_int_i = {3'b0, uart_dataready, 2'b0}; // UART是IP4
 
 cpu_top cpu_top_inst(
-    .clk(clk_50M),
+    .clk(clk_40M),
     .rst(~locked),
 
     .rom_addr_o(inst_addr),
