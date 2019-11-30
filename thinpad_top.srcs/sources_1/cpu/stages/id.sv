@@ -165,8 +165,10 @@ always_comb begin
                             `EXE_ADDU:      begin `INST_KIND_1_COMMON(EXE_ADDU_OP,      1,              1, 1);  end
                             `EXE_SUB:       begin `INST_KIND_1_COMMON(EXE_SUB_OP,       1,              1, 1);  end
                             `EXE_SUBU:      begin `INST_KIND_1_COMMON(EXE_SUBU_OP,      1,              1, 1);  end
+                        `ifdef MUL_ON 
                             `EXE_MULT:      begin `INST_KIND_1_COMMON(EXE_MULT_OP,      0,              1, 1);  end // 这里写到hilo寄存器，不写通用
                             `EXE_MULTU:     begin `INST_KIND_1_COMMON(EXE_MULTU_OP,     0,              1, 1);  end // 这里写到hilo寄存器，不写通用
+                        `endif
                             `EXE_MFHI:      begin `INST_KIND_1_COMMON(EXE_MFHI_OP,      1,              0, 0);  end // 从hi读并写到寄存器
                             `EXE_MFLO:      begin `INST_KIND_1_COMMON(EXE_MFLO_OP,      1,              0, 0);  end // 从lo读并写到寄存器
                             `EXE_MTHI:      begin `INST_KIND_1_COMMON(EXE_MTHI_OP,      0,              1, 0);  end // 从寄存器读并写到hi
@@ -273,7 +275,9 @@ always_comb begin
                 case (op3) //                              ALUOP        是否写入寄存器/是否读1/2
                     `EXE_CLZ:    begin `INST_KIND_1_COMMON(EXE_CLZ_OP,  1, 1, 0);  end
                     `EXE_CLO:    begin `INST_KIND_1_COMMON(EXE_CLO_OP,  1, 1, 0);  end
+                `ifdef MUL_ON
                     `EXE_MUL:    begin `INST_KIND_1_COMMON(EXE_MUL_OP,  1, 1, 1);  end
+                `endif
                     default: begin end
                 endcase
             end

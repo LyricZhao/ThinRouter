@@ -86,9 +86,13 @@ logic trap_assert, ov_assert;
 
 // 一些结果线
 logic overflow, reg1_lt_reg2;
-word_t reg2_i_mux, result_sum, opdata1_mult, opdata2_mult;
-dword_t hilo_temp, result_mul;
+word_t reg2_i_mux, result_sum;
 logic [`WORD_WIDTH_LOG2:0] result_clz, result_clo; // 注意这里的长度是6位的，前导零可能有32个
+
+`ifdef MUL_ON
+    word_t opdata1_mult, opdata2_mult;
+    dword_t hilo_temp, result_mul;
+`endif
 
 // 异常相关
 assign except_type_o = {except_type_i[31:12], ov_assert, trap_assert, except_type_i[9:8], 8'h0};
@@ -138,52 +142,56 @@ assign reg1_lt_reg2 = (
 count_lead_zero clz_inst(.in( reg1_i), .out(result_clz) );
 count_lead_zero clo_inst(.in(~reg1_i), .out(result_clo) );
 
-// 乘法：如果是负数先取相反数
-assign opdata1_mult = (((aluop_i == EXE_MUL_OP) || (aluop_i == EXE_MULT_OP)) && reg1_i[31]) ? ((~reg1_i) + 1) : reg1_i;
-assign opdata2_mult = (((aluop_i == EXE_MUL_OP) || (aluop_i == EXE_MULT_OP)) && reg2_i[31]) ? ((~reg2_i) + 1) : reg2_i;
-assign hilo_temp = opdata1_mult * opdata2_mult;
+`ifdef MUL_ON
+    // 乘法：如果是负数先取相反数
+    assign opdata1_mult = (((aluop_i == EXE_MUL_OP) || (aluop_i == EXE_MULT_OP)) && reg1_i[31]) ? ((~reg1_i) + 1) : reg1_i;
+    assign opdata2_mult = (((aluop_i == EXE_MUL_OP) || (aluop_i == EXE_MULT_OP)) && reg2_i[31]) ? ((~reg2_i) + 1) : reg2_i;
+    assign hilo_temp = opdata1_mult * opdata2_mult;
+`endif
 
-// 乘法结果
-always_comb begin
-    if (rst == 1'b1) begin
-        result_mul <= 0;
-    end else begin
-        case (aluop_i)
-            EXE_MULT_OP, EXE_MUL_OP: begin
-                result_mul <= (reg1_i[31] ^ reg2_i[31]) ? ((~hilo_temp) + 1) : hilo_temp; // 结果修正
-            end
-            default: begin // EXE_MULTU_OP
-                result_mul <= hilo_temp;
-            end
-        endcase
+`ifdef MUL_ON
+    // 乘法结果
+    always_comb begin
+        if (rst == 1'b1) begin
+            result_mul <= 0;
+        end else begin
+            case (aluop_i)
+                EXE_MULT_OP, EXE_MUL_OP: begin
+                    result_mul <= (reg1_i[31] ^ reg2_i[31]) ? ((~hilo_temp) + 1) : hilo_temp; // 结果修正
+                end
+                default: begin // EXE_MULTU_OP
+                    result_mul <= hilo_temp;
+                end
+            endcase
+        end
     end
-end
+`endif
 
 `ifdef TRAP_ON
-// 自陷指令
-always_comb begin
-    if (rst) begin
-        trap_assert <= 0;
-    end else begin
-        case (aluop_i)
-            EXE_TEQ_OP, EXE_TEQI_OP: begin
-                trap_assert <= (reg1_i == reg2_i);
-            end
-            EXE_TGE_OP, EXE_TGEI_OP, EXE_TGEIU_OP, EXE_TGEIU_OP: begin
-                trap_assert <= ~reg1_lt_reg2;
-            end
-            EXE_TLT_OP, EXE_TLTI_OP, EXE_TLTIU_OP, EXE_TLTU_OP: begin
-                trap_assert <= reg1_lt_reg2;
-            end
-            EXE_TNE_OP, EXE_TNEI_OP: begin
-                trap_assert <= (reg1_i != reg2_i);
-            end
-            default: begin
-                trap_assert <= 0;
-            end
-        endcase
+    // 自陷指令
+    always_comb begin
+        if (rst) begin
+            trap_assert <= 0;
+        end else begin
+            case (aluop_i)
+                EXE_TEQ_OP, EXE_TEQI_OP: begin
+                    trap_assert <= (reg1_i == reg2_i);
+                end
+                EXE_TGE_OP, EXE_TGEI_OP, EXE_TGEIU_OP, EXE_TGEIU_OP: begin
+                    trap_assert <= ~reg1_lt_reg2;
+                end
+                EXE_TLT_OP, EXE_TLTI_OP, EXE_TLTIU_OP, EXE_TLTU_OP: begin
+                    trap_assert <= reg1_lt_reg2;
+                end
+                EXE_TNE_OP, EXE_TNEI_OP: begin
+                    trap_assert <= (reg1_i != reg2_i);
+                end
+                default: begin
+                    trap_assert <= 0;
+                end
+            endcase
+        end
     end
-end
 `endif
 
 // 运算结果（要写入寄存器的值）
@@ -215,9 +223,11 @@ always_comb begin
                 // wdata_o <= reg2_i >>> reg1_i[4:0]; // 这个指令不知道为什么不行
                 wdata_o <= (({32{reg2_i[31]}} << (6'd32 - {1'b0, reg1_i[4:0]}))) | (reg2_i >> reg1_i[4:0]);
             end
+        `ifdef MUL_ON
             EXE_MUL_OP, EXE_MULT_OP, EXE_MULTU_OP: begin
                 wdata_o <= result_mul[`WORD_WIDTH-1:0];
             end
+        `endif
             EXE_SLT_OP, EXE_SLTU_OP: begin
                 wdata_o <= reg1_lt_reg2;
             end
@@ -280,10 +290,12 @@ always_comb begin
         {whilo_o, hi_o, lo_o} <= 0;
     end else begin
         case (aluop_i)
+        `ifdef MUL_ON
             EXE_MULT_OP, EXE_MULTU_OP: begin // EXE_MUL_OP写寄存器，不写hilo寄存器
                 whilo_o <= 1;
                 {hi_o, lo_o} <= result_mul;
             end
+        `endif
             EXE_MTHI_OP: begin
                 whilo_o <= 1;
                 {hi_o, lo_o} <= {reg1_i, lo};
