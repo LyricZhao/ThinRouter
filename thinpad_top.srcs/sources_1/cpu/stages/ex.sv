@@ -149,8 +149,8 @@ count_lead_zero clo_inst(.in(~reg1_i), .out(result_clo) );
     assign hilo_temp = opdata1_mult * opdata2_mult;
 `endif
 
+// 乘法结果
 `ifdef MUL_ON
-    // 乘法结果
     always_comb begin
         if (rst == 1'b1) begin
             result_mul <= 0;
@@ -167,8 +167,8 @@ count_lead_zero clo_inst(.in(~reg1_i), .out(result_clo) );
     end
 `endif
 
+// 自陷指令
 `ifdef TRAP_ON
-    // 自陷指令
     always_comb begin
         if (rst) begin
             trap_assert <= 0;

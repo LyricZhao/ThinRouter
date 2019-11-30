@@ -14,9 +14,9 @@
 
 `define NUM_DEVICES         6
 
-`define EXC_INTERRUPT   32'h1
-`define EXC_SYSCALL     32'h8
-`define EXC_OVERFLOW    32'hc
-`define EXC_ERET        32'he
+`define EXC_INTERRUPT       32'h1
+`define EXC_SYSCALL         32'h8
+`define EXC_OVERFLOW        32'hc
+`define EXC_ERET            32'he
 
 `endif

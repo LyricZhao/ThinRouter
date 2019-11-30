@@ -1,6 +1,23 @@
 /*
 cp0模块：
     0号协处理器
+
+需要实现的（具体参见MIPS32文档）：
+    EBASE:
+        [31:30]: 10
+        [29:12]: Exception Base （可写）
+        [11:10]: 00
+        [ 9: 0]: CPUNum （可写，这个用于多核处理器）
+
+    CAUSE:
+        [31,31]: BD（是否在延迟槽）
+        [15:10]: IP（硬件中断）
+        [ 6: 2]: Exception Code
+
+    Status:
+        [15:10]: IM（Interrupt Mask，是否屏蔽中断）
+        [ 1: 1]: EXL（Exception Level）
+        [ 0: 0]: IE（Interrupt Enable）
 */
 
 `include "cpu_defs.vh"
@@ -26,7 +43,7 @@ module cp0(
     output word_t                   epc_o                   // EPC寄存器
 );
 
-`define EPC_CAUSE_SET()         if (in_delayslot_i) begin \
+`define EPC_CAUSE_SET           if (in_delayslot_i) begin \
                                     epc_o <= current_inst_addr_i - 4; \
                                     cause_o[31] <= 1; \
                                 end else begin \
@@ -36,9 +53,9 @@ module cp0(
 
 always @(posedge clk) begin
     if (rst) begin
-        {count_o, compare_o, cause_o, epc_o} <= 0;
+        {cause_o, epc_o} <= 0;
         ebase_o  <= 32'h80001000;
-        status_o <= 32'b00010000000000000000000000000000; // CU字段为0001表示CP0存在
+        status_o <= 32'b10000000; // CU字段为0001表示CP0存在
     end else begin
         cause_o[15:10] <= int_i;
 
@@ -62,26 +79,26 @@ always @(posedge clk) begin
         end
 
         case (except_type_i)
-            `EXC_INTERRUPT: begin // 中断
-                EPC_CAUSE_SET();
+            `EXC_INTERRUPT: begin
+                `EPC_CAUSE_SET;
                 status_o[1] <= 1;
                 cause_o[6:2] <= 5'b00000;
             end
-            `EXC_SYSCALL: begin // syscall
-                if (status_o[1] == 0) begin
-                    EPC_CAUSE_SET();
+            `EXC_SYSCALL: begin
+                if (status_o[1] == 0) begin // 不能嵌套异常
+                    `EPC_CAUSE_SET;
                 end
                 status_o[1] <= 1;
                 cause_o[6:2] <= 5'b01000;
             end
-            `EXC_OVERFLOW: begin // 溢出
+            `EXC_OVERFLOW: begin
                 if (status_o[1] == 0) begin
-                    EPC_CAUSE_SET();
+                    `EPC_CAUSE_SET;
                 end
                 status_o[1] <= 1;
                 cause_o[6:2] <= 5'b01100;
             end
-            `EXC_ERET: begin // eret
+            `EXC_ERET: begin
                 status_o[1] <= 0;
             end
             default: begin end
