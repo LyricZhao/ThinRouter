@@ -5,10 +5,9 @@
 `ifndef _REG_VH_
 `define _REG_VH_
 
-`define REG_ADDR_BUS        4:0
+`define REG_ADDR_WIDTH      5
 `define REG_NUM             32
-`define NOP_REG_ADDR        5'b00000
 
-typedef logic[`REG_ADDR_BUS]  reg_addr_t;
+typedef logic[`REG_ADDR_WIDTH-1:0]  reg_addr_t;
 
 `endif

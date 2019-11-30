@@ -35,43 +35,42 @@ typedef enum logic[`ALUOP_WIDTH-1:0] {
     EXE_CLZ_OP,     // 前导零
     EXE_CLO_OP,     // 前导一
     EXE_MUL_OP,     // 两个有符号寄存器的值乘法到另一个寄存器
-    EXE_JR_OP,
-    EXE_JALR_OP,
-    EXE_J_OP,
-    EXE_JAL_OP,
-    EXE_BEQ_OP,
-    EXE_BGTZ_OP,
-    EXE_BLEZ_OP,
-    EXE_BNE_OP,
-    EXE_BGEZ_OP,
-    EXE_BGEZAL_OP,
-    EXE_BLTZ_OP,
-    EXE_BLTZAL_OP,
-    EXE_LB_OP,
-    EXE_LBU_OP,
-    EXE_LH_OP,
-    EXE_LHU_OP,
-    EXE_LW_OP,
-    EXE_SB_OP,
-    EXE_SH_OP,
-    EXE_SW_OP,
-    EXE_MFC0_OP,
-    EXE_MTC0_OP,
-    EXE_SYSCALL_OP,
-    EXE_TEQ_OP,
-    EXE_TEQI_OP,
-    EXE_TGE_OP,
-    EXE_TGEI_OP,
-    EXE_TGEIU_OP,
-    EXE_TGEU_OP,
-    EXE_TLT_OP,
-    EXE_TLTI_OP,
-    EXE_TLTIU_OP,
-    EXE_TLTU_OP,
-    EXE_TNE_OP,
-    EXE_TNEI_OP,
-    EXE_ERET_OP,
-    PLACE_HOLDER
+    EXE_JR_OP,      // 跳到寄存器中的地址
+    EXE_JALR_OP,    // 跳到寄存器中的地址并把返回地址放到31号寄存器
+    EXE_J_OP,       // 跳到一个立即数地址
+    EXE_JAL_OP,     // 跳到一个立即数地址并把返回地址放到31号寄存器
+    EXE_BEQ_OP,     // 如果两个数相同就把PC加offset进另一个分支
+    EXE_BGTZ_OP,    // 如果寄存器>0就把PC加offset进另一个分支
+    EXE_BLEZ_OP,    // 如果寄存器<=0就把PC加offset进另一个分支    
+    EXE_BNE_OP,     // 如果两个数不相同就把PC加offset进另一个分支
+    EXE_BGEZ_OP,    // 如果寄存器>=0就把PC加offset进另一个分支    
+    EXE_BGEZAL_OP,  // 如果寄存器>=0就把PC加offset进另一个分支并把返回地址放到31号寄存器
+    EXE_BLTZ_OP,    // 如果寄存器>0就把PC加offset进另一个分支    
+    EXE_BLTZAL_OP,  // 如果寄存器>0就把PC加offset进另一个分支并把返回地址放到31号寄存器
+    EXE_LB_OP,      // 从地址中加载字节到寄存器（符号扩展）
+    EXE_LBU_OP,     // 从地址中加载字节到寄存器（零扩展）
+    EXE_LH_OP,      // 从地址中加载半字到寄存器（符号扩展）
+    EXE_LHU_OP,     // 从地址中加载半字到寄存器（零扩展）
+    EXE_LW_OP,      // 从地址中加载字到寄存器（符号扩展）
+    EXE_SB_OP,      // 存字节到地址
+    EXE_SH_OP,      // 存半字到地址
+    EXE_SW_OP,      // 存字到地址
+    EXE_MFC0_OP,    // 获取某个CP0寄存器的值
+    EXE_MTC0_OP,    // 写入某个CP0寄存器的值
+    EXE_SYSCALL_OP, // 系统调用
+    EXE_TEQ_OP,     // 等于发生自陷
+    EXE_TEQI_OP,    // 等于立即数发生自陷
+    EXE_TGE_OP,     // 大于等于发生自陷
+    EXE_TGEI_OP,    // 大于等于立即数发生自陷
+    EXE_TGEIU_OP,   // 大于等于立即数（零扩展）发生自陷
+    EXE_TGEU_OP,    // 大于等于发生自陷
+    EXE_TLT_OP,     // 小于发生自陷
+    EXE_TLTI_OP,    // 小于立即数发生自陷
+    EXE_TLTIU_OP,   // 小于立即数（零扩展）发生自陷
+    EXE_TLTU_OP,    // 小于发生自陷
+    EXE_TNE_OP,     // 不等于发生自陷
+    EXE_TNEI_OP,    // 不等于立即数发生自陷
+    EXE_ERET_OP     // 异常返回
 } aluop_t;
 
 `endif

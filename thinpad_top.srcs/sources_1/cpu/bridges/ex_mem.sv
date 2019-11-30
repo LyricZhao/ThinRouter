@@ -56,9 +56,7 @@ module ex_mem(
 // 同步数据传递
 always_ff @ (posedge clk) begin
     if (rst || (stall.ex && !stall.mem) || flush) begin
-        mem_wd <= `NOP_REG_ADDR;
-        {mem_wreg, mem_wdata, mem_hi, mem_lo, mem_whilo, mem_aluop, mem_mem_addr, mem_reg2, mem_cp0_reg_we, mem_cp0_reg_write_addr, mem_cp0_reg_data} <= 0;
-        {mem_except_type, mem_in_delayslot, mem_current_inst_addr} <= 0;
+        {mem_wd, mem_wreg, mem_wdata, mem_hi, mem_lo, mem_whilo, mem_aluop, mem_mem_addr, mem_reg2, mem_cp0_reg_we, mem_cp0_reg_write_addr, mem_cp0_reg_data, mem_except_type, mem_in_delayslot, mem_current_inst_addr} <= 0;
     end else if (!stall.ex) begin
         mem_wd <= ex_wd;
         mem_wreg <= ex_wreg;

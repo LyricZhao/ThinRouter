@@ -133,10 +133,7 @@ assign mem_we_o = mem_we & (~(|except_type_o));
 // 其他指令
 always_comb begin
     if (rst) begin
-        wd_o <= `NOP_REG_ADDR;
-        {wreg_o, wdata_o, hi_o, lo_o, whilo_o, mem_addr_o, mem_we, mem_sel_o, mem_data_o, mem_ce_o} <= 0;
-        {cp0_reg_write_addr_o, cp0_reg_we_o, cp0_reg_data_o} <= 0;
-        stallreq_o <= 0;
+        {wd_o, wreg_o, wdata_o, hi_o, lo_o, whilo_o, mem_addr_o, mem_we, mem_sel_o, mem_data_o, mem_ce_o, cp0_reg_write_addr_o, cp0_reg_we_o, cp0_reg_data_o, stallreq_o} <= 0;
     end else begin
         wd_o <= wd_i;
         wreg_o <= wreg_i;

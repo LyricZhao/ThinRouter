@@ -39,8 +39,7 @@ module mem_wb(
 // 同步传递
 always_ff @(posedge clk) begin
     if (rst || (stall.mem && !stall.wb) || flush) begin
-        wb_wd <= `NOP_REG_ADDR;
-        {wb_wreg, wb_wdata, wb_hi, wb_lo, wb_whilo, wb_cp0_reg_data, wb_cp0_reg_we, wb_cp0_reg_write_addr} <= 0;
+        {wb_wd, wb_wreg, wb_wdata, wb_hi, wb_lo, wb_whilo, wb_cp0_reg_data, wb_cp0_reg_we, wb_cp0_reg_write_addr} <= 0;
     end else if (!stall.mem) begin
         wb_wd <= mem_wd;
         wb_wreg <= mem_wreg;
