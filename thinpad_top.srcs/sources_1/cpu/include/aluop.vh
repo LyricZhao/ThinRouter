@@ -7,6 +7,8 @@ ALU操作码相关的定义
 
 `define ALUOP_WIDTH 8
 
+`include "options.vh"
+
 typedef enum logic[`ALUOP_WIDTH-1:0] {
     EXE_NOP_OP,     // 空指令
     EXE_OR_OP,      // 或
@@ -28,8 +30,10 @@ typedef enum logic[`ALUOP_WIDTH-1:0] {
     EXE_ADDU_OP,    // 无符号加
     EXE_SUB_OP,     // 有符号减
     EXE_SUBU_OP,    // 无符号减
+`ifdef MUL_ON
     EXE_MULT_OP,    // 两个有符号寄存器的值乘法到HILO寄存器
     EXE_MULTU_OP,   // 两个无符号寄存器的值乘法到HILO寄存器
+`endif
     EXE_ADDI_OP,    // 加立即数
     EXE_ADDIU_OP,   // 无符号加立即数
     EXE_CLZ_OP,     // 前导零
@@ -58,6 +62,7 @@ typedef enum logic[`ALUOP_WIDTH-1:0] {
     EXE_MFC0_OP,    // 获取某个CP0寄存器的值
     EXE_MTC0_OP,    // 写入某个CP0寄存器的值
     EXE_SYSCALL_OP, // 系统调用
+`ifdef TRAP_ON
     EXE_TEQ_OP,     // 等于发生自陷
     EXE_TEQI_OP,    // 等于立即数发生自陷
     EXE_TGE_OP,     // 大于等于发生自陷
@@ -70,6 +75,7 @@ typedef enum logic[`ALUOP_WIDTH-1:0] {
     EXE_TLTU_OP,    // 小于发生自陷
     EXE_TNE_OP,     // 不等于发生自陷
     EXE_TNEI_OP,    // 不等于立即数发生自陷
+`endif
     EXE_ERET_OP     // 异常返回
 } aluop_t;
 

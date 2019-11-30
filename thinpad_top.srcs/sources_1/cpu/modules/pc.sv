@@ -6,7 +6,7 @@ PC(Program Counter)模块：
 
 `include "cpu_defs.vh"
 
-module pc_reg(
+module pc(
     input  logic        clk,
     input  logic        rst,
     input  stall_t      stall,              // 流水线暂停状态

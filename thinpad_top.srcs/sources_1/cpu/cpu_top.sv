@@ -28,11 +28,11 @@ module cpu_top(
 
 /* ---------------- 模块出线 ----------------- */
 
-/** pc_reg的出线 **/
-// pc_reg给rom和给if_id的连线
-addr_t pc_reg_pc;
-// pc_reg给rom的连线
-logic pc_reg_ce;
+/** pc的出线 **/
+// pc给rom和给if_id的连线
+addr_t pc_pc;
+// pc给rom的连线
+logic pc_ce;
 
 /** CP0的出线 **/
 // cp0给ex的出线
@@ -54,7 +54,7 @@ word_t hilo_reg_hi_o, hilo_reg_lo_o;
 
 
 /** ctrl的出线 **/
-// ctrl给ex_mem、给id_ex、给if_id、给mem_wb、给pc_reg的连线
+// ctrl给ex_mem、给id_ex、给if_id、给mem_wb、给pc的连线
 stall_t ctrl_stall;
 logic ctrl_flush;
 // ctrl给pc的连线
@@ -82,7 +82,7 @@ word_t id_except_type_o;
 addr_t id_current_inst_addr_o;
 // id给ctrl的连线
 logic id_stallreq_o;
-// id给pc_reg的出线
+// id给pc的出线
 logic id_jump_flag_o;
 addr_t id_target_addr_o;
 
@@ -179,14 +179,14 @@ logic mem_wb_wb_cp0_reg_we;
 
 /** cpu_top的两个出线 **/
 // cpu_top给rom的连线
-assign rom_addr_o = pc_reg_pc;
-assign rom_ce_o = pc_reg_ce;
+assign rom_addr_o = pc_pc;
+assign rom_ce_o = pc_ce;
 
 
 /* ---------------- 模块声明 ----------------- */
 
 // PC（同步地址线加一）
-pc_reg pc_reg_inst(
+pc pc_inst(
     .clk(clk),
     .rst(rst),
 
@@ -197,8 +197,8 @@ pc_reg pc_reg_inst(
     .jump_flag(id_jump_flag_o),
     .target_addr(id_target_addr_o),
 
-    .pc(pc_reg_pc),
-    .ce(pc_reg_ce)
+    .pc(pc_pc),
+    .ce(pc_ce)
 );
 
 // 通用寄存器（同步写寄存器）
@@ -280,7 +280,7 @@ if_id if_id_inst(
     .stall(ctrl_stall),
     .flush(ctrl_flush),
 
-    .if_pc(pc_reg_pc),
+    .if_pc(pc_pc),
     .if_inst(rom_data_i),
     .id_pc(if_id_id_pc),
     .id_inst(if_id_id_inst)

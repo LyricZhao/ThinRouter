@@ -6,6 +6,8 @@
 `ifndef _EXE_DECODE_VH_
 `define _EXE_DECODE_VH_
 
+`include "options.vh"
+
 `define EXE_NOP             6'b000000
 `define EXE_SPECIAL_INST    6'b000000
 `define EXE_SPECIAL2_INST   6'b011100
@@ -33,9 +35,11 @@
 `define EXE_CLZ             6'b100000
 `define EXE_CLO             6'b100001
 
-`define EXE_MULT            6'b011000
-`define EXE_MULTU           6'b011001
-`define EXE_MUL             6'b000010
+`ifdef MUL_ON
+    `define EXE_MULT            6'b011000
+    `define EXE_MULTU           6'b011001
+    `define EXE_MUL             6'b000010
+`endif
 
 `define EXE_SLL             6'b000000
 `define EXE_SLLV            6'b000100
@@ -78,19 +82,21 @@
 
 `define EXE_SYSCALL         6'b001100
 
-`define EXE_TEQ             6'b110100
-`define EXE_TEQI            5'b01100
-`define EXE_TGE             6'b110000
-`define EXE_TGEI            5'b01000
-`define EXE_TGEIU           5'b01001
-`define EXE_TGEU            6'b110001
-`define EXE_TLT             6'b110010
-`define EXE_TLTI            5'b01010
-`define EXE_TLTIU           5'b01011
-`define EXE_TLTU            6'b110011
-`define EXE_TNE             6'b110110
-`define EXE_TNEI            5'b01110
-   
+`ifdef TRAP_ON
+    `define EXE_TEQ             6'b110100
+    `define EXE_TEQI            5'b01100
+    `define EXE_TGE             6'b110000
+    `define EXE_TGEI            5'b01000
+    `define EXE_TGEIU           5'b01001
+    `define EXE_TGEU            6'b110001
+    `define EXE_TLT             6'b110010
+    `define EXE_TLTI            5'b01010
+    `define EXE_TLTIU           5'b01011
+    `define EXE_TLTU            6'b110011
+    `define EXE_TNE             6'b110110
+    `define EXE_TNEI            5'b01110
+`endif
+
 `define EXE_ERET            32'b01000010000000000000000000011000
 
 `endif
