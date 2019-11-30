@@ -165,7 +165,6 @@ logic[3:0] cpu_ram_sel_o;
 
 logic[5:0] cpu_int_i;
 assign cpu_int_i = {3'b0, uart_dataready, 2'b0}; // UART是IP4
-logic cpu_timer_int_o;
 
 cpu_top cpu_top_inst(
     .clk(clk_40M),
@@ -182,8 +181,7 @@ cpu_top cpu_top_inst(
     .ram_sel_o(cpu_ram_sel_o),
     .ram_ce_o(cpu_ram_ce_o),
 
-    .int_i(cpu_int_i),
-    .timer_int_o(cpu_timer_int_o)
+    .int_i(cpu_int_i)
 );
 
 logic base_is_writing;

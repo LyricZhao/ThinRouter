@@ -16,7 +16,6 @@ module cpu_top(
     output logic                        rom_ce_o,
 
     input  logic[`NUM_DEVICES-1:0]      int_i,
-    output logic                        timer_int_o,
 
     input  word_t                       ram_data_i,
     output word_t                       ram_addr_o,
@@ -235,8 +234,6 @@ cp0 cp0_inst(
     .clk(clk),
     .rst(rst),
     .int_i(int_i),
-
-    .timer_int_o(timer_int_o),
 
     .raddr_i(ex_cp0_reg_read_addr_o),
     .data_i(mem_wb_wb_cp0_reg_data),

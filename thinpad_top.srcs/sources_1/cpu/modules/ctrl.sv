@@ -31,28 +31,15 @@ always_comb begin
         stall <= '{default: '0};
         case (except_type_i) // 所有的异常处理都在0x80001180
             32'h00000001: begin
-                new_pc <= cp0_ebase_i + 32'h180;  // interrupt
-            end
-            32'h00000004: begin
-                new_pc <= cp0_ebase_i + 32'h180;  // AdEL
-            end
-            32'h00000005: begin
-                new_pc <= cp0_ebase_i + 32'h180;  // AdES
+                new_pc <= cp0_ebase_i + 32'h180;  // 中断
             end
             32'h00000008: begin
                 new_pc <= cp0_ebase_i + 32'h180;  // syscall
             end
-            32'h0000000a: begin
-                new_pc <= cp0_ebase_i + 32'h180;  // invalid instruction
-            end
-            32'h0000000d: begin
-                new_pc <= cp0_ebase_i + 32'h180;  // break
-            end
             32'h0000000c: begin
-                new_pc <= cp0_ebase_i + 32'h180;  // overflow
+                new_pc <= cp0_ebase_i + 32'h180;  // 溢出
             end
             32'h0000000e: begin
-                // $display("%x", cp0_epc_i);
                 new_pc <= cp0_epc_i;              // eret
             end
             default: begin end
@@ -62,9 +49,7 @@ always_comb begin
         stall.ifetch <= stallreq_from_mem || stallreq_from_ex || stallreq_from_id;
         stall.id <= stallreq_from_mem || stallreq_from_ex || stallreq_from_id;
         stall.ex <= stallreq_from_mem || stallreq_from_ex;
-        stall.mem <= 0;
-        stall.wb <= 0;
-        flush <= 0;
+        {stall.mem, stall.wb, flush} <= 0;
     end
 end
 
