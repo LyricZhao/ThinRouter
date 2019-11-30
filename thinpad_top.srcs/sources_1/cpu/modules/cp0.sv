@@ -26,12 +26,12 @@ module cp0(
     output word_t                   epc_o,                  // EPC寄存器
 );
 
-`define EPC_CAUSE_SET()         if (in_delayslot_i) begin \\
-                                    epc_o <= current_inst_addr_i - 4; \\
-                                    cause_o[31] <= 1; \\
-                                end else begin \\
-                                    epc_o <= current_inst_addr_i; \\
-                                    cause_o[31] <= 0; \\
+`define EPC_CAUSE_SET()         if (in_delayslot_i) begin \
+                                    epc_o <= current_inst_addr_i - 4; \
+                                    cause_o[31] <= 1; \
+                                end else begin \
+                                    epc_o <= current_inst_addr_i; \
+                                    cause_o[31] <= 0; \
                                 end //
 
 always @(posedge clk) begin

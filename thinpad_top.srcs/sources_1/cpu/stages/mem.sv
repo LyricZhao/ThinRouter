@@ -62,7 +62,7 @@ module mem(
     output addr_t           current_inst_addr_o     // 当前指令的地址
 );
 
-logic mem_we; // TODO
+logic mem_we;
 
 assign in_delayslot_o = in_delayslot_i;
 assign current_inst_addr_o = current_inst_addr_i;
@@ -130,7 +130,12 @@ end
 // 如果异常了就就不写了
 assign mem_we_o = mem_we & (~(|except_type_o));
 
-// 其他指令
+// Load/Store指令
+`define SET_SAWC(tw)    stallreq_o <= 1; \
+                        mem_we <= tw; \
+                        mem_ce_o <= 1; \
+                        mem_addr_o <= mem_addr_i
+
 always_comb begin
     if (rst) begin
         {wd_o, wreg_o, wdata_o, hi_o, lo_o, whilo_o, mem_addr_o, mem_we, mem_sel_o, mem_data_o, mem_ce_o, cp0_reg_write_addr_o, cp0_reg_we_o, cp0_reg_data_o, stallreq_o} <= 0;
@@ -148,91 +153,36 @@ always_comb begin
         cp0_reg_data_o <= cp0_reg_data_i;
         case (aluop_i)
             EXE_LW_OP: begin
-                stallreq_o <= 1;
-                mem_addr_o <= mem_addr_i;
-                mem_we <= 0;
+                `SET_SAWC(0);
                 wdata_o <= mem_data_i;
-                mem_sel_o <= 4'b1111;
-                mem_ce_o <= 1;
             end
             EXE_LH_OP: begin
-                stallreq_o <= 1;
-                mem_addr_o <= mem_addr_i;
-                mem_we <= 0;
-                mem_ce_o <= 1;
+                `SET_SAWC(0);
                 case (mem_addr_i[1:0])
-                    2'b00: begin
-                        wdata_o <= {{16{mem_data_i[15]}}, mem_data_i[15:0]};
-                        mem_sel_o <= 4'b1111;
-                    end
-                    2'b10: begin
-                        wdata_o <= {{16{mem_data_i[31]}}, mem_data_i[31:16]};
-                        mem_sel_o <= 4'b1111;
-                    end
-                    default: begin
-                        wdata_o <= 0;
-                    end
+                    2'b00:   wdata_o <= {{16{mem_data_i[15]}}, mem_data_i[15:0]};
+                    2'b10:   wdata_o <= {{16{mem_data_i[31]}}, mem_data_i[31:16]};
+                    default: wdata_o <= 0; 
                 endcase
             end
             EXE_LB_OP: begin
-                stallreq_o <= 1;
-                mem_addr_o <= mem_addr_i;
-                mem_we <= 0;
-                mem_ce_o <= 1;
+                `SET_SAWC(0);
                 case (mem_addr_i[1:0])
-                    2'b11: begin
-                        wdata_o <= {{24{mem_data_i[31]}}, mem_data_i[31:24]};
-                        mem_sel_o <= 4'b1111;
-                    end
-                    2'b10: begin
-                        wdata_o <= {{24{mem_data_i[23]}}, mem_data_i[23:16]};
-                        mem_sel_o <= 4'b1111;
-                    end
-                    2'b01: begin
-                        wdata_o <= {{24{mem_data_i[15]}}, mem_data_i[15:8]};
-                        mem_sel_o <= 4'b1111;
-                    end
-                    2'b00: begin
-                        wdata_o <= {{24{mem_data_i[7]}}, mem_data_i[7:0]};
-                        mem_sel_o <= 4'b1111;
-                    end
-                    default: begin
-                        wdata_o <= 0;
-                    end
+                    2'b11: wdata_o <= {{24{mem_data_i[31]}}, mem_data_i[31:24]};
+                    2'b10: wdata_o <= {{24{mem_data_i[23]}}, mem_data_i[23:16]};
+                    2'b01: wdata_o <= {{24{mem_data_i[15]}}, mem_data_i[15:8]};
+                    2'b00: wdata_o <= {{24{mem_data_i[7]}},  mem_data_i[7:0]};
                 endcase
             end
             EXE_SW_OP: begin
-                stallreq_o <= 1;
-                mem_addr_o <= mem_addr_i;
-                mem_we <= 1;
-                mem_data_o <= reg2_i;
-                mem_sel_o <= 4'b1111;
-                mem_ce_o <= 1;                
+                `SET_SAWC(1);
+                mem_data_o <= reg2_i;            
             end
             EXE_SB_OP: begin
-                stallreq_o <= 1;
-                mem_addr_o <= mem_addr_i;
-                mem_we <= 1;
+                `SET_SAWC(1);
                 mem_data_o <= {reg2_i[7:0], reg2_i[7:0], reg2_i[7:0], reg2_i[7:0]}; // 这样写仅仅是为了接下来选择某个字节进行写入时方便
-                mem_ce_o <= 1;
-                case (mem_addr_i[1:0])
-                    2'b11: begin
-                        mem_sel_o <= 4'b1000;
-                    end
-                    2'b10: begin
-                        mem_sel_o <= 4'b0100;
-                    end
-                    2'b01: begin
-                        mem_sel_o <= 4'b0010;
-                    end
-                    2'b00: begin
-                        mem_sel_o <= 4'b0001;
-                    end
-                    default: begin
-                        mem_sel_o <= 4'b0000;
-                    end
-                endcase
+                mem_sel_o <= (1'b1 << mem_addr_i[1:0]);
             end
+            default: begin end
         endcase
     end
 end
