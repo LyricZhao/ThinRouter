@@ -9,6 +9,7 @@ module display (
     input  logic [6:0] char_write,  // 写入字符
     input  logic write_en,          // 高电平同步写入
     input  logic rst_n,
+    
     output logic[2:0] video_red,    // 红色像素，3位
     output logic[2:0] video_green,  // 绿色像素，3位
     output logic[1:0] video_blue,   // 蓝色像素，2位

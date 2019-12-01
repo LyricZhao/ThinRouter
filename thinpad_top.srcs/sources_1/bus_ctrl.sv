@@ -3,7 +3,9 @@
 `include "cpu_defs.vh"
 
 module bus_ctrl(
-    input  logic rst_n,
+    input  logic                    clk,
+    input  logic                    clk_50M,
+    input  logic                    rst_n,
 
     // CPU控制
     input  logic                    cpu_ram_ce,         // CPU是否读写RAM
@@ -83,6 +85,18 @@ module bus_ctrl(
     output logic                    video_vsync,        // 场同步（垂直同步）信号
     output logic                    video_clk,          // 像素时钟输出
     output logic                    video_de            // 行数据有效信号，用于区分消隐区
+);
+
+// 屏幕同步显示
+display display_inst(
+    .clk_write(clk),
+    .clk_50M(clk_50M),
+    .rst_n(rst_n),
+
+    .char_write(cpu_ram_data_w[6:0]),
+    .write_en(~uart_wrn),
+
+    .* // VGA
 );
 
 // CPU中断控制

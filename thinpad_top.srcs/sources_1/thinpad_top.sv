@@ -120,7 +120,10 @@ cpu_top cpu_top_inst(
 
 // 总线控制器
 bus_ctrl bus_ctrl_inst(
+    .clk(clk_40M),
+    .clk_50M(clk_50M),
     .rst_n(locked),
+    
     .*
 );
 
