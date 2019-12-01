@@ -26,9 +26,10 @@ module cpu_top(
 
 /** addr_ctrl的出线 **/
 // addr_ctrl给if_id的出线
-word_t addr_ctrl_inst_data;
+word_t addr_ctrl_inst_data_r;
 // addr_ctrl给mem的出线
-word_t addr_ctrl_ram_data;
+word_t addr_ctrl_mem_data_r;
+
 
 /** pc的出线 **/
 // pc给addr_ctrl和给if_id的连线
@@ -165,10 +166,10 @@ logic mem_in_delayslot_o;
 // mem给cp0、给ctrl的连线
 word_t mem_except_type_o;
 // mem给addr_ctrl的出线
-addr_t mem_ram_addr_o;
-logic mem_ram_we_o, mem_ram_ce_o;
-sel_t mem_ram_sel_o;
-word_t mem_ram_data_o;
+addr_t mem_mem_addr_o;
+logic mem_mem_we_o, mem_mem_ce_o;
+sel_t mem_mem_sel_o;
+word_t mem_mem_data_o;
 
 
 /** mem_wb的出线 **/
@@ -183,12 +184,6 @@ logic mem_wb_wb_whilo;
 word_t mem_wb_wb_cp0_reg_data;
 reg_addr_t mem_wb_wb_cp0_reg_write_addr;
 logic mem_wb_wb_cp0_reg_we;
-
-
-/** cpu_top的两个出线 **/
-// cpu_top给rom的连线
-assign inst_addr_o = pc_pc;
-assign inst_ce_o = pc_ce;
 
 
 /* ---------------- 模块声明 ----------------- */
@@ -207,6 +202,30 @@ pc pc_inst(
 
     .pc(pc_pc),
     .ce(pc_ce)
+);
+
+// 地址控制器
+addr_ctrl addr_ctrl_inst(
+    .rst(rst),
+
+    .inst_ce(pc_ce),
+    .inst_addr(pc_pc),
+
+    .mem_ce(mem_mem_ce_o),
+    .mem_we(mem_mem_we_o),
+    .mem_addr(mem_mem_addr_o),
+    .mem_sel(mem_mem_sel_o),
+    .mem_data_w(mem_mem_data_o),
+
+    .ram_data_r(ram_data_r),
+    .ram_addr(ram_addr),
+    .ram_data_w(ram_data_w),
+    .ram_we(ram_we),
+    .ram_sel(ram_sel),
+    .ram_ce(ram_ce),
+
+    .inst_data_r(addr_ctrl_inst_data_r),
+    .mem_data_r(addr_ctrl_mem_data_r)
 );
 
 // 通用寄存器（同步写寄存器）
@@ -287,7 +306,7 @@ if_id if_id_inst(
     .flush(ctrl_flush),
 
     .if_pc(pc_pc),
-    .if_inst(addr_ctrl_inst_data),
+    .if_inst(addr_ctrl_inst_data_r),
     .id_pc(if_id_id_pc),
     .id_inst(if_id_id_inst)
 );
@@ -507,12 +526,12 @@ mem mem_inst(
     .lo_o(mem_lo_o),
     .whilo_o(mem_whilo_o),
 
-    .mem_data_i(addr_ctrl_ram_data),
-    .mem_addr_o(mem_ram_addr_o),
-    .mem_we_o(mem_ram_we_o),
-    .mem_sel_o(mem_ram_sel_o),
-    .mem_data_o(mem_ram_data_o),
-    .mem_ce_o(mem_ram_ce_o),
+    .mem_data_i(addr_ctrl_mem_data_r),
+    .mem_addr_o(mem_mem_addr_o),
+    .mem_we_o(mem_mem_we_o),
+    .mem_sel_o(mem_mem_sel_o),
+    .mem_data_o(mem_mem_data_o),
+    .mem_ce_o(mem_mem_ce_o),
 
     .except_type_i(ex_mem_mem_except_type),
     .current_inst_addr_i(ex_mem_mem_current_inst_addr),

@@ -2,6 +2,7 @@
 
 `include "cpu_defs.vh"
 
+// TODO: 代码对齐
 module thinpad_top(
     input logic clk_50M,             // 50MHz 时钟输入
     input logic clk_11M0592,         // 11.0592MHz 时钟输入
@@ -101,19 +102,19 @@ pll clock_gen(
 addr_t cpu_ram_addr;
 word_t cpu_ram_data_r, cpu_ram_data_w;
 logic cpu_ram_we, cpu_ram_ce;
-logic[3:0] cpu_ram_sel;
-logic[`NUM_DEVICES-1:0] cpu_int;
+sel_t cpu_ram_sel;
+int_t cpu_int;
 
 cpu_top cpu_top_inst(
     .clk(clk_40M),
     .rst(~locked),
 
-    .ram_addr_o(cpu_ram_addr),
-    .ram_data_i(cpu_ram_data_r),
-    .ram_data_o(cpu_ram_data_w),
-    .ram_we_o(cpu_ram_we),
-    .ram_sel_o(cpu_ram_sel),
-    .ram_ce_o(cpu_ram_ce),
+    .ram_addr(cpu_ram_addr),
+    .ram_data_r(cpu_ram_data_r),
+    .ram_data_w(cpu_ram_data_w),
+    .ram_we(cpu_ram_we),
+    .ram_sel(cpu_ram_sel),
+    .ram_ce(cpu_ram_ce),
 
     .int_i(cpu_int)
 );

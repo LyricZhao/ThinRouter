@@ -2,16 +2,19 @@
 
 `include "cpu_defs.vh"
 
+// TODO: 代码对齐
 module bus_ctrl(
     input  logic rst_n,
 
     // CPU控制
-    input  logic  cpu_inst_ce,
-    input  addr_t cpu_inst_addr,
-    output word_t cpu_inst_data,
-
-    input  logic  cpu_
+    input  logic  cpu_ram_ce,
+    input  logic  cpu_ram_we,
+    input  addr_t cpu_ram_addr,
+    input  word_t cpu_ram_data_w,
+    input  sel_t  cpu_ram_sel,
+    input  int_t  cpu_int,
     
+    output word_t cpu_ram_data_r,
 
     // CPLD串口控制器信号
     input  logic uart_dataready,     // 串口数据准备好
@@ -83,115 +86,88 @@ module bus_ctrl(
     output logic video_de            // 行数据有效信号，用于区分消隐区
 );
 
-logic base_is_writing;
-logic ext_is_writing;
-logic [31:0] base_bus_data_to_write;
-logic [31:0] ext_bus_data_to_write;
+// 一直开着两个RAM
+assign base_ram_ce_n = 0;
+assign ext_ram_ce_n = 0;
 
-assign base_ram_data = base_is_writing ? base_bus_data_to_write : 32'bz;
-assign ext_ram_data = ext_is_writing ? ext_bus_data_to_write : 32'bz;
+logic base_ram_we, ext_ram_we;
+word_t base_ram_wdata, ext_ram_wdata;
+
+assign base_ram_data = base_ram_we ? base_ram_wdata : 32'bz;
+assign ext_ram_data = ext_ram_we ? ext_ram_wdata : 32'bz;
+
+`define DISABLE_BASE    base_ram_we <= 0; \
+                        base_ram_we_n <= 1; \
+                        base_ram_oe_n <= 1; \
+                        base_ram_addr <= 0; \
+                        base_ram_be_n <= 4'b1111
+
+`define DISABLE_EXT     ext_ram_we <= 0; \
+                        ext_ram_we_n <= 1; \
+                        ext_ram_oe_n <= 1; \
+                        ext_ram_addr <= 0; \
+                        ext_ram_be_n <= 4'b1111
+
+`define DISABLE_UART    uart_rdn <= 1; \
+                        uart_wrn <= 1
+
+`define ENABLE_BASE(wen, on, we, addr, ben, wd, rdr)    base_ram_we_n <= wen; \
+                                                        base_ram_oe_n <= on; \
+                                                        base_ram_we <= we; \
+                                                        base_ram_addr <= addr; \
+                                                        base_ram_be_n <= ben; \
+                                                        base_ram_wdata <= wd; \
+                                                        cpu_ram_data_r <= rdr
+
+`define ENABLE_EXT(wen, on, we, addr, ben, wd, rdr)     ext_ram_we_n <= wen; \
+                                                        ext_ram_oe_n <= on; \
+                                                        ext_ram_we <= we; \
+                                                        ext_ram_addr <= addr; \
+                                                        ext_ram_be_n <= ben; \
+                                                        ext_ram_wdata <= wd; \
+                                                        cpu_ram_data_r <= rdr
+
+`define ENABLE_UART(rdn, wrn, we, wd, rdr)              uart_rdn <= rdn; \
+                                                        uart_wrn <= wrn; \
+                                                        base_ram_we <= we; \
+                                                        base_ram_wdata[7:0] <= wd; \
+                                                        cpu_ram_data_r <= rdr
 
 always_comb begin
     if (~rst_n) begin
-        inst <= 0;
-        cpu_ram_data_i <= 0;
-        base_is_writing <= 0;
-        base_ram_ce_n <= 1;
-        base_ram_we_n <= 1;
-        base_ram_oe_n <= 1;
-        base_ram_addr <= 0;
-        ext_is_writing <= 0;
-        ext_ram_ce_n <= 1;
-        ext_ram_we_n <= 1;
-        ext_ram_oe_n <= 1;
-        ext_ram_addr <= 0;
-        uart_rdn <= 1;
-        uart_wrn <= 1;
+        cpu_ram_data_r <= 0;
+        `DISABLE_BASE;
+        `DISABLE_EXT;
+        `DISABLE_UART;
     end else begin
-        inst <= 0;
-        cpu_ram_data_i <= 0;
-        base_is_writing <= 0;
-        base_ram_ce_n <= 1;
-        base_ram_we_n <= 1;
-        base_ram_oe_n <= 1;
-        base_ram_addr <= 0;
-        ext_is_writing <= 0;
-        ext_ram_ce_n <= 1;
-        ext_ram_we_n <= 1;
-        ext_ram_oe_n <= 1;
-        ext_ram_addr <= 0;
-        uart_rdn <= 1;
-        uart_wrn <= 1;
-        if (cpu_ram_ce_o) begin // 访存的优先级大于取指的优先级
-            if (cpu_ram_addr_o >= 32'h80000000 && cpu_ram_addr_o <= 32'h803fffff) begin// 访问baseram
-                base_ram_ce_n <= 0;
-                if (cpu_ram_we_o) begin // 如果是写状态
-                    base_ram_we_n <= 0; // 可写
-                    base_ram_oe_n <= 1; // 不可读
-                    base_is_writing <= 1;
-                    base_ram_addr <= cpu_ram_addr_o[19+2:0+2];
-                    base_ram_be_n <= ~cpu_ram_sel_o; // 真值相反
-                    base_bus_data_to_write <= cpu_ram_data_o;
-                end else begin // 如果是读状态
-                    base_ram_we_n <= 1;
-                    base_ram_oe_n <= 0;
-                    base_is_writing <= 0;
-                    base_ram_addr <= cpu_ram_addr_o[19+2:0+2];
-                    base_ram_be_n <= ~cpu_ram_sel_o; // 真值相反       
-                    cpu_ram_data_i <= base_ram_data;
-                end
-            end else if (cpu_ram_addr_o >= 32'h80400000 && cpu_ram_addr_o <= 32'h807fffff) begin // 访问extram
-                ext_ram_ce_n <= 0;
-                if (cpu_ram_we_o) begin // 如果是写状态
-                    ext_ram_we_n <= 0;            
-                    ext_ram_oe_n <= 1;
-                    ext_is_writing <= 1;
-                    ext_ram_addr <= cpu_ram_addr_o[19+2:0+2];
-                    ext_ram_be_n <= ~cpu_ram_sel_o; // 真值相反
-                    ext_bus_data_to_write <= cpu_ram_data_o;
-                end else begin // 如果是读状态
-                    ext_ram_we_n <= 1;
-                    ext_ram_oe_n <= 0;
-                    ext_is_writing <= 0;
-                    ext_ram_addr <= cpu_ram_addr_o[19+2:0+2];
-                    ext_ram_be_n <= ~cpu_ram_sel_o; // 真值相反       
-                    cpu_ram_data_i <= ext_ram_data;
-                end
-            end else if (cpu_ram_addr_o == 32'hbfd003f8) begin // 访问串口
-                if (cpu_ram_we_o) begin // 如果是写状态
-                    uart_rdn <= 1;
-                    uart_wrn <= 0;
-                    base_is_writing <= 1;
-                    base_bus_data_to_write[7:0] <= cpu_ram_data_o[7:0];
+        cpu_ram_data_r <= 0;
+        `DISABLE_BASE;
+        `DISABLE_EXT;
+        `DISABLE_UART;
+        if (cpu_ram_ce) begin
+            if (`IN_RANGE(cpu_ram_addr, `BASE_START, `BASE_END)) begin
+                if (cpu_ram_we) begin
+                    `ENABLE_BASE(0, 1, 1, cpu_ram_addr[21:2], ~cpu_ram_sel, cpu_ram_data_w, 0);
                 end else begin
-                    uart_rdn <= 0;
-                    uart_wrn <= 1;
-                    base_is_writing <= 0;
-                    cpu_ram_data_i <= {24'b0, base_ram_data[7:0]};
+                    `ENABLE_BASE(1, 0, 0, cpu_ram_addr[21:2], ~cpu_ram_sel, 0, base_ram_data);
                 end
-            end else if (cpu_ram_addr_o == 32'hbfd003fc) begin
-                cpu_ram_data_i <= {30'b0, uart_dataready, uart_tsre & uart_tbre};
-            end
-        end else if (rom_ce) begin // 指令是只读的
-            if (inst_addr >= 32'h80000000 && inst_addr <= 32'h803FFFFF) begin // 访问baseram
-                base_ram_ce_n <= 0;
-                // 取指只能是读状态
-                base_ram_we_n <= 1;
-                base_ram_oe_n <= 0;
-                base_is_writing <= 0;
-                base_ram_addr <= inst_addr[19+2:0+2];
-                base_ram_be_n <= 4'b0000; // 永远可以选择
-                inst <= base_ram_data;
-            end else if (inst_addr >= 32'h80400000 && inst_addr <= 32'h807FFFFF) begin // 访问extram
-                ext_ram_ce_n <= 0;
-                // 取指只能是读状态
-                ext_ram_we_n <= 1;
-                ext_ram_oe_n <= 0;
-                ext_is_writing <= 0;
-                ext_ram_addr <= inst_addr[19+2:0+2];
-                ext_ram_be_n <= 4'b0000; // 永远可以选择
-                inst <= ext_ram_data;
+            end else if (`IN_RANGE(cpu_ram_addr, `EXT_START, `EXT_END)) begin
+                if (cpu_ram_we) begin
+                    `ENABLE_EXT(0, 1, 1, cpu_ram_addr[21:2], ~cpu_ram_sel, cpu_ram_data_w, 0);
+                end else begin
+                    `ENABLE_EXT(1, 0, 0, cpu_ram_addr[21:2], ~cpu_ram_sel, 0, ext_ram_data);
+                end
+            end else if (`EQ(cpu_ram_addr, `UART_RW)) begin
+                if (cpu_ram_we) begin
+                    `ENABLE_UART(1, 0, 1, cpu_ram_data_w[7:0], 0);
+                end else begin
+                    `ENABLE_UART(0, 1, 0, 0, {24'b0, base_ram_data[7:0]});
+                end
+            end else if (`EQ(cpu_ram_addr, `UART_STAT)) begin
+                cpu_ram_data_r <= {30'b0, uart_dataready, uart_tsre & uart_tbre};
             end
         end
     end
 end
+
+endmodule

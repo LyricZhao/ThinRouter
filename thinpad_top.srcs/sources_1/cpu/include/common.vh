@@ -15,6 +15,16 @@
 `define ADDR_WIDTH          32
 `define SEL_WIDTH           4
 
+`define BASE_START          32'h80000000
+`define BASE_END            32'h803fffff
+`define EXT_START           32'h80400000
+`define EXT_END             32'h807fffff
+`define UART_RW             32'hbfd003f8
+`define UART_STAT           32'hbfd003fc
+
+`define IN_RANGE(a, b, c) (((a) >= (b)) && ((a) <= (c)))
+`define EQ(a, b) ((a) == (b))
+
 typedef logic[`BYTE_WITDH-1:0]        byte_t;
 typedef logic[`WORD_WIDTH-1:0]        word_t;
 typedef logic[`DWORD_WIDTH-1:0]       dword_t;
