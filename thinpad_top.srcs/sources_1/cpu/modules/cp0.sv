@@ -123,7 +123,9 @@ always_comb begin
             `CP0_REG_EBASE: begin
                 data_o <= {2'b00, ebase_o[29:12], 2'b00, ebase_o[9:0]};
             end
-            default: begin end
+            default: begin
+                data_o <= 0;
+            end
         endcase
     end
 end

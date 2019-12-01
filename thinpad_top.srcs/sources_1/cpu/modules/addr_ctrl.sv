@@ -38,12 +38,13 @@ always_comb begin
             ram_data_w <= mem_data_w;
             ram_we <= mem_we;
             ram_sel <= mem_sel;
-            ram_ce <= mem_ce;
+            ram_ce <= 1;
             inst_data_r <= 0;
             mem_data_r <= ram_data_r;
         end else if (inst_ce) begin
             ram_addr <= inst_addr;
-            {ram_data_w, ram_we, ram_sel} <= 0;
+            {ram_data_w, ram_we} <= 0;
+            ram_sel <= 4'b1111;
             ram_ce <= 1;
             inst_data_r <= ram_data_r;
             mem_data_r <= 0;

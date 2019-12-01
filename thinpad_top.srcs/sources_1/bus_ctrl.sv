@@ -12,8 +12,8 @@ module bus_ctrl(
     input  addr_t cpu_ram_addr,
     input  word_t cpu_ram_data_w,
     input  sel_t  cpu_ram_sel,
-    input  int_t  cpu_int,
-    
+
+    output int_t  cpu_int,
     output word_t cpu_ram_data_r,
 
     // CPLD串口控制器信号
@@ -86,6 +86,9 @@ module bus_ctrl(
     output logic video_de            // 行数据有效信号，用于区分消隐区
 );
 
+// CPU中断控制
+assign cpu_int = {3'b0, uart_dataready, 2'b0}; // UART是IP4
+
 // 一直开着两个RAM
 assign base_ram_ce_n = 0;
 assign ext_ram_ce_n = 0;
@@ -99,14 +102,12 @@ assign ext_ram_data = ext_ram_we ? ext_ram_wdata : 32'bz;
 `define DISABLE_BASE    base_ram_we <= 0; \
                         base_ram_we_n <= 1; \
                         base_ram_oe_n <= 1; \
-                        base_ram_addr <= 0; \
-                        base_ram_be_n <= 4'b1111
+                        base_ram_addr <= 0
 
 `define DISABLE_EXT     ext_ram_we <= 0; \
                         ext_ram_we_n <= 1; \
                         ext_ram_oe_n <= 1; \
-                        ext_ram_addr <= 0; \
-                        ext_ram_be_n <= 4'b1111
+                        ext_ram_addr <= 0
 
 `define DISABLE_UART    uart_rdn <= 1; \
                         uart_wrn <= 1
@@ -163,7 +164,7 @@ always_comb begin
                 end else begin
                     `ENABLE_UART(0, 1, 0, 0, {24'b0, base_ram_data[7:0]});
                 end
-            end else if (`EQ(cpu_ram_addr, `UART_STAT)) begin
+            end else if (`EQ(cpu_ram_addr, `UART_STAT)) begin // 只读
                 cpu_ram_data_r <= {30'b0, uart_dataready, uart_tsre & uart_tbre};
             end
         end

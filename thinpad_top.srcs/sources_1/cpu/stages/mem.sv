@@ -171,7 +171,7 @@ always_comb begin
             end
             EXE_SW_OP: begin
                 `SET_SAWC(1);
-                mem_data_o <= reg2_i;            
+                mem_data_o <= reg2_i;   
             end
             EXE_SB_OP: begin
                 `SET_SAWC(1);
