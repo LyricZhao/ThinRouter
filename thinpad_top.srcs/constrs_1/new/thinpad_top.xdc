@@ -322,4 +322,5 @@ connect_debug_port dbg_hub/clk [get_nets u_ila_1_CLK]
 
 
 
-set_false_path -from [get_pins -hierarchical *line_roll*]
+set_false_path -from [get_cells -hierarchical *line_length*] -through [get_nets -hierarchical *char_read*]
+
