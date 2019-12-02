@@ -306,11 +306,11 @@ end
 always_comb begin
     stallreq_for_reg1_loadrelate <= 0;
     if (rst) begin
-        reg1_o <= 0;
+        reg1_o <= '0;
     end else if (reg1_read_o) begin
         if (pre_inst_is_load && ex_wd_i == reg1_addr_o) begin
             // 如果前一条指令是访存，而且当前要读的 reg1 就是正在访存的寄存器，则要求暂停
-            reg1_o <= 'x;
+            reg1_o <= '0;
             stallreq_for_reg1_loadrelate <= 1;
         end else if (ex_wreg_i && ex_wd_i == reg1_addr_o) begin
             // 如果要读的寄存器1与EX阶段要写的寄存器相同，则直接读入要写的值（先看近的指令）
@@ -329,11 +329,11 @@ end
 always_comb begin
     stallreq_for_reg2_loadrelate <= 0;
     if (rst) begin
-        reg2_o <= 0;
+        reg2_o <= '0;
     end else if (reg2_read_o) begin
         if (pre_inst_is_load && ex_wd_i == reg2_addr_o) begin
             // 如果前一条指令是访存，而且当前要读的 reg2 就是正在访存的寄存器，则要求暂停
-            reg2_o <= 'x;
+            reg2_o <= '0;
             stallreq_for_reg2_loadrelate <= 1;
         end else if (ex_wreg_i && ex_wd_i == reg2_addr_o) begin
             // 如果要读的寄存器2与EX阶段要写的寄存器相同，则直接读入要写的值（先看近的指令）

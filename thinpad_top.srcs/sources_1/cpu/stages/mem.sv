@@ -141,7 +141,7 @@ always_comb begin
         wdata_o <= wdata_i;
         {hi_o, lo_o} <= {hi_i, lo_i};
         whilo_o <= whilo_i;
-        {mem_we, mem_addr_o, mem_ce_o} <= 0;
+        {mem_we, mem_addr_o, mem_data_o, mem_ce_o} <= 0;
         mem_sel_o <= 4'b1111; // 默认四个字节都读/写
         stallreq_o <= 0;
         cp0_reg_we_o <= cp0_reg_we_i;

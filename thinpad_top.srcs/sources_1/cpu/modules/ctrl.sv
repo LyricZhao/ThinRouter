@@ -42,7 +42,9 @@ always_comb begin
             `EXC_ERET: begin
                 new_pc <= cp0_epc_i;              // eret
             end
-            default: begin end
+            default: begin 
+                new_pc <= 'x;
+            end
         endcase
     end else begin
         stall.pc <= stallreq_from_mem || stallreq_from_ex || stallreq_from_id;
@@ -50,6 +52,7 @@ always_comb begin
         stall.id <= stallreq_from_mem || stallreq_from_ex || stallreq_from_id;
         stall.ex <= stallreq_from_mem || stallreq_from_ex;
         {stall.mem, stall.wb, flush} <= 0;
+        new_pc <= 'x;
     end
 end
 
