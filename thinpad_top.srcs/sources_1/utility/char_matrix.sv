@@ -15,7 +15,7 @@
 虽然出入数据有延迟，同步信号与出入数据一定是一一匹配的
 */
 module char_matrix #(
-    parameter type SYNC_TYPE
+    parameter type SYNC_TYPE = logic
 )(
     // 写入的时钟
     input logic clk_write,
@@ -79,6 +79,7 @@ xpm_memory_sdpram #(
     .addrb({x_read, y_read_real}),
     .clka(clk_write),
     .clkb(clk_read),
+    .dbiterrb(),
     .dina(char_write),
     .doutb(char_mem_out),
     .ena(1),
@@ -86,6 +87,8 @@ xpm_memory_sdpram #(
     .injectdbiterra(0),
     .injectsbiterra(0),
     .regceb(1),
+    .rstb(0),
+    .sbiterrb(),
     .sleep(0),
     .wea(write_en)
 );

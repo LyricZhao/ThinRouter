@@ -9,7 +9,7 @@
 */
 
 module font #(
-    parameter type SYNC_TYPE
+    parameter type SYNC_TYPE = logic
 )(
     input logic clk,
     
@@ -34,12 +34,14 @@ xpm_memory_sprom #(
 ) memory_inst (
     .addra({char_in, y}),
     .clka(clk),
+    .dbiterra(),
     .douta(mem_out),
     .ena(1),
     .injectdbiterra(0),
     .injectsbiterra(0),
     .regcea(1),
     .rsta(0),
+    .sbiterra(),
     .sleep(0)
 );
 

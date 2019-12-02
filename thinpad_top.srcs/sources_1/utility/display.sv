@@ -19,12 +19,6 @@ module display (
     output logic video_de           // 行数据有效信号，用于区分消隐区
 );
 
-
-// 写入字符
-logic [6:0] char_write;
-// 写入
-logic write_en;
-
 ////// 扫描屏幕的信息
 // 扫描坐标
 logic [10:0] x_scan;
