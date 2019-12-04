@@ -115,16 +115,12 @@ assign ext_ram_data = ext_ram_we ? ext_ram_wdata : 32'bz;
 `define DISABLE_BASE    base_ram_we <= 0; \
                         base_ram_we_n <= 1; \
                         base_ram_oe_n <= 1; \
-                        base_ram_addr <= 0; \
-                        base_ram_be_n <= 0; \
-                        base_ram_wdata <= 0
+                        base_ram_addr <= 0
 
 `define DISABLE_EXT     ext_ram_we <= 0; \
                         ext_ram_we_n <= 1; \
                         ext_ram_oe_n <= 1; \
-                        ext_ram_addr <= 0; \
-                        ext_ram_be_n <= 0; \
-                        ext_ram_wdata <= 0
+                        ext_ram_addr <= 0
 
 `define DISABLE_UART    uart_rdn <= 1; \
                         uart_wrn <= 1
