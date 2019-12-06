@@ -1,7 +1,8 @@
 typedef logic [31:0] ip_t;
 typedef logic [47:0] mac_t;
+typedef logic [15:0] time_t;
 
-typedef struct unpacked {
+typedef struct packed {
     ip_t addr;
     ip_t len;
     ip_t nexthop;

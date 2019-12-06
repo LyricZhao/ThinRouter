@@ -4,18 +4,37 @@
 
 module testbench_routing_table();
 
-logic clk, rst;
+typedef logic [31:0] ip_t;
 
-logic [`IPV4_WIDTH-1:0] lookup_insert_addr;
-logic lookup_valid;
+logic clk_125M, rst_n;
+logic [15:0] second = 0;
 
+// 需要查询的 IP 地址
+ip_t  ip_query;
+// 进行查询，同步置 1
+logic query_valid;
+// 查询结果，0 表示无连接
+ip_t  nexthop_result;
+// 可以查询
+logic query_ready;
+
+// 需要插入的 IP 地址
+ip_t  ip_insert;
+// 插入的 mask
+logic [4:0] mask_insert;
+// 插入的 nexthop
+ip_t  nexthop_insert;
+// 插入的 metric
+logic [4:0] metric_insert;
+// 插入的 vlan port
+logic [2:0] vlan_port_insert;
+// 进行插入，同步置 1
 logic insert_valid;
-logic [`IPV4_WIDTH-1:0] insert_nexthop;
-logic [`MASK_WIDTH-1:0] insert_mask_len;
+// 可以插入
+logic insert_ready;
 
-wire lookup_insert_ready;
-wire lookup_output_valid;
-wire [`IPV4_WIDTH-1:0] lookup_output_nexthop;
+// 路由表满，此后只可以查询和修改
+logic overflow;
 
 // 用于读取测例数据
 int file_descriptor;
@@ -25,16 +44,16 @@ bit[127:0] buffer;
 task wait_till_ready;
 begin
     do
-        repeat (1) @ (posedge clk);
-    while (!lookup_insert_ready);
+        @ (posedge clk_125M);
+    while (!insert_ready);
 end
 endtask
 
 task wait_for_lookup_output;
 begin
     do
-        repeat (1) @ (posedge clk);
-    while (!lookup_output_valid);
+        @ (posedge clk_125M);
+    while (!query_ready);
 end
 endtask
 
@@ -50,10 +69,10 @@ begin
         nexthop[31:24], nexthop[23:16], nexthop[15:8], nexthop[7:0]);
     // 拷贝的之前代码
     insert_valid <= 1;
-    lookup_insert_addr <= addr;
-    insert_nexthop <= nexthop;
-    insert_mask_len <= mask_len;
-    repeat (1) @ (posedge clk);
+    ip_insert <= addr;
+    nexthop_insert <= nexthop;
+    mask_insert <= mask_len;
+    @ (posedge clk_125M);
     insert_valid <= 0;
     wait_till_ready();
     $display("\t\tdone in %0t", $realtime - start);
@@ -69,14 +88,14 @@ begin
     $write("query  %0d.%0d.%0d.%0d",
         addr[31:24], addr[23:16], addr[15:8], addr[7:0]);
     // 拷贝的之前代码
-    lookup_valid <= 1;
-    lookup_insert_addr <= addr;
-    repeat (1) @ (posedge clk);
-    lookup_valid <= 0;
+    query_valid <= 1;
+    ip_query <= addr;
+    @ (posedge clk_125M);
+    query_valid <= 0;
     wait_for_lookup_output();
     $display(" -> %0d.%0d.%0d.%0d", 
-        lookup_output_nexthop[31:24], lookup_output_nexthop[23:16], lookup_output_nexthop[15:8], lookup_output_nexthop[7:0]);
-    if (lookup_output_nexthop == expect_nexthop)
+        nexthop_result[31:24], nexthop_result[23:16], nexthop_result[15:8], nexthop_result[7:0]);
+    if (nexthop_result == expect_nexthop)
         $display("\t\tcorrect in %0t", $realtime - start);
     else
         $display("\t\tWRONG! Expecting %0d.%0d.%0d.%0d",
@@ -125,28 +144,20 @@ endtask
 
 initial begin
     $timeformat(-9, 0, " ns", 12);
-    clk = 0;
-    rst = 1;
-    lookup_valid = 0;
+    clk_125M = 0;
+    rst_n = 0;
+    query_valid = 0;
     insert_valid = 0;
-    lookup_insert_addr = 0;
-    insert_nexthop = 0;
-    insert_mask_len = 0;
     #100
-    rst = 0;
+    rst_n = 1;
 
-    repeat (1) @ (posedge clk);
+    @ (posedge clk_125M);
     run_test_entry();
 end
 
-always clk = #4 ~clk;
+always clk_125M = #4 ~clk_125M;
 
-reg clk_async = 1;
-always clk_async = #11 ~clk_async;
-
-routing_table_adapter routing_table_inst(
-    .clk_125M(clk),
-    .clk(clk_async),
+routing_table routing_table_inst (
     .*
 );
 

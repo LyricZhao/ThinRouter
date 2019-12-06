@@ -111,7 +111,7 @@ timer #(
     // 接入 11M0592 时钟
     .FREQ(11_059_200),
     // 计时器最大输出为 65535 秒
-    .OUTPUT_WIDTH(16),
+    .OUTPUT_WIDTH(16)
 ) timer_inst (
     .clk(clk_11M0592),
     .rst_n(locked),
