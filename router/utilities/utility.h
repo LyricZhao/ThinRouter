@@ -1,0 +1,1 @@
+# define PACKED8_16(l, r) (((uint16_t)(l) << 8) + (r))
