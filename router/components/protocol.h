@@ -6,8 +6,8 @@
 # include <stdint.h>
 # include <stdlib.h>
 
-# include "../utilities/utility.h"
-# include "../utilities/rip_pack.h"
+# include "../include/utility.h"
+# include "../include/rip_pack.h"
 
 uint8_t validateMask(uint32_t mask);
 uint8_t disassemble(const uint8_t *packet, uint32_t len, RipPacket *output);

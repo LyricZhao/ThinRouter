@@ -4,7 +4,7 @@
 # include <stdint.h>
 # include <stdlib.h>
 
-# include "../utilities/utility.h"
+# include "../include/utility.h"
 
 uint8_t validateIPChecksum(uint8_t *packet, size_t len);
 
