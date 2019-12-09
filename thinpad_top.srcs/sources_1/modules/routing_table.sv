@@ -16,7 +16,7 @@ module routing_table #(
     input  ip_t  ip_query,
     // 进行查询，同步置 1
     input  logic query_valid,
-    // 查询结果，0 表示无连接
+    // 查询结果，0 表示无连接（会在查询逻辑处理完成时锁存）
     output ip_t  nexthop_result,
     // 可以查询 / 查询完成
     output logic query_ready,
@@ -99,6 +99,7 @@ logic memory_write_en;
 // 存储空间
 xpm_memory_spram #(
     .ADDR_WIDTH_A(16),
+    .MEMORY_INIT_FILE("routing_memory.mem"),
     .MEMORY_PRIMITIVE("block"),
     .MEMORY_SIZE(72 * NODE_POOL_SIZE),
     .READ_DATA_WIDTH_A(72),
@@ -120,7 +121,19 @@ xpm_memory_spram #(
     .sleep(1'b0)
 );
 
-// 状态，锁存逻辑
+// 正在进行什么模式，通过同步逻辑控制
+enum logic [1:0] {
+    // 空闲
+    ModeIdle,
+    // 查询
+    ModeQuery,
+    // 插入
+    ModeInsert,
+    // 遍历
+    ModeEnumerate
+} work_mode;
+
+// 状态，组合逻辑
 enum logic [1:0] {
     // 空闲状态，地址保持在 0（根节点），为了方便之后搜索
     Idle,
@@ -187,93 +200,178 @@ endfunction
 // 匹配 IP 地址和一个前缀，返回是否匹配
 `define Match(addr, prefix, mask) ((((addr) ^ (prefix)) & get_mask(mask)) == 0)
 
-// 结束匹配，如果存在最佳匹配，则查找其地址，同时转 QueryResultFetching；否则直接转 QueryResultReady
+// 结束匹配，如果存在最佳匹配，则查找其地址，同时转 QueryResultFetching；否则直接转 Idle
 `define Query_Complete                  \
     if (best_match[15]) begin           \
         memory_addr = best_match;       \
         state = QueryResultFetching;    \
     end else begin                      \
         memory_addr = 0;                \
-        state = QueryResultReady;       \
+        nexthop_result = 0;             \
+        state = Idle;                   \
     end
 
 // 在 query 过程中，用组合逻辑将从内存中读取到的数据分析出下一步访问的地址
 always_comb begin
-    case (state)
-        // 匹配，要求进入此状态前，memory_out 是根节点
-        Query: begin
-            memory_in = 'x;
-            memory_write_en = 0;
-            // 此时 memory_out 一定是一个路径节点
-            if (`Match(ip_target, memory_out.branch.prefix, memory_out.branch.mask)) begin
-            // 如果匹配当前节点
-                if (memory_out.branch.is_prefix) begin
-                // 如果当前节点是一个前缀节点，说明 next0 是一个可以匹配的前缀，将其记录
-                    if (memory_out.branch.next0[15] != 0) begin
-                    // 确认这个叶子节点没有被删除
-                        best_match = memory_out.branch.next0;
-                    end
-                    // 然后继续匹配
-                    if (memory_out.branch.next1[15] != 1) begin
-                    // 如果存在下一个匹配节点，则访问之
-                        memory_addr = memory_out.branch.next1;
-                        state = Query;
-                    end else begin
-                    // 不存在下一个匹配节点，匹配结束
-                        `Query_Complete;
-                    end
-                end else begin
-                // 如果是一个分叉节点
-                    if (ip_target[31 - memory_out.branch.mask] == 0) begin
-                    // 下一位是 0
-                        if (memory_out.branch.next0[15] != 1) begin
-                        // 存在这个分支，继续搜索
-                            memory_addr = memory_out.branch.next0;
-                            state = Query;
-                        end else begin
-                        // 没有分支，搜索结束
-                            `Query_Complete;
-                        end
-                    end else begin
-                    // 下一位是 1
-                        if (memory_out.branch.next1[15] != 1) begin
-                        // 存在这个分支，继续搜索
-                            memory_addr = memory_out.branch.next1;
-                            state = Query;
-                        end else begin
-                        // 没有分支，搜索结束
-                            `Query_Complete;
-                        end
-                    end
+    if (!rst_n || work_mode == ModeIdle) begin
+        // 复位
+        state = Idle;
+        memory_addr = '0;
+        memory_in = '0;
+        memory_write_en = 0;
+        best_match = '0;
+    end else begin
+        $display("target: %x", ip_target);
+        $display("addr: %x", memory_addr);
+        $display("out:\n\tmask: %0d\n\tprefix: %x\n\tnext0: %x\n\tnext1: %x", 
+            memory_out.branch.mask, memory_out.branch.prefix, memory_out.branch.next0, memory_out.branch.next1);
+        $display("state: %d", state);
+        case (work_mode)
+            ModeQuery: begin
+                if (state == Idle && ip_target != '0) begin
+                    $display("Query start");
+                    state = Query;
                 end
-            end else begin
-            // 不匹配当前节点，搜索结束
-                `Query_Complete;
+                case (state)
+                    // 匹配，要求进入此状态前，memory_out 是根节点
+                    Query: begin
+                        memory_in = 'x;
+                        memory_write_en = 0;
+                        // 此时 memory_out 一定是一个路径节点
+                        if (`Match(ip_target, memory_out.branch.prefix, memory_out.branch.mask)) begin
+                        // 如果匹配当前节点
+                            $display("Match");
+                            if (memory_out.branch.is_prefix) begin
+                            // 如果当前节点是一个前缀节点，说明 next0 是一个可以匹配的前缀，将其记录
+                                $display("Current is prefix node");
+                                if (memory_out.branch.next0[15] != 0) begin
+                                // 确认这个叶子节点没有被删除
+                                    $display("Update best match");
+                                    best_match = memory_out.branch.next0;
+                                end
+                                // 然后继续匹配
+                                if (memory_out.branch.next1[15] != 1) begin
+                                // 如果存在下一个匹配节点，则访问之
+                                    $display("Goto next node: %x", memory_out.branch.next1);
+                                    memory_addr = memory_out.branch.next1;
+                                    state = Query;
+                                end else begin
+                                // 不存在下一个匹配节点，匹配结束
+                                    $display("Search done");
+                                    `Query_Complete;
+                                end
+                            end else begin
+                            // 如果是一个分叉节点
+                                $display("Current is branch node");
+                                if (ip_target[31 - memory_out.branch.mask] == 0) begin
+                                // 下一位是 0
+                                    if (memory_out.branch.next0[15] != 1) begin
+                                    // 存在这个分支，继续搜索
+                                        $display("Goto next node: %x", memory_addr);
+                                        memory_addr = memory_out.branch.next0;
+                                        state = Query;
+                                    end else begin
+                                    // 没有分支，搜索结束
+                                        $display("Search done");
+                                        `Query_Complete;
+                                    end
+                                end else begin
+                                // 下一位是 1
+                                    if (memory_out.branch.next1[15] != 1) begin
+                                    // 存在这个分支，继续搜索
+                                        $display("Goto next node: %x", memory_addr);
+                                        memory_addr = memory_out.branch.next1;
+                                        state = Query;
+                                    end else begin
+                                    // 没有分支，搜索结束
+                                        $display("Search done");
+                                        `Query_Complete;
+                                    end
+                                end
+                            end
+                        end else begin
+                        // 不匹配当前节点，搜索结束
+                            $display("No match");
+                            `Query_Complete;
+                        end
+                    end
+                    // 找到了结果，等待内存读出来后转 Idle
+                    QueryResultFetching: begin
+                        memory_addr = best_match;
+                        memory_in = 'x;
+                        memory_write_en = 0;
+                        if (memory_out.branch.is_nexthop) begin
+                            // 读出了叶子节点，输出并返回 Idle
+                            nexthop_result = memory_out.nexthop.nexthop;
+                            state = Idle;
+                        end else begin
+                            state = QueryResultFetching;
+                        end
+                    end
+                    // 包括 Idle 状态在内的情况：复位
+                    default: begin
+                        memory_addr = '0;
+                        memory_in = 'x;
+                        memory_write_en = 0;
+                        best_match = '0;
+                        state = Idle;
+                    end
+                endcase
             end
+        endcase
+    end
+end
+
+// 将内部状态转换为输出
+always_comb begin
+    if (!rst_n) begin
+        query_ready = 0;
+    end else begin
+        case (work_mode)
+            // 在空闲模式，每种模式都是 ready
+            ModeIdle: begin
+                query_ready = 1;
+            end
+            ModeQuery: begin
+                // 输出查询的 ready
+                case (state)
+                    Query, QueryResultFetching: begin
+                        query_ready = 0;
+                    end
+                    default: begin
+                        query_ready = 1;
+                    end
+                endcase
+            end
+            default: begin
+                query_ready = 0;
+            end
+        endcase
+        
+    end
+end
+
+always_ff @ (posedge clk_125M) begin
+    if (!rst_n) begin
+        work_mode <= ModeIdle;
+        ip_target <= '0;
+    end else begin
+        // 查询结束则置 ModeIdle
+        if (work_mode == ModeQuery && query_ready) begin
+            work_mode = ModeIdle;
         end
-        // 找到了结果，等待内存读出来后转 QueryResultReady
-        QueryResultFetching: begin
-            memory_addr = best_match;
-            memory_in = 'x;
-            memory_write_en = 0;
-            state = memory_out.branch.is_nexthop ? QueryResultReady : QueryResultFetching;
-        end
-        // 结果 Ready，当 ip_target 被置零时复位
-        QueryResultReady: begin
-            memory_addr = best_match;
-            memory_in = 'x;
-            memory_write_en = 0;
-            state = ip_target == '0 ? Idle : QueryResultReady;
-        end
-        // 包括 Idle 状态在内的情况：复位
-        default: begin
-            memory_addr = '0;
-            memory_in = 'x;
-            memory_write_en = 0;
-            best_match = '0;
-            state = ip_target == '0 ? Idle : Query;
-        end
-    endcase
+        case (work_mode)
+            ModeIdle: begin
+                if (query_valid) begin
+                    work_mode <= ModeQuery;
+                    ip_target <= ip_query;
+                end else begin
+                    work_mode <= ModeIdle;
+                    ip_target <= '0;
+                end
+            end
+        endcase
+    end
 end
 
 endmodule
