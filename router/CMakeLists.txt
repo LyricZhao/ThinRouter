@@ -20,5 +20,5 @@ add_definitions("-DROUTER_BACKEND_${BACKEND}")
 add_subdirectory(hal)
 add_subdirectory(components)
 
-add_executable(router main.cpp)
+add_executable(router main.c)
 target_link_libraries(router router_hal checksum forwarding lookup protocol)
