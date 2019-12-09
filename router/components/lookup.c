@@ -37,4 +37,5 @@ void update(uint8_t insert, RoutingTableEntry entry) {
  * @return 查到则返回 true ，没查到则返回 false
  */
 uint8_t query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index) {
+  return 0;
 }

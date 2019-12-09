@@ -1,15 +1,15 @@
 # include "protocol.h"
 
 uint8_t validateMask(uint32_t mask) {
-  bool status = 0;
+  uint8_t status = 0;
   for (int i = 0; i < 32; ++ i, mask >>= 1) {
     if (status == 0) {
       status ^= mask & 1;
     } else if (!(mask & 1)) {
-      return false;
+      return 0;
     }
   }
-  return true;
+  return 1;
 }
 
 /**
@@ -35,7 +35,7 @@ uint8_t disassemble(const uint8_t *packet, uint32_t len, RipPacket *output) {
   uint8_t command = packet[rip_start], version = packet[rip_start + 1];
   uint16_t zero = PACKED8_16(packet[rip_start + 2], packet[rip_start + 3]);
   if (total_length != len || (command != 1 && command != 2) || version != 2 || zero != 0) {
-    return false;
+    return 0;
   }
 
   output -> command = command;
@@ -45,14 +45,13 @@ uint8_t disassemble(const uint8_t *packet, uint32_t len, RipPacket *output) {
     uint16_t family = PACKED8_16(entry[0] & 0xff, (entry[0] >> 8) & 0xff);
     uint16_t tag = PACKED8_16((entry[0] >> 16) & 0xff, (entry[0] >> 24) & 0xff);
     uint32_t mask = htonl(entry[2]), metric = htonl(entry[4]);
-    // printf("%d %d %d %d %x %d\n", command, family, tag, metric, mask, validateMask(mask));
     if ((command == 1 && family != 0) || (command == 2 && family != 2) || tag != 0 || (metric < 1 || metric > 16) || !validateMask(mask)) {
-      return false;
+      return 0;
     }
     memcpy(&(output -> entries[output -> numEntries ++]), &entry[1], 16);
   }
 
-  return true;
+  return 1;
 }
 
 /**
