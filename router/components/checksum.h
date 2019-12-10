@@ -6,6 +6,7 @@
 
 # include "../include/utility.h"
 
+uint16_t getChecksum(uint8_t *packet);
 uint8_t validateIPChecksum(uint8_t *packet, size_t len);
 
 # endif
