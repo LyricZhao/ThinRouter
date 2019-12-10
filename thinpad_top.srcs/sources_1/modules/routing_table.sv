@@ -3,7 +3,7 @@
 
 module routing_table #(
     // 节点数量。每个节点 72 bits，每条路由项占用两个节点
-    parameter NODE_POOL_SIZE = 65536
+    parameter NODE_POOL_SIZE = 32768
 ) (
     // 125M 时钟
     input  logic clk_125M,
@@ -98,15 +98,16 @@ logic memory_write_en;
 
 // 存储空间
 xpm_memory_spram #(
-    .ADDR_WIDTH_A(16),
+    .ADDR_WIDTH_A($clog2(NODE_POOL_SIZE)),
     .MEMORY_INIT_FILE("routing_memory.mem"),
+    .MEMORY_OPTIMIZATION("false"),
     .MEMORY_PRIMITIVE("block"),
     .MEMORY_SIZE(72 * NODE_POOL_SIZE),
     .READ_DATA_WIDTH_A(72),
     .READ_LATENCY_A(1),
     .WRITE_DATA_WIDTH_A(72)
 ) memory_pool (
-    .addra(memory_addr),
+    .addra({memory_addr[15], memory_addr[$clog2(NODE_POOL_SIZE)-2:0]}),
     .clka(clk_125M),
     .dina(memory_in),
     .douta(memory_out),
@@ -133,17 +134,23 @@ enum logic [1:0] {
     ModeEnumerate
 } work_mode;
 
-// 状态，组合逻辑
+// 查询过程的状态，组合逻辑
 enum logic [1:0] {
     // 空闲状态，地址保持在 0（根节点），为了方便之后搜索
-    Idle,
+    QueryIdle,
     // 正在查询，此时查的节点一定是路径节点而非叶子节点
     Query,
     // 查询结束，进入此状态时，addr 为最佳匹配叶子节点，等待其数据到达 memory_out 后进入 QueryResultReady
     QueryResultFetching,
     // 查询得到结果，进入此状态时，memory_out 如果是根节点说明无匹配，否则为匹配的叶子节点
     QueryResultReady
-} state;
+} query_state;
+
+// 插入过程的状态，组合逻辑
+enum logic [2:0] {
+    InsertIdle,
+    Insert
+} insert_state;
 
 // 利用 trie 树中查找这个 IP 地址
 // 用同步逻辑控制，空闲时置 0，否则置 IP 地址，组合逻辑开始查找
@@ -200,22 +207,23 @@ endfunction
 // 匹配 IP 地址和一个前缀，返回是否匹配
 `define Match(addr, prefix, mask) ((((addr) ^ (prefix)) & get_mask(mask)) == 0)
 
-// 结束匹配，如果存在最佳匹配，则查找其地址，同时转 QueryResultFetching；否则直接转 Idle
-`define Query_Complete                  \
-    if (best_match[15]) begin           \
-        memory_addr = best_match;       \
-        state = QueryResultFetching;    \
-    end else begin                      \
-        memory_addr = 0;                \
-        nexthop_result = 0;             \
-        state = Idle;                   \
+// 结束匹配，如果存在最佳匹配，则查找其地址，同时转 QueryResultFetching；否则直接转 QueryIdle
+`define Query_Complete                      \
+    if (best_match[15]) begin               \
+        memory_addr = best_match;           \
+        query_state = QueryResultFetching;  \
+    end else begin                          \
+        memory_addr = 0;                    \
+        nexthop_result = 0;                 \
+        query_state = QueryIdle;            \
     end
 
 // 在 query 过程中，用组合逻辑将从内存中读取到的数据分析出下一步访问的地址
 always_comb begin
     if (!rst_n || work_mode == ModeIdle) begin
         // 复位
-        state = Idle;
+        query_state = QueryIdle;
+        insert_state = InsertIdle;
         memory_addr = '0;
         memory_in = '0;
         memory_write_en = 0;
@@ -225,18 +233,19 @@ always_comb begin
         $display("addr: %x", memory_addr);
         $display("out:\n\tmask: %0d\n\tprefix: %x\n\tnext0: %x\n\tnext1: %x", 
             memory_out.branch.mask, memory_out.branch.prefix, memory_out.branch.next0, memory_out.branch.next1);
-        $display("state: %d", state);
+        $display("query_state: %d", query_state);
         case (work_mode)
             ModeQuery: begin
-                if (state == Idle && ip_target != '0) begin
+                // 在查询模式不会写内存
+                memory_in = 'x;
+                memory_write_en = 0;
+                if (query_state == QueryIdle && ip_target != '0) begin
                     $display("Query start");
-                    state = Query;
+                    query_state = Query;
                 end
-                case (state)
+                case (query_state)
                     // 匹配，要求进入此状态前，memory_out 是根节点
                     Query: begin
-                        memory_in = 'x;
-                        memory_write_en = 0;
                         // 此时 memory_out 一定是一个路径节点
                         if (`Match(ip_target, memory_out.branch.prefix, memory_out.branch.mask)) begin
                         // 如果匹配当前节点
@@ -254,7 +263,7 @@ always_comb begin
                                 // 如果存在下一个匹配节点，则访问之
                                     $display("Goto next node: %x", memory_out.branch.next1);
                                     memory_addr = memory_out.branch.next1;
-                                    state = Query;
+                                    query_state = Query;
                                 end else begin
                                 // 不存在下一个匹配节点，匹配结束
                                     $display("Search done");
@@ -269,7 +278,7 @@ always_comb begin
                                     // 存在这个分支，继续搜索
                                         $display("Goto next node: %x", memory_addr);
                                         memory_addr = memory_out.branch.next0;
-                                        state = Query;
+                                        query_state = Query;
                                     end else begin
                                     // 没有分支，搜索结束
                                         $display("Search done");
@@ -281,7 +290,7 @@ always_comb begin
                                     // 存在这个分支，继续搜索
                                         $display("Goto next node: %x", memory_addr);
                                         memory_addr = memory_out.branch.next1;
-                                        state = Query;
+                                        query_state = Query;
                                     end else begin
                                     // 没有分支，搜索结束
                                         $display("Search done");
@@ -295,28 +304,27 @@ always_comb begin
                             `Query_Complete;
                         end
                     end
-                    // 找到了结果，等待内存读出来后转 Idle
+                    // 找到了结果，等待内存读出来后转 QueryIdle
                     QueryResultFetching: begin
                         memory_addr = best_match;
-                        memory_in = 'x;
-                        memory_write_en = 0;
                         if (memory_out.branch.is_nexthop) begin
-                            // 读出了叶子节点，输出并返回 Idle
+                            // 读出了叶子节点，输出并返回 QueryIdle
                             nexthop_result = memory_out.nexthop.nexthop;
-                            state = Idle;
+                            query_state = QueryIdle;
                         end else begin
-                            state = QueryResultFetching;
+                            query_state = QueryResultFetching;
                         end
                     end
-                    // 包括 Idle 状态在内的情况：复位
+                    // 包括 QueryIdle 状态在内的情况：复位
                     default: begin
                         memory_addr = '0;
-                        memory_in = 'x;
-                        memory_write_en = 0;
                         best_match = '0;
-                        state = Idle;
+                        query_state = QueryIdle;
                     end
                 endcase
+            end
+            ModeInsert: begin
+                // todo
             end
         endcase
     end
@@ -334,7 +342,7 @@ always_comb begin
             end
             ModeQuery: begin
                 // 输出查询的 ready
-                case (state)
+                case (query_state)
                     Query, QueryResultFetching: begin
                         query_ready = 0;
                     end

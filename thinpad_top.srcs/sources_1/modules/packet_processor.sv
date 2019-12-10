@@ -48,20 +48,25 @@ reg  ip_insert;
 wire ip_complete;
 wire [31:0] ip_nexthop;
 wire ip_found = ip_nexthop != '0;
-routing_table_adapter routing_table_inst (
+routing_table routing_table_inst (
     .clk_125M(clk),
-    .clk(clk_62M5),
-    .rst(!rst_n),
+    .rst_n,
+    .second('0),
+    
+    .ip_query(ip_input),
+    .query_valid(ip_lookup),
+    .nexthop_result(ip_nexthop),
+    .query_ready(ip_complete),
 
-    .lookup_valid(ip_lookup),
+    .ip_insert(ip_input),
+    .mask_insert(mask_input),
+    .nexthop_insert(nexthop_input),
+    .metric_insert('0),
+    .vlan_port_insert('0),
     .insert_valid(ip_insert),
+    .insert_ready(),
 
-    .lookup_insert_addr(ip_input),
-    .insert_nexthop(nexthop_input),
-    .insert_mask_len(mask_input),
-
-    .lookup_insert_ready(ip_complete),
-    .lookup_output_nexthop(ip_nexthop)
+    .overflow()
 );
 
 // ARP 表，目前用简陋版
