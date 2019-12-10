@@ -89,9 +89,16 @@ reg  ip_checksum_fe;     // checksum == 0xfe??
 reg  tx_start;
 
 ////// 如果包的处理流程太慢，会暂停 rx_ready
-// 正在处理 IP 包，若 read_cnt=58 仍未完成置 1
-reg  ip_packet_processing = 0;
-assign rx_ready = !ip_packet_processing;
+// 正在处理 IP 包
+enum logic [1:0] {
+    // 开始处理时
+    IP_PACKET_PROCESSING,
+    // read_cnt=58 而还没有处理完
+    IP_PACKET_STILL_PROCESSING,
+    // 处理完或不是 IP 包
+    IP_PACKET_DONE
+} ip_packet_process_status;
+assign rx_ready = (ip_packet_process_status != IP_PACKET_STILL_PROCESSING);
 
 // 提供的信息
 reg  [47:0] tx_dst_mac;
@@ -199,6 +206,8 @@ always_ff @(posedge clk_125M) begin
 
         read_cnt <= 0;
         tx_start <= 0;
+
+        ip_packet_process_status <= IP_PACKET_DONE;
     end else begin
         // 处理 rx 输入
         if (rx_valid) begin
@@ -359,7 +368,7 @@ always_ff @(posedge clk_125M) begin
                     endcase
                     // 发送取决于 packet_processor 返回结果
                     if (read_cnt > 38 && process_done) begin
-                        ip_packet_processing <= 0;
+                        ip_packet_process_status <= IP_PACKET_DONE;
                         if (process_bad) begin
                             bad <= 1;
                             tx_start <= read_cnt >= 46;
@@ -378,8 +387,13 @@ always_ff @(posedge clk_125M) begin
                     add_routing <= 0;
                     process_arp <= 0;
                     process_ip <= read_cnt == 38;
-                    if (read_cnt == 58) begin
-                        ip_packet_processing <= 1;
+                    // 38 时置 PROCESSING
+                    if (read_cnt == 38) begin
+                        ip_packet_process_status <= IP_PACKET_PROCESSING;
+                    end
+                    // 58 还未处理完则置 STILL_PROCESSING，暂停 rx
+                    if (read_cnt == 58 && !process_done && ip_packet_process_status == IP_PACKET_PROCESSING) begin
+                        ip_packet_process_status <= IP_PACKET_STILL_PROCESSING;
                     end
                 end
                 // Bad
