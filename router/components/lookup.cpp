@@ -4,6 +4,7 @@
 
 # include <map>
 
+extern "C" {
 std:: map<uint32_t, RoutingTableEntry> table[33];
 
 /*
@@ -26,17 +27,17 @@ std:: map<uint32_t, RoutingTableEntry> table[33];
  * @brief 插入/删除一条路由表表项
  * @param insert 如果要插入则为 true ，要删除则为 false
  * @param entry 要插入/删除的表项
- * 
+ *
  * 插入时如果已经存在一条 addr 和 len 都相同的表项，则替换掉原有的。
  * 删除时按照 addr 和 len 匹配。
  */
 void update(uint8_t insert, RoutingTableEntry entry) {
-  uint32_t addr = htonl(entry.addr);
-  if (insert) {
-    table[entry.len][addr] = entry;
-  } else {
-    table[entry.len].erase(addr);
-  }
+    uint32_t addr = htonl(entry.addr);
+    if (insert) {
+        table[entry.len][addr] = entry;
+    } else {
+        table[entry.len].erase(addr);
+    }
 }
 
 /**
@@ -47,14 +48,15 @@ void update(uint8_t insert, RoutingTableEntry entry) {
  * @return 查到则返回 true ，没查到则返回 false
  */
 uint8_t query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index) {
-  addr = htonl(addr);
-  for (int i = 32; ~ i; -- i) {
-    if (table[i].count(addr)) {
-      RoutingTableEntry entry = table[i][addr];
-      *nexthop = entry.nexthop, *if_index = entry.if_index;
-      return true;
+    addr = htonl(addr);
+    for (int i = 32; ~ i; -- i) {
+        if (table[i].count(addr)) {
+            RoutingTableEntry entry = table[i][addr];
+            *nexthop = entry.nexthop, *if_index = entry.if_index;
+            return true;
+        }
+        addr &= ~(1u << (32 - i));
     }
-    addr &= ~(1u << (32 - i));
-  }
-  return false;
+    return false;
+}
 }

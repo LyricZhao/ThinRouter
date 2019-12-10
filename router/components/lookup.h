@@ -7,7 +7,7 @@
 
 # include "../include/routing_table.h"
 
-void update(uint8_t insert, RoutingTableEntry entry);
-uint8_t query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index);
+extern "C" void update(uint8_t insert, RoutingTableEntry entry);
+extern "C" uint8_t query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index);
 
 # endif
