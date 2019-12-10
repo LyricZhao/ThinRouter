@@ -108,6 +108,7 @@ enum logic [1:0] {
     // 处理完或不是 IP 包
     IP_PACKET_DONE
 } ip_packet_process_status;
+
 // 正在处理接收到的 RIP 数据
 enum logic {
     // 开始处理时
@@ -115,9 +116,18 @@ enum logic {
     // 处理完成或者未在处理
     RIP_RESPONSE_DONE
 } rip_response_process_status;
+
+// 是否需要发送 RIP Response
+// maybe todo 支持发送 >25 条
+// 每个端口是否应该发送 RIP Response 了。会在接收到 RIP 请求时，或时间到时置 1
+logic [1:0] rip_send_pending;
+// 正在发送，则暂停 rx
+logic rip_sending;
+
 assign rx_ready = 
     (ip_packet_process_status != IP_PACKET_STILL_PROCESSING) &&
-    (rip_response_process_status == RIP_RESPONSE_DONE);
+    (rip_response_process_status == RIP_RESPONSE_DONE) &&
+    !rip_sending;
 
 ////// RIP 处理
 // 20 字节循环
@@ -258,6 +268,9 @@ always_ff @(posedge clk_125M) begin
 
         fifo_din <= 'x;
         fifo_wr_en <= 0;
+
+        rip_sending <= 0;
+        rip_send_pending <= '0;
 
         ip_packet_process_status <= IP_PACKET_DONE;
     end else begin
