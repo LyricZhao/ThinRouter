@@ -492,7 +492,8 @@ class EthFrame:
     def get_rip_request() -> EthFrame:
         port = random.randint(1, 4)
         # 发给路由器
-        dst_mac, dst_ip = EthFrame.subnets[port][0]
+        dst_mac = MAC('01:00:5e:00:00:09')
+        dst_ip = EthFrame.subnets[port][0][1]
         # 来源是子网内某个 IP MAC
         src_ip = IP.get_random(router=dst_ip, mask=24)
         for mac, ip in EthFrame.subnets[port]:
@@ -510,7 +511,8 @@ class EthFrame:
     def get_rip_response() -> EthFrame:
         port = random.randint(1, 4)
         # 发给路由器
-        dst_mac, dst_ip = EthFrame.subnets[port][0]
+        dst_mac = MAC('01:00:5e:00:00:09')
+        dst_ip = EthFrame.subnets[port][0][1]
         # 来源是子网内某个 IP MAC
         src_ip = IP.get_random(router=dst_ip, mask=24)
         for mac, ip in EthFrame.subnets[port]:
