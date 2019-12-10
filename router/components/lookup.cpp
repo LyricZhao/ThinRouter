@@ -2,6 +2,10 @@
 
 # include "lookup.h"
 
+# include <map>
+
+std:: map<uint32_t, RoutingTableEntry> table[33];
+
 /*
   RoutingTable Entry 的定义如下：
   typedef struct {
@@ -27,6 +31,12 @@
  * 删除时按照 addr 和 len 匹配。
  */
 void update(uint8_t insert, RoutingTableEntry entry) {
+  uint32_t addr = htonl(entry.addr);
+  if (insert) {
+    table[entry.len][addr] = entry;
+  } else {
+    table[entry.len].erase(addr);
+  }
 }
 
 /**
@@ -37,5 +47,14 @@ void update(uint8_t insert, RoutingTableEntry entry) {
  * @return 查到则返回 true ，没查到则返回 false
  */
 uint8_t query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index) {
-  return 0;
+  addr = htonl(addr);
+  for (int i = 32; ~ i; -- i) {
+    if (table[i].count(addr)) {
+      RoutingTableEntry entry = table[i][addr];
+      *nexthop = entry.nexthop, *if_index = entry.if_index;
+      return true;
+    }
+    addr &= ~(1u << (32 - i));
+  }
+  return false;
 }
