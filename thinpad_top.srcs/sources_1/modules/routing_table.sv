@@ -21,20 +21,12 @@ module routing_table #(
     // 可以查询 / 查询完成
     output logic query_ready,
 
-    // 需要插入的 IP 地址
-    input  ip_t  ip_insert,
-    // 插入的 mask
-    input  logic [4:0] mask_insert,
-    // 插入的 nexthop
-    input  ip_t  nexthop_insert,
-    // 插入的 metric
-    input  logic [4:0] metric_insert,
-    // 插入的 vlan port
-    input  logic [2:0] vlan_port_insert,
-    // 进行插入，同步置 1
-    input  logic insert_valid,
-    // 可以插入 / 插入完成
-    output logic insert_ready,
+    // fifo 中随时可能有等待添加的路由表项
+    input  routing_entry_t insert_fifo_data,
+    // fifo 是否为空
+    input  logic insert_fifo_empty,
+    // 从 fifo 中读取一条
+    output logic insert_fifo_read_valid,
 
     // 路由表满，此后只可以查询和修改
     output logic overflow

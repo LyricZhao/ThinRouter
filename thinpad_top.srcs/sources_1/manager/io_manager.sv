@@ -82,13 +82,14 @@ reg  [47:0] dst_mac;
 reg  [47:0] src_mac;
 reg  [2:0]  vlan_id;
 reg  is_ip;
+reg  is_rip;
 reg  ip_checksum_overflow;  // checksum >= 0xfeff，则输出 checksum 高 8 位为 0，低 8 位 +1
 reg  ip_checksum_fe;     // checksum == 0xfe??
 
 // 让 tx_manager 开始发送当前包的信号
 reg  tx_start;
 
-////// 如果包的处理流程太慢，会暂停 rx_ready
+////// 如果包的处理流程太慢，或者执行 RIP 流程，会暂停 rx_ready
 // 正在处理 IP 包
 enum logic [1:0] {
     // 开始处理时
@@ -98,7 +99,16 @@ enum logic [1:0] {
     // 处理完或不是 IP 包
     IP_PACKET_DONE
 } ip_packet_process_status;
-assign rx_ready = (ip_packet_process_status != IP_PACKET_STILL_PROCESSING);
+// 正在处理接收到的 RIP 数据
+enum logic {
+    // 开始处理时
+    RIP_RESPONSE_PROCESSING,
+    // 处理完成或者未在处理
+    RIP_RESPONSE_DONE
+} rip_response_process_status;
+assign rx_ready = 
+    (ip_packet_process_status != IP_PACKET_STILL_PROCESSING) &&
+    (rip_response_process_status == RIP_RESPONSE_DONE);
 
 // 提供的信息
 reg  [47:0] tx_dst_mac;
@@ -150,7 +160,6 @@ wire process_bad;
 
 packet_processor packet_processor_inst (
     .clk(clk_125M),
-    .clk_62M5,
     .rst_n,
     .reset(process_reset),
     .add_arp,
@@ -309,13 +318,7 @@ always_ff @(posedge clk_125M) begin
                     tx_start <= read_cnt == 46;
                     // 过程中检验
                     case (read_cnt)
-                        // 检验目标 MAC 为广播
-                        18: begin
-                            if (dst_mac != '1 || rx_data != 8'h00) begin
-                                bad <= 1;
-                            end
-                        end
-                        // 检验其他 ARP 东西
+                        18: assert_rx(8'h00);
                         19: assert_rx(8'h01);
                         20: assert_rx(8'h08);
                         21: assert_rx(8'h00);
