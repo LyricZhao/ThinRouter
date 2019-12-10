@@ -40,8 +40,6 @@ module io_manager (
 
 );
 
-assign rx_ready = 1;
-
 reg  [8:0] fifo_din;
 wire [8:0] fifo_dout;
 wire fifo_empty;
@@ -89,6 +87,11 @@ reg  ip_checksum_fe;     // checksum == 0xfe??
 
 // 让 tx_manager 开始发送当前包的信号
 reg  tx_start;
+
+////// 如果包的处理流程太慢，会暂停 rx_ready
+// 正在处理 IP 包，若 read_cnt=58 仍未完成置 1
+reg  ip_packet_processing = 0;
+assign rx_ready = !ip_packet_processing;
 
 // 提供的信息
 reg  [47:0] tx_dst_mac;
@@ -356,6 +359,7 @@ always_ff @(posedge clk_125M) begin
                     endcase
                     // 发送取决于 packet_processor 返回结果
                     if (read_cnt > 38 && process_done) begin
+                        ip_packet_processing <= 0;
                         if (process_bad) begin
                             bad <= 1;
                             tx_start <= read_cnt >= 46;
@@ -374,6 +378,9 @@ always_ff @(posedge clk_125M) begin
                     add_routing <= 0;
                     process_arp <= 0;
                     process_ip <= read_cnt == 38;
+                    if (read_cnt == 58) begin
+                        ip_packet_processing <= 1;
+                    end
                 end
                 // Bad
                 2'b1?: begin

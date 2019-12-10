@@ -12,3 +12,6 @@
 `define ROUTER_MAC_2    48'ha8_88_08_28_88_88
 `define ROUTER_MAC_3    48'ha8_88_08_38_88_88
 `define ROUTER_MAC_4    48'ha8_88_08_48_88_88
+
+`define RIP_MAC         48'h01_00_5e_00_00_09
+`define RIP_IP          32'he0_00_00_09
