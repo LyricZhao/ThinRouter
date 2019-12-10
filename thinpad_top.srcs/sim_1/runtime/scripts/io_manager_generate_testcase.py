@@ -173,10 +173,12 @@ class MAC:
 
 class IP:
     @staticmethod
-    def get_random(router: IP, mask: int) -> IP:
+    def get_random(router: IP = None, mask: int = None) -> IP:
         """
         返回路由器子网内但不同于路由器的 IP 地址
         """
+        if router is None:
+            return IP(random.randrange(2 ** 32))
         addr = router.value
         while addr == router.value:
             addr &= 0xffffffff << (32 - mask)
@@ -316,6 +318,38 @@ class IpRequest:
         return 'IP Request: %s -> %s' % (self.src_ip, self.dst_ip)
 
 
+class RipRequest(IpRequest):
+    def __init__(self, src_ip: IP):
+        self.dst_ip = IP('224.0.0.9')
+        self.src_ip = src_ip
+        self.id = random.randrange(16**4)
+        self.ttl = 1
+        self.ip_protocol = 17
+        self.data = [
+            0x02, 0x08, 0x02, 0x08, 0x00, 0x20, 0x58, 0xd9,
+            0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x10
+        ]
+        self.ip_len = 20 + len(self.data)
+        checksum = (
+            0x4500 +
+            self.ip_len +
+            self.id +
+            (self.ttl << 8) + self.ip_protocol +
+            (self.src_ip.value >> 16) + (self.src_ip.value & 0xffff) +
+            (self.dst_ip.value >> 16) + (self.dst_ip.value & 0xffff)
+        )
+        if checksum > 0xffff:
+            checksum = (checksum >> 16) + (checksum & 0xffff)
+        if checksum > 0xffff:
+            checksum = (checksum >> 16) + (checksum & 0xffff)
+        self.checksum = checksum ^ 0xffff
+
+    def __str__(self):
+        return 'RIP Request from %s' % self.src_ip
+
+
 class EthFrame:
     """
     以太网帧，需要生成 Preamble, dest MAC, src MAC, VLAN TAG, CRC
@@ -369,6 +403,24 @@ class EthFrame:
         request = IpRequest(dst_ip, src_ip)
         return EthFrame(dst_mac, src_mac, port, request)
 
+    @staticmethod
+    def get_rip_request() -> EthFrame:
+        port = random.randint(1, 4)
+        # 发给路由器
+        dst_mac, dst_ip = EthFrame.subnets[port][0]
+        # 来源是子网内某个 IP MAC
+        src_ip = IP.get_random(router=dst_ip, mask=24)
+        for mac, ip in EthFrame.subnets[port]:
+            if ip == src_ip:
+                src_mac = mac
+                break
+        else:
+            src_mac = MAC.get_random()
+            EthFrame.subnets[port].append((src_mac, src_ip,))
+
+        request = RipRequest(src_ip)
+        return EthFrame(dst_mac, src_mac, port, request)
+
     def __init__(self, dst_mac: MAC, src_mac: MAC, port: int, ip_layer_data: Union[ArpRequest, IpRequest]):
         """
         使用已有的信息包装成一个以太网帧
@@ -404,7 +456,8 @@ class EthFrame:
         )
 
     def __str__(self):
-        return '%s -> %s: %s' % (self.src_mac, self.dst_mac, self.ip_layer_data)
+        # return '%s -> %s: %s' % (self.src_mac, self.dst_mac, self.ip_layer_data)
+        return str(self.ip_layer_data)
 
 
 def parse_arguments() -> bool:
@@ -454,10 +507,11 @@ if __name__ == '__main__':
     for i in range(Config.count):
         frame = None
         while frame is None:
-            if chance(0.3):
-                frame = EthFrame.get_arp()
-            else:
-                frame = EthFrame.get_ip()
+            frame = random.choice([
+                EthFrame.get_arp,
+                EthFrame.get_ip,
+                EthFrame.get_rip_request,
+            ])()
         output += 'info:      %s\neth_frame: %sFFF\n' % (frame, frame.hex)
 
     print('已生成 %d 条测试样例' %
