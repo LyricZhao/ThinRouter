@@ -27,8 +27,7 @@ extern uint32_t assemble(const RipPacket *rip, uint8_t *buffer);
 uint8_t packet[2048];
 uint8_t output[2048];
 
-in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0100000a, 0x0101000a, 0x0102000a,
-                                     0x0103000a};
+in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0100000a, 0x0101000a, 0x0102000a, 0x0103000a};
 
 int main(int argc, char *argv[]) {
     // 0a. 初始化
@@ -56,6 +55,10 @@ int main(int argc, char *argv[]) {
   while (1) {
       uint64_t time = HAL_GetTicks();
       if (time > last_time + 30 * 1000) {
+          // TODO
+          // 把完整的路由表发给每个interface
+          // 参考 RFC2453 3.8
+          // 组播IP: 224.0.0.9, 组播MAC: 01:00:5e:00:00:09
           printf("30s Timer\n");
           last_time = time;
       }
@@ -69,7 +72,7 @@ int main(int argc, char *argv[]) {
           break;
       } else if (res < 0) {
           return res;
-      } else if (res == 0) {
+      } else if (res == 0) { // timeout
           continue;
       } else if (res > sizeof(packet)) {
           continue;
@@ -83,7 +86,7 @@ int main(int argc, char *argv[]) {
 
       in_addr_t src_addr, dst_addr;
 
-      // 2. 看目标地址是不是路由本身
+      // 2. 看目标地址是不是路由器的直连口（是不是路由器本身）
       uint8_t dst_is_me = 0;
       for (int i = 0; i < N_IFACE_ON_BOARD; ++ i) {
           if (memcmp(&dst_addr, &addrs[i], sizeof(in_addr_t)) == 0) {
@@ -92,16 +95,18 @@ int main(int argc, char *argv[]) {
           }
       }
 
+      // TODO
+      // 处理组播地址224.0.0.9
+
       if (dst_is_me) {
           // 3a.1
           RipPacket rip;
           if (disassemble(packet, res, &rip)) {
               if (rip.command == 1) {
-                  // 3a.3 request, ref. RFC2453 3.9.1
-                  // only need to respond to whole table requests in the lab
+                  // 3a.3 request, 参考 RFC2453 3.9.1
+                  // 只需要回复整个路由表的请求
                   RipPacket resp;
-                  // TODO: fill resp
-                  // assemble
+                  // TODO: 填完response
                   // IP
                   output[0] = 0x45;
                   // ...
@@ -118,9 +123,8 @@ int main(int argc, char *argv[]) {
                   HAL_SendIPPacket(if_index, output, rip_len + 20 + 8, src_mac);
               } else {
                   // 3a.2 response, ref. RFC2453 3.9.2
-                  // update routing table
-                  // new metric = ?
-                  // update metric, if_index, nexthop
+                  // 更新路由表
+                  // 更新 metric, if_index, nexthop
                   // what is missing from RoutingTableEntry?
                   // TODO: use query and update
                   // triggered updates? ref. RFC2453 3.10.1
