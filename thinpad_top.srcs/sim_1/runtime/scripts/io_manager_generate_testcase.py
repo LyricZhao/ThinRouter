@@ -615,8 +615,8 @@ if __name__ == '__main__':
             frame = random.choice([
                 EthFrame.get_arp,
                 EthFrame.get_ip,
-                # EthFrame.get_rip_request,
-                # EthFrame.get_rip_response,
+                EthFrame.get_rip_request,
+                EthFrame.get_rip_response,
             ])()
         output += 'info:      %s\neth_frame: %sFFF\n' % (frame, frame.hex)
 

@@ -255,39 +255,34 @@ begin
 end endfunction
 
 always_ff @(posedge clk_125M) begin
+    // 默认值
+    process_reset <= 0;
+    add_arp <= 0;
+    add_routing <= 0;
+    process_arp <= 0;
+    process_ip <= 0;
+
+    tx_start <= 0;
+    tx_dst_mac <= '0;
+    tx_vlan_id <= '0;
+
+    fifo_din <= 'x;
+    fifo_wr_en <= 0;
+
+    rip_sending <= 0;
+    rip_send_pending <= '0;
+
+    ip_packet_process_status <= IP_PACKET_DONE;
+    rip_response_process_status <= RIP_RESPONSE_DONE;
+
     if (!rst_n) begin
         // 复位
-        process_reset <= 0;
-        add_arp <= 0;
-        add_routing <= 0;
-        process_arp <= 0;
-        process_ip <= 0;
-
         read_cnt <= 0;
-        tx_start <= 0;
-
-        fifo_din <= 'x;
-        fifo_wr_en <= 0;
-
-        rip_sending <= 0;
-        rip_send_pending <= '0;
-
-        ip_packet_process_status <= IP_PACKET_DONE;
     end else begin
         // 处理 rx 输入
         if (rx_valid) begin
             // 前 18 个字节进行存储，并用来确定包的类型
             if (read_cnt < 18) begin
-                // 各种都不用
-                fifo_din <= 'x;
-                fifo_wr_en <= 0;
-                add_arp <= 0;
-                add_routing <= 0;
-                process_arp <= 0;
-                process_ip <= 0;
-                process_reset <= 0;
-                tx_start <= 0;
-
                 case (read_cnt)
                     0 : dst_mac[40 +: 8] <= rx_data;
                     1 : dst_mac[32 +: 8] <= rx_data;
@@ -387,13 +382,6 @@ always_ff @(posedge clk_125M) begin
                     end
                 endcase
                 // 其他的处理流程
-                tx_dst_mac <= '0;
-                tx_vlan_id <= '0;
-                add_arp <= 0;
-                add_routing <= 0;
-                process_arp <= 0;
-                process_ip <= 0;
-                process_reset <= 0;
                 case (packet_type)
                     PacketARPRequest: begin
                         // 46 字节后开始发送
@@ -531,7 +519,9 @@ always_ff @(posedge clk_125M) begin
                         endcase
                     end
                     PacketRIPResponse: begin
-                        if (read_cnt >= 50) begin
+                        if (read_cnt < 50) begin
+                            rip_read_cycle <= 0;
+                        end else begin
                             case (rip_read_cycle)
                                 4: ip_input[24 +: 8] <= rx_data;
                                 5: ip_input[16 +: 8] <= rx_data;
@@ -552,7 +542,6 @@ always_ff @(posedge clk_125M) begin
                                 add_routing <= 1;
                             end else begin
                                 rip_read_cycle <= rip_read_cycle + 1;
-                                add_routing <= 0;
                             end
                         end
                     end

@@ -1,4 +1,5 @@
 `timescale 1ns / 1ps
+`include "debug.vh"
 `include "types.vh"
 
 module routing_table #(
@@ -371,6 +372,17 @@ always_ff @ (posedge clk_125M) begin
                 end
             end
         endcase
+    end
+end
+
+always_ff @ (negedge clk_125M) begin
+    insert_fifo_read_valid <= !insert_fifo_empty;
+    if (!insert_fifo_empty) begin
+        $display("Add Route Queued");
+        $write("\tPrefix:\t");
+        `DISPLAY_IP(insert_fifo_data.prefix);
+        $write("\tNexthop:\t");
+        `DISPLAY_IP(insert_fifo_data.nexthop);
     end
 end
 
