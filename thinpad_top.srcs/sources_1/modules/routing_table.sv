@@ -93,6 +93,12 @@ node_t memory_in;
 node_t memory_out;
 logic memory_write_en;
 
+// 下一个插入的节点应该放在什么地址
+pointer_t branch_write_addr;
+pointer_t nexthop_write_addr;
+
+routing_entry_t entry_to_insert;
+
 assign debug = memory_addr;
 
 // 存储空间
@@ -135,8 +141,6 @@ enum logic [1:0] {
 
 // 查询过程的状态，组合逻辑
 enum logic [1:0] {
-    // 空闲状态，地址保持在 0（根节点），为了方便之后搜索
-    QueryIdle,
     // 正在查询，此时查的节点一定是路径节点而非叶子节点
     Query,
     // 查询结束，进入此状态时，addr 为最佳匹配叶子节点，等待其数据到达 memory_out 后进入 QueryResultReady
@@ -147,8 +151,10 @@ enum logic [1:0] {
 
 // 插入过程的状态，组合逻辑
 enum logic [2:0] {
-    InsertIdle,
-    Insert
+    // 定位到 entry_to_insert.prefix 的位置，转其他状态
+    Insert,
+    // 给定了 nexthop 节点的地址，对其进行更新。如果删除了节点，后面还要回来从父节点上删去
+    InsertEditNexthop
 } insert_state;
 
 // 利用 trie 树中查找这个 IP 地址
@@ -203,68 +209,112 @@ begin
 end
 endfunction
 
+// 根据匹配生成 mask 长度
+function logic [5:0] get_mask_len;
+    input ip_t ip1;
+    input ip_t ip2;
+begin
+    casez (ip1 ^ ip2)
+        {1'b1, {31{1'bx}}}: get_mask_len = 0;
+        {{1{1'b0}}, 1'b1, {30{1'bx}}}: get_mask_len = 1;
+        {{2{1'b0}}, 1'b1, {29{1'bx}}}: get_mask_len = 2;
+        {{3{1'b0}}, 1'b1, {28{1'bx}}}: get_mask_len = 3;
+        {{4{1'b0}}, 1'b1, {27{1'bx}}}: get_mask_len = 4;
+        {{5{1'b0}}, 1'b1, {26{1'bx}}}: get_mask_len = 5;
+        {{6{1'b0}}, 1'b1, {25{1'bx}}}: get_mask_len = 6;
+        {{7{1'b0}}, 1'b1, {24{1'bx}}}: get_mask_len = 7;
+        {{8{1'b0}}, 1'b1, {23{1'bx}}}: get_mask_len = 8;
+        {{9{1'b0}}, 1'b1, {22{1'bx}}}: get_mask_len = 9;
+        {{10{1'b0}}, 1'b1, {21{1'bx}}}: get_mask_len = 10;
+        {{11{1'b0}}, 1'b1, {20{1'bx}}}: get_mask_len = 11;
+        {{12{1'b0}}, 1'b1, {19{1'bx}}}: get_mask_len = 12;
+        {{13{1'b0}}, 1'b1, {18{1'bx}}}: get_mask_len = 13;
+        {{14{1'b0}}, 1'b1, {17{1'bx}}}: get_mask_len = 14;
+        {{15{1'b0}}, 1'b1, {16{1'bx}}}: get_mask_len = 15;
+        {{16{1'b0}}, 1'b1, {15{1'bx}}}: get_mask_len = 16;
+        {{17{1'b0}}, 1'b1, {14{1'bx}}}: get_mask_len = 17;
+        {{18{1'b0}}, 1'b1, {13{1'bx}}}: get_mask_len = 18;
+        {{19{1'b0}}, 1'b1, {12{1'bx}}}: get_mask_len = 19;
+        {{20{1'b0}}, 1'b1, {11{1'bx}}}: get_mask_len = 20;
+        {{21{1'b0}}, 1'b1, {10{1'bx}}}: get_mask_len = 21;
+        {{22{1'b0}}, 1'b1, {9{1'bx}}}: get_mask_len = 22;
+        {{23{1'b0}}, 1'b1, {8{1'bx}}}: get_mask_len = 23;
+        {{24{1'b0}}, 1'b1, {7{1'bx}}}: get_mask_len = 24;
+        {{25{1'b0}}, 1'b1, {6{1'bx}}}: get_mask_len = 25;
+        {{26{1'b0}}, 1'b1, {5{1'bx}}}: get_mask_len = 26;
+        {{27{1'b0}}, 1'b1, {4{1'bx}}}: get_mask_len = 27;
+        {{28{1'b0}}, 1'b1, {3{1'bx}}}: get_mask_len = 28;
+        {{29{1'b0}}, 1'b1, {2{1'bx}}}: get_mask_len = 29;
+        {{30{1'b0}}, 1'b1, {1{1'bx}}}: get_mask_len = 30;
+        {{31{1'b0}}, 1'b1}: get_mask_len = 31;
+        {32{1'b1}}: get_mask_len = 32;
+    endcase
+end
+endfunction
+
+// Insert 过程中，entry_to_insert.prefix 和 memory_out.branch.prefix 之间的公共 mask 长度
+// 不会超过 entry_to_insert.mask
+logic [5:0] _tmp, insert_shared_mask;
+always_comb begin
+    _tmp = get_mask_len(entry_to_insert.prefix, memory_out.branch.prefix);
+    insert_shared_mask = _tmp > entry_to_insert.mask ? entry_to_insert.mask : _tmp;
+end
+
 // 匹配 IP 地址和一个前缀，返回是否匹配
 `define Match(addr, prefix, mask) ((((addr) ^ (prefix)) & get_mask(mask)) == 0)
 
-// 结束匹配，如果存在最佳匹配，则查找其地址，同时转 QueryResultFetching；否则直接转 QueryIdle
+// 结束匹配，如果存在最佳匹配，则查找其地址，同时转 QueryResultFetching；否则直接转 ModeIdle
 `define Query_Complete                      \
     if (best_match[15]) begin               \
-        memory_addr = best_match;           \
-        query_state = QueryResultFetching;  \
+        memory_addr <= best_match;          \
+        query_state <= QueryResultFetching; \
     end else begin                          \
-        memory_addr = 0;                    \
-        nexthop_result = 0;                 \
-        query_state = QueryIdle;            \
+        memory_addr <= 0;                   \
+        nexthop_result <= 0;                \
+        work_mode <= ModeIdle;              \
     end
 
 // 在 query 过程中，用组合逻辑将从内存中读取到的数据分析出下一步访问的地址
+// todo 在 ready 时立刻来 query，可能导致内存地址未归零
+always_ff @ (posedge clk_125M or posedge query_ready) begin
+    // 默认值
+    memory_addr <= '0;
+    memory_in <= 'x;
+    memory_write_en <= 0;
 
+    insert_fifo_read_valid <= 0;
 
-// 将内部状态转换为输出
-always_comb begin
     if (!rst_n) begin
-        query_ready = 0;
-    end else begin
-        case (work_mode)
-            // 在空闲模式，每种模式都是 ready
-            ModeIdle: begin
-                query_ready = 1;
-            end
-            ModeQuery: begin
-                // 输出查询的 ready
-                case (query_state)
-                    Query, QueryResultFetching: begin
-                        query_ready = 0;
-                    end
-                    default: begin
-                        query_ready = 1;
-                    end
-                endcase
-            end
-            default: begin
-                query_ready = 0;
-            end
-        endcase
-    end
-end
-
-always_ff @ (posedge clk_125M) begin
-    if (!rst_n) begin
+        branch_write_addr <= 1;
+        nexthop_write_addr <= 0;
         work_mode <= ModeIdle;
         ip_target <= '0;
     end else begin
         // 查询结束则置 ModeIdle
         if (work_mode == ModeQuery && query_ready) begin
-            work_mode = ModeIdle;
+            work_mode <= ModeIdle;
         end
         case (work_mode)
             ModeIdle: begin
                 if (query_valid) begin
-                    work_mode = ModeQuery;
-                    ip_target = ip_query;
+                    // 开始查询
+                    $write("Query: ");
+                    `DISPLAY_IP(ip_query);
+                    work_mode <= ModeQuery;
+                    ip_target <= ip_query;
+                    query_ready <= 0;
+                end else if (!insert_fifo_empty) begin
+                    // 没有查询任务时，从 fifo 中取出需要插入的条目
+                    $write("Insert: ");
+                    `DISPLAY_IP(insert_fifo_data.prefix);
+                    work_mode <= ModeInsert;
+                    entry_to_insert <= insert_fifo_data;
+                    insert_fifo_read_valid <= 1;
+                    query_ready <= 0;
                 end else begin
-                    work_mode = ModeIdle;
-                    ip_target = '0;
+                    work_mode <= ModeIdle;
+                    ip_target <= '0;
+                    query_ready <= 1;
                 end
             end
         endcase
@@ -272,12 +322,9 @@ always_ff @ (posedge clk_125M) begin
 
     if (!rst_n || work_mode == ModeIdle) begin
         // 复位
-        query_state = QueryIdle;
-        insert_state = InsertIdle;
-        memory_addr = '0;
-        memory_in = '0;
-        memory_write_en = 0;
-        best_match = '0;
+        query_state <= Query;
+        insert_state <= Insert;
+        best_match <= '0;
     end else begin
         $display("target: %x", ip_target);
         $display("addr: %x", memory_addr);
@@ -286,13 +333,6 @@ always_ff @ (posedge clk_125M) begin
         $display("query_state: %d", query_state);
         case (work_mode)
             ModeQuery: begin
-                // 在查询模式不会写内存
-                memory_in = 'x;
-                memory_write_en = 0;
-                if (query_state == QueryIdle && ip_target != '0) begin
-                    $display("Query start");
-                    query_state = Query;
-                end
                 case (query_state)
                     // 匹配，要求进入此状态前，memory_out 是根节点
                     Query: begin
@@ -312,8 +352,8 @@ always_ff @ (posedge clk_125M) begin
                                 if (memory_out.branch.next1[15] != 1) begin
                                 // 如果存在下一个匹配节点，则访问之
                                     $display("Goto next node: %x", memory_out.branch.next1);
-                                    memory_addr = memory_out.branch.next1;
-                                    query_state = Query;
+                                    memory_addr <= memory_out.branch.next1;
+                                    query_state <= Query;
                                 end else begin
                                 // 不存在下一个匹配节点，匹配结束
                                     $display("Search done");
@@ -327,8 +367,8 @@ always_ff @ (posedge clk_125M) begin
                                     if (memory_out.branch.next0[15] != 1) begin
                                     // 存在这个分支，继续搜索
                                         $display("Goto next node: %x", memory_out.branch.next0);
-                                        memory_addr = memory_out.branch.next0;
-                                        query_state = Query;
+                                        memory_addr <= memory_out.branch.next0;
+                                        query_state <= Query;
                                     end else begin
                                     // 没有分支，搜索结束
                                         $display("Search done");
@@ -339,8 +379,8 @@ always_ff @ (posedge clk_125M) begin
                                     if (memory_out.branch.next1[15] != 1) begin
                                     // 存在这个分支，继续搜索
                                         $display("Goto next node: %x", memory_out.branch.next1);
-                                        memory_addr = memory_out.branch.next1;
-                                        query_state = Query;
+                                        memory_addr <= memory_out.branch.next1;
+                                        query_state <= Query;
                                     end else begin
                                     // 没有分支，搜索结束
                                         $display("Search done");
@@ -354,27 +394,75 @@ always_ff @ (posedge clk_125M) begin
                             `Query_Complete;
                         end
                     end
-                    // 找到了结果，等待内存读出来后转 QueryIdle
+                    // 找到了结果，等待内存读出来后转 ModeIdle
                     QueryResultFetching: begin
-                        memory_addr = best_match;
+                        memory_addr <= best_match;
                         if (memory_out.branch.is_nexthop) begin
-                            // 读出了叶子节点，输出并返回 QueryIdle
-                            nexthop_result = memory_out.nexthop.nexthop;
-                            query_state = QueryIdle;
+                            // 读出了叶子节点，输出并返回 ModeIdle
+                            nexthop_result <= memory_out.nexthop.nexthop;
+                            work_mode <= ModeIdle;
                         end else begin
-                            query_state = QueryResultFetching;
+                            query_state <= QueryResultFetching;
                         end
-                    end
-                    // 包括 QueryIdle 状态在内的情况：复位
-                    default: begin
-                        memory_addr = '0;
-                        best_match = '0;
-                        query_state = QueryIdle;
                     end
                 endcase
             end
             ModeInsert: begin
-                // todo
+                case (insert_state)
+                    // 首先找到需要修改的匹配
+                    Insert: begin
+                        // 此时 memory_out 一定是一个路径节点
+                        $display("shared mask len: %0d", insert_shared_mask);
+                        if (memory_out.branch.is_prefix) begin
+                        // 是前缀节点
+                            $display("Current is prefix node");
+                            // 对比插入的 prefix 和节点的 mask 长度
+                            if (insert_shared_mask < memory_out.branch.mask) begin
+                            // 插入的更短，则需要将当前节点接到后面
+                                // 当前节点直接写到下一个空位里面，在下一拍再修改此节点
+                            end else if (insert_shared_mask == memory_out.branch.mask) begin
+                            // 和当前节点一样，则替换叶子节点
+                                if (memory_out.branch.next0[15] != 1) begin
+                                    // 原节点已经被删除，直接添加新的叶子节点
+                                end else begin
+                                    // 替换原叶子节点
+                                end
+                            end else begin
+                            // 插入的更长
+                                if (memory_out.branch.next1[15] != 0) begin
+                                    // 没有对应的分支，则需要添加新的分支
+                                end else begin
+                                    // 直接进入对应分支
+                                end
+                            end
+                        end else begin
+                        // 如果是一个分叉节点
+                            $display("Current is branch node");
+                            // 对比插入的 prefix 和节点的 mask 长度
+                            if (insert_shared_mask <= memory_out.branch.mask) begin
+                            // 插入的更短或同样长，则需要将当前节点接到后面
+                                // 当前节点直接写到下一个空位里面，在下一拍再修改此节点
+                            end begin
+                            // 插入的更长
+                                if (entry_to_insert.prefix[31 - memory_out.branch.mask] == 0) begin
+                                // 插入 prefix 的下一位是 0
+                                    if (memory_out.branch.next0[15] != 0) begin
+                                    // 不存在这个分支，需要创建
+                                    end else begin
+                                        memory_addr <= memory_out.branch.next0;
+                                    end
+                                end else begin
+                                // 插入 prefix 的下一位是 1    
+                                    if (memory_out.branch.next1[15] != 0) begin
+                                    // 不存在这个分支，需要创建
+                                    end else begin
+                                        memory_addr <= memory_out.branch.next1;
+                                    end
+                                end
+                            end
+                        end
+                    end
+                endcase
             end
         endcase
     end
