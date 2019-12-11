@@ -1,7 +1,7 @@
 // TODO: 改成C实现
 
 # include "lookup.h"
-
+# include "../include/rip_pack.h"
 # include <map>
 
 extern "C" {

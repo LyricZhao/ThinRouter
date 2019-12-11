@@ -16,6 +16,7 @@
 # include "include/routing_table.h"
 # include "hal/include/router_hal.h"
 
+extern uint16_t getChecksum(uint8_t *packet);
 extern uint8_t validateIPChecksum(uint8_t *packet, size_t len);
 extern void update(uint8_t insert, RoutingTableEntry entry);
 extern uint8_t query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index);
@@ -121,8 +122,8 @@ int main(int argc, char *argv[]) {
                     output[4] = output[5] = output[6] = output[7] = 0;
                     output[8] = 1; // ttl=1
                     output[9] = 0x11; // 协议类型udp
-                    *((uint32_t*)(output+12)) = src_mac; // 源地址
-                    *((uint32_t*)(output+16)) = dst_mac; // 目的地址
+                    *((uint32_t*)(output+12)) = src_addr; // 源地址
+                    *((uint32_t*)(output+16)) = dst_addr; // 目的地址
                     *((uint16_t*)(output+10)) = getChecksum(output); // 获得校验和
                     // ...
                     // UDP
