@@ -86,7 +86,6 @@ reg  ip_checksum_fe;     // checksum == 0xfe??
 enum logic [2:0] {
     // 
     PacketBad,
-    PacketIgnore,
     PacketIP,
     PacketARPRequest,
     PacketARPResponse,
@@ -217,7 +216,7 @@ input wire [7:0] expected;
 begin
     if (rx_data != expected) begin
         $display("Assertion fails at rx_data == %02x (expected %02x)", rx_data, expected);
-        packet_type <= PacketIgnore;
+        packet_type <= PacketBad;
     end
 end endtask
 
@@ -298,24 +297,29 @@ always_ff @(posedge clk_125M) begin
                     11: src_mac[ 0 +: 8] <= rx_data;
                     15: vlan_id <= rx_data[2:0];
                     // 0x0806 ARP or 0x0800 IPv4
-                    16: packet_type <= rx_data == 8'h08 ? PacketIP : PacketIgnore;
+                    16: packet_type <= rx_data == 8'h08 ? PacketIP : PacketBad;
                     17: begin
                         if (packet_type == PacketIP) case (rx_data) 
                             // IPv4 标签，可能是 RIP
                             8'h00: packet_type <= dst_mac == `RIP_MAC ? PacketRIPDefault : PacketIP;
                             // ARP 标签
                             8'h06: packet_type <= dst_mac == '1 ? PacketARPRequest : PacketARPResponse;
-                            default: packet_type <= PacketIgnore;
+                            default: packet_type <= PacketBad;
                         endcase
                     end
                 endcase
+                // 12-18 字节传入 fifo
+                if (read_cnt >= 12) begin
+                    fifo_din <= {rx_last, rx_data};
+                    fifo_wr_en <= 1;
+                end
             end else begin
             // 对于 18 字节之后，有各种处理流程
                 // 处理 fifo 操作
                 case (packet_type)
-                    // ARP 请求，12 字节后，除目标 MAC IP 以外都入 fifo
+                    // ARP 请求，18 字节后，除目标 MAC IP 以外都入 fifo
                     PacketARPRequest: begin
-                        if (read_cnt >= 12 && (read_cnt < 36 || read_cnt >= 46)) begin
+                        if (read_cnt < 36 || read_cnt >= 46) begin
                             // 将 ARP Request 改为 ARP Reply
                             if (read_cnt == 25) begin
                                 fifo_din <= {rx_last, 8'h02};
@@ -348,15 +352,10 @@ always_ff @(posedge clk_125M) begin
                                 fifo_din[7:0] <= rx_data + 1;
                                 fifo_wr_en <= 1;
                             end
-                            // 其他情况，12 字节后全部进 fifo，其中 TTL 和 checksum 需要处理
+                            // 其他情况，18 字节后全部进 fifo，其中 TTL 和 checksum 需要处理
                             default: begin
-                                if (read_cnt >= 12) begin
-                                    fifo_din <= {rx_last, rx_data};
-                                    fifo_wr_en <= 1;
-                                end else begin
-                                    fifo_din <= 'x;
-                                    fifo_wr_en <= 0;
-                                end
+                                fifo_din <= {rx_last, rx_data};
+                                fifo_wr_en <= 1;
                             end
                         endcase
                     end
@@ -369,6 +368,7 @@ always_ff @(posedge clk_125M) begin
                     // 异常情况
                     PacketBad: begin
                         if (rx_last) begin
+                            $display("bad last");
                             fifo_din <= 9'b1_xxxx_xxxx;
                             fifo_wr_en <= 1;
                         end else begin
@@ -513,7 +513,7 @@ always_ff @(posedge clk_125M) begin
                                 case (rx_data)
                                     1: packet_type <= PacketRIPRequest;
                                     2: packet_type <= PacketRIPResponse;
-                                    default: packet_type <= PacketIgnore;
+                                    default: packet_type <= PacketBad;
                                 endcase
                             end
                         endcase
@@ -547,7 +547,7 @@ always_ff @(posedge clk_125M) begin
                     end
                     // todo 回复 RIP 请求
                     PacketRIPRequest: begin
-                        packet_type <= PacketIgnore;
+                        packet_type <= PacketBad;
                     end
                     // Bad
                     PacketBad: begin
@@ -587,7 +587,7 @@ digit_loop debug_send (
 // 丢包显示在低位数码管
 digit_loop debug_discard (
     .rst_n(rst_n),
-    .clk(packet_type == PacketBad || packet_type == PacketIgnore),
+    .clk(packet_type == PacketBad),
     .digit_out(digit0_out)
 );
 
