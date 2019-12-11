@@ -147,14 +147,19 @@ address router_address (
     .ip(router_ip)
 );
 
+logic tx_bad;
+always_comb case (packet_type)
+    PacketBad, PacketRIPDefault, PacketRIPRequest, PacketRIPResponse: tx_bad = 1;
+    default: tx_bad = 0;
+endcase
 tx_manager tx_manager_inst (
     .clk_125M,
     .rst_n,
     .input_dst_mac(tx_dst_mac),
     .input_vlan_id(tx_vlan_id),
-    .input_is_ip(is_ip),
+    .input_is_ip(packet_type == PacketIP),
     .input_ip_checksum_overflow(ip_checksum_overflow),
-    .input_bad(packet_type == PacketBad),
+    .input_bad(tx_bad),
     .start(tx_start),
     .fifo_data(fifo_dout),
     .fifo_empty,
@@ -359,26 +364,11 @@ always_ff @(posedge clk_125M) begin
                             end
                         endcase
                     end
-                    // RIP 包，不直接回复，不用 fifo
-                    // todo 响应请求
-                    PacketRIPDefault, PacketRIPRequest, PacketRIPResponse: begin
-                        fifo_din <= 'x;
-                        fifo_wr_en <= 0;
-                    end
-                    // 异常情况
-                    PacketBad: begin
-                        if (rx_last) begin
-                            $display("bad last");
-                            fifo_din <= 9'b1_xxxx_xxxx;
-                            fifo_wr_en <= 1;
-                        end else begin
-                            fifo_din <= 'x;
-                            fifo_wr_en <= 0;
-                        end
-                    end
-                    default: begin
-                        fifo_din <= 'x;
-                        fifo_wr_en <= 0;
+                    // Bad, RIP 包，不直接回复，不用 fifo
+                    PacketRIPDefault, PacketRIPRequest, PacketRIPResponse, PacketBad: begin
+                        // last 时 flush fifo
+                        fifo_din[8] <= rx_last;
+                        fifo_wr_en <= rx_last;
                     end
                 endcase
                 // 其他的处理流程
@@ -515,6 +505,8 @@ always_ff @(posedge clk_125M) begin
                                     2: packet_type <= PacketRIPResponse;
                                     default: packet_type <= PacketBad;
                                 endcase
+                                // 丢掉 fifo 中的数据
+                                tx_start <= 1;
                             end
                         endcase
                     end
