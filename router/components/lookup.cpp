@@ -3,7 +3,10 @@
 # include "lookup.h"
 # include "../include/rip_pack.h"
 # include <map>
-
+# include <stdint.h>
+# include <stdio.h>
+# include <stdlib.h>
+# include <string.h>
 extern "C" {
 std:: map<uint32_t, RoutingTableEntry> table[33];
 
