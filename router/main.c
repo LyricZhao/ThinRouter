@@ -162,9 +162,9 @@ int main(int argc, char *argv[]) {
                 if (rip.command == 1) {
                     // 3a.3 request, 参考 RFC2453 3.9.1
                     // 只需要回复整个路由表的请求
-                    uint32_t* packet_num;
-                    assemble_rip(src_addr, if_index, rip_packets, packet_num);
-                    for (int i = 0; i < *packet_num; i++) {
+                    uint32_t packet_num;
+                    assemble_rip(src_addr, if_index, rip_packets, &packet_num);
+                    for (int i = 0; i < packet_num; i++) {
                         RipPacket resp = rip_packets[i];
                         uint16_t rip_len = assemble(&resp, &output[20 + 8]);
                         // DONE: 填完response
@@ -206,12 +206,12 @@ int main(int argc, char *argv[]) {
                     // what is missing from RoutingTableEntry?
                     // DONE: use query and update
                     for (int i = 0; i < rip.numEntries; i++) {
-                        uint32_t *nexthop;
-                        uint32_t *_if_index;
-                        uint32_t *metric;
+                        uint32_t nexthop;
+                        uint32_t _if_index;
+                        uint32_t metric;
                         uint8_t found = 0;
-                        found = query(rip.entries[i].addr, nexthop, _if_index, metric);
-                        if (found == 0 || *metric > rip.entries[i].metric + 1) {
+                        found = query(rip.entries[i].addr, &nexthop, &_if_index, &metric);
+                        if (found == 0 || metric > rip.entries[i].metric + 1) {
                             RoutingTableEntry entry = {
                                 .addr = rip.entries[i].addr,
                                 .len = mask_to_len(rip.entries[i].mask),
