@@ -12,6 +12,7 @@ typedef struct packed {
     ip_t metric;
 } rip_entry_t;
 
+// nexthop 应该是 RIP 的来源，metric 没有 +1
 // 由 packet_processor 存入 fifo 提供给路由表模块
 typedef struct packed {
     ip_t  prefix;

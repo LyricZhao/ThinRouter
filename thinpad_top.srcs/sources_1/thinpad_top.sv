@@ -136,7 +136,7 @@ eth_conf conf(
 /**********************
  *      路由模块      *
  *********************/
-logic [15:0] debug;
+
 rgmii_manager rgmii_manager_inst (
     .clk_62M5,
     .clk_125M,
@@ -149,22 +149,12 @@ rgmii_manager rgmii_manager_inst (
     .digit0_out(dpy0),
     .digit1_out(dpy1),
 
-    .debug,
-
     .eth_rgmii_rd(eth_rgmii_rd),
     .eth_rgmii_rx_ctl(eth_rgmii_rx_ctl),
     .eth_rgmii_rxc(eth_rgmii_rxc),
     .eth_rgmii_td(eth_rgmii_td),
     .eth_rgmii_tx_ctl(eth_rgmii_tx_ctl),
     .eth_rgmii_txc(eth_rgmii_txc)
-);
-
-wire clk_write = clk_125M;
-wire [6:0] char_write = debug[15] ? 56 : 48;
-wire write_en = debug != '0;
-display display_inst(
-    .rst_n(locked),
-    .*
 );
 
 endmodule

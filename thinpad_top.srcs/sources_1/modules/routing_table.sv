@@ -4,7 +4,7 @@
 
 module routing_table #(
     // 节点数量。每个节点 72 bits，每条路由项占用两个节点
-    parameter NODE_POOL_SIZE = 64
+    parameter NODE_POOL_SIZE = 8192
 ) (
     // 125M 时钟
     input  logic clk_125M,
@@ -110,7 +110,8 @@ xpm_memory_spram #(
     .MEMORY_SIZE(72 * NODE_POOL_SIZE),
     .READ_DATA_WIDTH_A(72),
     .READ_LATENCY_A(1),
-    .WRITE_DATA_WIDTH_A(72)
+    .WRITE_DATA_WIDTH_A(72),
+    .WRITE_MODE_A("write_first")
 ) memory_pool (
     .addra({memory_addr[15], memory_addr[$clog2(NODE_POOL_SIZE)-2:0]}),
     .clka(clk_125M),
@@ -118,6 +119,7 @@ xpm_memory_spram #(
     .douta(memory_out),
     .ena(1'b1),
     .rsta(1'b0),
+    .regcea(1'b1),
     .wea(memory_write_en),
 
     .dbiterra(),
@@ -153,9 +155,19 @@ enum logic [1:0] {
 enum logic [2:0] {
     // 定位到 entry_to_insert.prefix 的位置，转其他状态
     Insert,
+    InsertSituation1,
+    InsertSituation2,
+    InsertSituation3,
+    // 在 nexthop_write_addr 上插入 entry_to_insert，确保检查过 metric<16
+    InsertNewNexthop,
     // 给定了 nexthop 节点的地址，对其进行更新。如果删除了节点，后面还要回来从父节点上删去
-    InsertEditNexthop
+    InsertEditNexthop,
+    // 删除 parent prefix 节点的 next0
+    InsertRemoveLeaf
 } insert_state;
+
+// 具体逻辑可能会用到
+pointer_t insert_pointer_buffer;
 
 // 利用 trie 树中查找这个 IP 地址
 // 用同步逻辑控制，空闲时置 0，否则置 IP 地址，组合逻辑开始查找
@@ -209,56 +221,51 @@ begin
 end
 endfunction
 
-// 根据匹配生成 mask 长度
-function logic [5:0] get_mask_len;
-    input ip_t ip1;
-    input ip_t ip2;
-begin
-    casez (ip1 ^ ip2)
-        {1'b1, {31{1'bx}}}: get_mask_len = 0;
-        {{1{1'b0}}, 1'b1, {30{1'bx}}}: get_mask_len = 1;
-        {{2{1'b0}}, 1'b1, {29{1'bx}}}: get_mask_len = 2;
-        {{3{1'b0}}, 1'b1, {28{1'bx}}}: get_mask_len = 3;
-        {{4{1'b0}}, 1'b1, {27{1'bx}}}: get_mask_len = 4;
-        {{5{1'b0}}, 1'b1, {26{1'bx}}}: get_mask_len = 5;
-        {{6{1'b0}}, 1'b1, {25{1'bx}}}: get_mask_len = 6;
-        {{7{1'b0}}, 1'b1, {24{1'bx}}}: get_mask_len = 7;
-        {{8{1'b0}}, 1'b1, {23{1'bx}}}: get_mask_len = 8;
-        {{9{1'b0}}, 1'b1, {22{1'bx}}}: get_mask_len = 9;
-        {{10{1'b0}}, 1'b1, {21{1'bx}}}: get_mask_len = 10;
-        {{11{1'b0}}, 1'b1, {20{1'bx}}}: get_mask_len = 11;
-        {{12{1'b0}}, 1'b1, {19{1'bx}}}: get_mask_len = 12;
-        {{13{1'b0}}, 1'b1, {18{1'bx}}}: get_mask_len = 13;
-        {{14{1'b0}}, 1'b1, {17{1'bx}}}: get_mask_len = 14;
-        {{15{1'b0}}, 1'b1, {16{1'bx}}}: get_mask_len = 15;
-        {{16{1'b0}}, 1'b1, {15{1'bx}}}: get_mask_len = 16;
-        {{17{1'b0}}, 1'b1, {14{1'bx}}}: get_mask_len = 17;
-        {{18{1'b0}}, 1'b1, {13{1'bx}}}: get_mask_len = 18;
-        {{19{1'b0}}, 1'b1, {12{1'bx}}}: get_mask_len = 19;
-        {{20{1'b0}}, 1'b1, {11{1'bx}}}: get_mask_len = 20;
-        {{21{1'b0}}, 1'b1, {10{1'bx}}}: get_mask_len = 21;
-        {{22{1'b0}}, 1'b1, {9{1'bx}}}: get_mask_len = 22;
-        {{23{1'b0}}, 1'b1, {8{1'bx}}}: get_mask_len = 23;
-        {{24{1'b0}}, 1'b1, {7{1'bx}}}: get_mask_len = 24;
-        {{25{1'b0}}, 1'b1, {6{1'bx}}}: get_mask_len = 25;
-        {{26{1'b0}}, 1'b1, {5{1'bx}}}: get_mask_len = 26;
-        {{27{1'b0}}, 1'b1, {4{1'bx}}}: get_mask_len = 27;
-        {{28{1'b0}}, 1'b1, {3{1'bx}}}: get_mask_len = 28;
-        {{29{1'b0}}, 1'b1, {2{1'bx}}}: get_mask_len = 29;
-        {{30{1'b0}}, 1'b1, {1{1'bx}}}: get_mask_len = 30;
-        {{31{1'b0}}, 1'b1}: get_mask_len = 31;
-        {32{1'b1}}: get_mask_len = 32;
-    endcase
-end
-endfunction
 
 // Insert 过程中，entry_to_insert.prefix 和 memory_out.branch.prefix 之间的公共 mask 长度
 // 不会超过 entry_to_insert.mask
 logic [5:0] _tmp, insert_shared_mask;
 always_comb begin
-    _tmp = get_mask_len(entry_to_insert.prefix, memory_out.branch.prefix);
     insert_shared_mask = _tmp > entry_to_insert.mask ? entry_to_insert.mask : _tmp;
 end
+
+// 根据匹配生成 mask 长度
+always_comb
+    casez (entry_to_insert.prefix ^ memory_out.branch.prefix)
+        32'b1???????_????????_????????_????????: _tmp = 0;
+        32'b01??????_????????_????????_????????: _tmp = 1;
+        32'b001?????_????????_????????_????????: _tmp = 2;
+        32'b0001????_????????_????????_????????: _tmp = 3;
+        32'b00001???_????????_????????_????????: _tmp = 4;
+        32'b000001??_????????_????????_????????: _tmp = 5;
+        32'b0000001?_????????_????????_????????: _tmp = 6;
+        32'b00000001_????????_????????_????????: _tmp = 7;
+        32'b00000000_1???????_????????_????????: _tmp = 8;
+        32'b00000000_01??????_????????_????????: _tmp = 9;
+        32'b00000000_001?????_????????_????????: _tmp = 10;
+        32'b00000000_0001????_????????_????????: _tmp = 11;
+        32'b00000000_00001???_????????_????????: _tmp = 12;
+        32'b00000000_000001??_????????_????????: _tmp = 13;
+        32'b00000000_0000001?_????????_????????: _tmp = 14;
+        32'b00000000_00000001_????????_????????: _tmp = 15;
+        32'b00000000_00000000_1???????_????????: _tmp = 16;
+        32'b00000000_00000000_01??????_????????: _tmp = 17;
+        32'b00000000_00000000_001?????_????????: _tmp = 18;
+        32'b00000000_00000000_0001????_????????: _tmp = 19;
+        32'b00000000_00000000_00001???_????????: _tmp = 20;
+        32'b00000000_00000000_000001??_????????: _tmp = 21;
+        32'b00000000_00000000_0000001?_????????: _tmp = 22;
+        32'b00000000_00000000_00000001_????????: _tmp = 23;
+        32'b00000000_00000000_00000000_1???????: _tmp = 24;
+        32'b00000000_00000000_00000000_01??????: _tmp = 25;
+        32'b00000000_00000000_00000000_001?????: _tmp = 26;
+        32'b00000000_00000000_00000000_0001????: _tmp = 27;
+        32'b00000000_00000000_00000000_00001???: _tmp = 28;
+        32'b00000000_00000000_00000000_000001??: _tmp = 29;
+        32'b00000000_00000000_00000000_0000001?: _tmp = 30;
+        32'b00000000_00000000_00000000_00000001: _tmp = 31;
+        32'b00000000_00000000_00000000_00000000: _tmp = 32;
+    endcase
 
 // 匹配 IP 地址和一个前缀，返回是否匹配
 `define Match(addr, prefix, mask) ((((addr) ^ (prefix)) & get_mask(mask)) == 0)
@@ -269,16 +276,63 @@ end
         memory_addr <= best_match;          \
         query_state <= QueryResultFetching; \
     end else begin                          \
-        memory_addr <= 0;                   \
+        memory_addr <= '0;                  \
         nexthop_result <= 0;                \
         work_mode <= ModeIdle;              \
     end
 
+// 将当前节点复制到下一个空位里面（branch_write_addr 暂时不 +1）
+`define Move_Node                                                           \
+    $display("moving node from %x to %x", memory_addr, branch_write_addr);  \
+    insert_pointer_buffer <= memory_addr;                                   \
+    memory_addr <= branch_write_addr;                                       \
+    memory_in <= memory_out;                                                \
+    memory_write_en <= 1;
+
+// 打印一个节点的内容
+`define Display_Node(node, addr)                                    \
+    if (node.branch.is_nexthop) begin                               \
+        $display("Nexthop at %x", addr);                            \
+        $display("\tPort:\t%d", node.nexthop.port);                 \
+        $display("\tMetric:\t%d", node.nexthop.metric);             \
+        $write("\tNexthop:\t"); `DISPLAY_IP(node.nexthop.nexthop);  \
+        $display("\tUpdate Time:\t%d", node.nexthop.update_time);   \
+        $display("\tParent:\t%x", node.nexthop.parent);             \
+    end else if (node.branch.is_prefix) begin                       \
+        $display("Prefix node at %x", addr);                        \
+        $display("\tMask:\t%d", node.branch.mask);                  \
+        $write("\tPrefix:\t"); `DISPLAY_IP(node.branch.prefix);     \
+        if (node.branch.next0[15] == 0) begin                       \
+            $display("\tNext0:\tNone");                             \
+        end else begin                                              \
+            $display("\tNext0:\t%x", node.branch.next0);            \
+        end                                                         \
+        if (node.branch.next1[15] == 1) begin                       \
+            $display("\tNext1:\tNone");                             \
+        end else begin                                              \
+            $display("\tNext1:\t%x", node.branch.next1);            \
+        end                                                         \
+    end else begin                                                  \
+        $display("Branch node at %x", addr);                        \
+        $display("\tMask:\t%d", node.branch.mask);                  \
+        $write("\tPrefix:\t"); `DISPLAY_IP(node.branch.prefix);     \
+        if (node.branch.next0[15] == 1) begin                       \
+            $display("\tNext0:\tNone");                             \
+        end else begin                                              \
+            $display("\tNext0:\t%x", node.branch.next0);            \
+        end                                                         \
+        if (node.branch.next1[15] == 1) begin                       \
+            $display("\tNext1:\tNone");                             \
+        end else begin                                              \
+            $display("\tNext1:\t%x", node.branch.next1);            \
+        end                                                         \
+    end                                                             \
+    $display("");
+
 // 在 query 过程中，用组合逻辑将从内存中读取到的数据分析出下一步访问的地址
 // todo 在 ready 时立刻来 query，可能导致内存地址未归零
-always_ff @ (posedge clk_125M or posedge query_ready) begin
+always_ff @ (posedge clk_125M) begin
     // 默认值
-    memory_addr <= '0;
     memory_in <= 'x;
     memory_write_en <= 0;
 
@@ -286,7 +340,7 @@ always_ff @ (posedge clk_125M or posedge query_ready) begin
 
     if (!rst_n) begin
         branch_write_addr <= 1;
-        nexthop_write_addr <= 0;
+        nexthop_write_addr <= 16'h8000;
         work_mode <= ModeIdle;
         ip_target <= '0;
     end else begin
@@ -325,12 +379,9 @@ always_ff @ (posedge clk_125M or posedge query_ready) begin
         query_state <= Query;
         insert_state <= Insert;
         best_match <= '0;
+        memory_addr <= '0;
     end else begin
-        $display("target: %x", ip_target);
-        $display("addr: %x", memory_addr);
-        $display("out:\n\tmask: %0d\n\tprefix: %x\n\tnext0: %x\n\tnext1: %x", 
-            memory_out.branch.mask, memory_out.branch.prefix, memory_out.branch.next0, memory_out.branch.next1);
-        $display("query_state: %d", query_state);
+        `Display_Node(memory_out, memory_addr);
         case (work_mode)
             ModeQuery: begin
                 case (query_state)
@@ -419,35 +470,111 @@ always_ff @ (posedge clk_125M or posedge query_ready) begin
                             // 对比插入的 prefix 和节点的 mask 长度
                             if (insert_shared_mask < memory_out.branch.mask) begin
                             // 插入的更短，则需要将当前节点接到后面
-                                // 当前节点直接写到下一个空位里面，在下一拍再修改此节点
-                            end else if (insert_shared_mask == memory_out.branch.mask) begin
+                                $display("insert shorter prefix");
+                                if (entry_to_insert.metric[4] == 1) begin
+                                // 插入的是之前不存在的条目，如果 metric=16 则直接退出
+                                    $display("invalid metric, discarded");
+                                    work_mode <= ModeIdle;
+                                end else if (insert_shared_mask == entry_to_insert.mask) begin
+                                // 插入的 mask 更短，但是当前节点完全匹配
+                                    // 当前节点直接写到下一个空位里面
+                                    `Move_Node;
+                                    // 在下一拍再修改此节点，
+                                    insert_state <= InsertSituation1;
+                                end else begin
+                                // 需要当前节点分割成两部分，一部分是插入节点的 prefix，另一部分是原节点
+                                    // todo 当前节点如果存在空分支可以修剪
+                                    // 当前节点直接写到下一个空位里面
+                                    `Move_Node;
+                                    insert_state <= InsertSituation3;
+                                end
+                            end else if (insert_shared_mask == memory_out.branch.mask && insert_shared_mask == entry_to_insert.mask) begin
                             // 和当前节点一样，则替换叶子节点
+                                $display("insert same prefix");
                                 if (memory_out.branch.next0[15] != 1) begin
-                                    // 原节点已经被删除，直接添加新的叶子节点
+                                    $display("previous prefix is deleted");
+                                    // 插入的是之前不存在的条目，如果 metric=16 则直接退出
+                                    if (entry_to_insert.metric[4] == 1) begin
+                                        $display("invalid metric, discarded");
+                                        work_mode <= ModeIdle;
+                                    end else begin
+                                        // 原节点已经被删除，直接添加新的叶子节点
+                                        memory_addr <= memory_addr;
+                                        memory_write_en <= 1;
+                                        memory_in <= memory_out;
+                                        memory_in.branch.next0 <= nexthop_write_addr;
+                                        insert_state <= InsertNewNexthop;
+                                    end
                                 end else begin
                                     // 替换原叶子节点
+                                    memory_addr <= memory_addr;
+                                    insert_pointer_buffer <= memory_out.branch.next0;
+                                    insert_state <= InsertEditNexthop;
                                 end
                             end else begin
                             // 插入的更长
+                                $display("insert longer prefix");
                                 if (memory_out.branch.next1[15] != 0) begin
-                                    // 没有对应的分支，则需要添加新的分支
+                                // 没有对应的分支，则需要添加新的分支
+                                    if (entry_to_insert.metric[4] == 1) begin
+                                        $display("invalid metric, discarded");
+                                        work_mode <= ModeIdle;
+                                    end else begin
+                                        // 首先修改当前节点的 next1 指向 branch_write_addr
+                                        memory_write_en <= 1;
+                                        memory_in <= memory_out;
+                                        memory_in.branch.next1 <= branch_write_addr;
+                                        // 下一步再说
+                                        insert_state <= InsertSituation2;
+                                    end
                                 end else begin
                                     // 直接进入对应分支
+                                    memory_addr <= memory_out.branch.next1;
                                 end
                             end
                         end else begin
                         // 如果是一个分叉节点
                             $display("Current is branch node");
                             // 对比插入的 prefix 和节点的 mask 长度
-                            if (insert_shared_mask <= memory_out.branch.mask) begin
+                            if (insert_shared_mask < memory_out.branch.mask ||
+                                (insert_shared_mask == memory_out.branch.mask && insert_shared_mask == entry_to_insert.mask)) begin
                             // 插入的更短或同样长，则需要将当前节点接到后面
-                                // 当前节点直接写到下一个空位里面，在下一拍再修改此节点
-                            end begin
+                                $display("insert shorter/equal prefix");
+                                if (entry_to_insert.metric[4] == 1) begin
+                                // 插入的是之前不存在的条目，如果 metric=16 则直接退出
+                                    $display("invalid metric, discarded");
+                                    work_mode <= ModeIdle;
+                                end else if (insert_shared_mask == entry_to_insert.mask) begin
+                                // 插入的 mask 更短，但是当前节点完全匹配，只需要插入一个 prefix 节点
+                                    // 当前节点直接写到下一个空位里面
+                                    `Move_Node;
+                                    // 在下一拍再修改此节点，
+                                    insert_state <= InsertSituation1;
+                                end else begin
+                                // 需要当前节点分割成两部分，一部分是插入节点的 prefix，另一部分是原节点
+                                    // todo 当前节点如果存在空分支可以修剪
+                                    // 当前节点直接写到下一个空位里面
+                                    `Move_Node;
+                                    insert_state <= InsertSituation3;
+                                end
+                            end else begin
                             // 插入的更长
+                                $display("insert longer prefix");
                                 if (entry_to_insert.prefix[31 - memory_out.branch.mask] == 0) begin
                                 // 插入 prefix 的下一位是 0
                                     if (memory_out.branch.next0[15] != 0) begin
                                     // 不存在这个分支，需要创建
+                                        // 插入的是之前不存在的条目，如果 metric=16 则直接退出
+                                        if (entry_to_insert.metric[4] == 1) begin
+                                            $display("invalid metric, discarded");
+                                            work_mode <= ModeIdle;
+                                        end else begin
+                                            $display("update next0 for branch node at %x", memory_addr);
+                                            memory_in <= memory_out;
+                                            memory_in.branch.next0 <= branch_write_addr;
+                                            memory_write_en <= 1;
+                                            insert_state <= InsertSituation2;
+                                        end
                                     end else begin
                                         memory_addr <= memory_out.branch.next0;
                                     end
@@ -455,11 +582,140 @@ always_ff @ (posedge clk_125M or posedge query_ready) begin
                                 // 插入 prefix 的下一位是 1    
                                     if (memory_out.branch.next1[15] != 0) begin
                                     // 不存在这个分支，需要创建
+                                        // 插入的是之前不存在的条目，如果 metric=16 则直接退出
+                                        if (entry_to_insert.metric[4] == 1) begin
+                                            $display("invalid metric, discarded");
+                                            work_mode <= ModeIdle;
+                                        end else begin
+                                            $display("update next1 for branch node at %x", memory_addr);
+                                            memory_in <= memory_out;
+                                            memory_in.branch.next1 <= branch_write_addr;
+                                            memory_write_en <= 1;
+                                            insert_state <= InsertSituation2;
+                                        end
                                     end else begin
                                         memory_addr <= memory_out.branch.next1;
                                     end
                                 end
                             end
+                        end
+                    end
+                    InsertSituation1: begin
+                        // 回来更新当前节点的 mask, next0 （指向即将添加的块）和 next1（指向被挤走的块）
+                        memory_addr <= insert_pointer_buffer;
+                        memory_write_en <= 1;
+
+                        memory_in <= memory_out;
+                        memory_in.branch.mask <= insert_shared_mask;
+                        memory_in.branch.next0 <= nexthop_write_addr;
+                        memory_in.branch.next1 <= branch_write_addr;
+
+                        branch_write_addr <= branch_write_addr + 1;
+                        insert_state <= InsertNewNexthop;
+                    end
+                    InsertSituation2: begin
+                        // 为 entry_to_insert 在最后添加一个 prefix 和一个 nexthop
+                        $display("inserting new prefix node at %x", branch_write_addr);
+                        memory_addr <= branch_write_addr;
+                        memory_write_en <= 1;
+                        memory_in.branch <= '{
+                            is_nexthop: 1'b0,
+                            is_prefix: 1'b1,
+                            mask: entry_to_insert.mask,
+                            prefix: entry_to_insert.prefix,
+                            next0: nexthop_write_addr,
+                            next1: 16'h8000
+                        };
+
+                        branch_write_addr <= branch_write_addr + 1;
+                        insert_pointer_buffer <= branch_write_addr;
+                        insert_state <= InsertNewNexthop;
+                    end
+                    InsertSituation3: begin
+                        assert (entry_to_insert.prefix[31 - insert_shared_mask] != memory_out.branch.prefix[31 - insert_shared_mask])
+                            else $fatal(1, "%m: split error");
+                        $display("split node at mask len %0d", insert_shared_mask);
+                        // 当前节点根据 insert_shared_mask 进行分开
+                        if (memory_out.branch.prefix[31 - insert_shared_mask] == 0) begin
+                        // 原本节点放到 next0
+                            memory_in.branch <= '{
+                                is_nexthop: 1'b0,
+                                is_prefix: 1'b0,
+                                mask: insert_shared_mask,
+                                prefix: memory_out.branch.prefix,
+                                next0: branch_write_addr,
+                                next1: branch_write_addr + 1
+                            };
+                        end else begin
+                        // 原本节点放到 next1
+                            memory_in.branch <= '{
+                                is_nexthop: 1'b0,
+                                is_prefix: 1'b0,
+                                mask: insert_shared_mask,
+                                prefix: memory_out.branch.prefix,
+                                next0: branch_write_addr + 1,
+                                next1: branch_write_addr
+                            };
+                        end
+                        // 写入当前节点
+                        memory_addr <= insert_pointer_buffer;
+                        memory_write_en <= 1;
+                        // 然后再添加 insert 条目
+                        branch_write_addr <= branch_write_addr + 1;
+                        insert_state <= InsertSituation2;
+                    end
+                    InsertNewNexthop: begin
+                        // 插入一个新的 nexthop，然后工作结束
+                        $display("inserting new nexthop node at %x", nexthop_write_addr);
+                        memory_addr <= nexthop_write_addr;
+                        memory_write_en <= 1;
+                        memory_in.nexthop <= '{
+                            is_nexthop: 1'b1,
+                            port: entry_to_insert.from_vlan[1:0],
+                            metric: entry_to_insert.metric + 1,
+                            nexthop: entry_to_insert.nexthop,
+                            update_time: second,
+                            parent: insert_pointer_buffer
+                        };
+                        nexthop_write_addr <= nexthop_write_addr + 1;
+                        work_mode <= ModeIdle;
+                    end
+                    InsertEditNexthop: begin
+                        // 首先等待 nexthop 节点被读取
+                        if (memory_out.branch.is_nexthop) begin
+                            $display("read nexthop node at %x", memory_addr);
+                            if (entry_to_insert.metric[4] == 0) begin
+                                // 删除路由
+                                $display("removing nexthop node");
+                                insert_state <= InsertRemoveLeaf;
+                                memory_addr <= memory_out.nexthop.parent;
+                            end else if (entry_to_insert.metric + 1 < memory_out.nexthop.metric) begin
+                                // 更好的路由，替换
+                                memory_write_en <= 1;
+                                memory_in.nexthop <= '{
+                                    is_nexthop: 1'b1,
+                                    port: entry_to_insert.from_vlan[1:0],
+                                    metric: entry_to_insert.metric + 1,
+                                    nexthop: entry_to_insert.nexthop,
+                                    update_time: second,
+                                    parent: memory_out.nexthop.parent
+                                };
+                                branch_write_addr <= branch_write_addr + 1;
+                                work_mode <= ModeIdle;
+                            end else begin
+                                // 更差的路由，退出
+                                work_mode <= ModeIdle;
+                            end
+                        end
+                    end
+                    InsertRemoveLeaf: begin
+                        // 等待读取到 prefix 节点
+                        if (!memory_out.branch.is_nexthop) begin
+                            $display("delete next0 from prefix node at %x", memory_addr);
+                            memory_in <= memory_out;
+                            memory_in.branch.next0[15] <= 0;
+                            memory_write_en <= 1;
+                            work_mode <= ModeIdle;
                         end
                     end
                 endcase
@@ -468,6 +724,13 @@ always_ff @ (posedge clk_125M or posedge query_ready) begin
     end
 end
 
+
+always_ff @ (negedge clk_125M) begin
+    if (memory_write_en) begin
+        $display("Writing:");
+        `Display_Node(memory_in, memory_addr);
+    end
+end
 // always_ff @ (negedge clk_125M) begin
 //     insert_fifo_read_valid <= !insert_fifo_empty;
 //     if (!insert_fifo_empty) begin
