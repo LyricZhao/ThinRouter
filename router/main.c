@@ -47,7 +47,8 @@ int main(int argc, char *argv[]) {
             .addr = addrs[i] & 0x00FFFFFF, // big endian
             .len = 24,        // small endian
             .if_index = i,    // small endian
-            .nexthop = 0      // big endian, means direct
+            .nexthop = 0,     // big endian, means direct
+            .metric = 0
         };
         update(1, entry);
     }
@@ -86,6 +87,9 @@ int main(int argc, char *argv[]) {
         }
 
         in_addr_t src_addr, dst_addr;
+        uint32_t *p32 = (uint32_t *)(packet + 0x1e);
+        src_addr = *p32; // 取出源地址，大端序
+        dst_addr = *(p32 + 1); // 取出目的地址，大端序
 
         // 2. 看目标地址是不是路由器的直连口（是不是路由器本身）
         uint8_t dst_is_me = 0;
@@ -110,9 +114,16 @@ int main(int argc, char *argv[]) {
                     uint16_t rip_len = assemble(&resp, &output[20 + 8]);
                     // TODO: 填完response
                     // IP
-                    // output[0] = 0x45;
-
-                    
+                    output[0] = 0x45;
+                    output[1] = 0;
+                    output[2] = (rip_len + 28) >> 8; // rip_len高八位
+                    output[3] = (rip_len + 28) & 255; // rip_len低八位
+                    output[4] = output[5] = output[6] = output[7] = 0;
+                    output[8] = 1; // ttl=1
+                    output[9] = 0x11; // 协议类型udp
+                    *((uint32_t*)(output+12)) = src_mac; // 源地址
+                    *((uint32_t*)(output+16)) = dst_mac; // 目的地址
+                    *((uint16_t*)(output+10)) = getChecksum(output); // 获得校验和
                     // ...
                     // UDP
                     // port = 520

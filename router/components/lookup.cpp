@@ -33,6 +33,7 @@ std:: map<uint32_t, RoutingTableEntry> table[33];
  */
 void update(uint8_t insert, RoutingTableEntry entry) {
     uint32_t addr = htonl(entry.addr);
+    for (int i = 0; i <= 32 - entry.len; i++) addr &= ~(1u << i); // 低位置0
     if (insert) {
         table[entry.len][addr] = entry;
     } else {
@@ -47,12 +48,12 @@ void update(uint8_t insert, RoutingTableEntry entry) {
  * @param if_index 如果查询到目标，把表项的 if_index 写入
  * @return 查到则返回 true ，没查到则返回 false
  */
-uint8_t query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index) {
+uint8_t query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index, uint32_t *metric) {
     addr = htonl(addr);
     for (int i = 32; ~ i; -- i) {
         if (table[i].count(addr)) {
             RoutingTableEntry entry = table[i][addr];
-            *nexthop = entry.nexthop, *if_index = entry.if_index;
+            *nexthop = entry.nexthop, *if_index = entry.if_index, *metric = entry.metric;
             return true;
         }
         addr &= ~(1u << (32 - i));
@@ -61,13 +62,43 @@ uint8_t query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index) {
 }
 
 /**
- * @brief 进行一次路由表的查询，按照最长前缀匹配原则
- * @param addr 需要查询的目标地址，大端序
- * @param nexthop 如果查询到目标，把表项的 nexthop 写入
- * @param if_index 如果查询到目标，把表项的 if_index 写入
- * @return 查到则返回 true ，没查到则返回 false
+ * @brief 当收到rip的request时，把路由表项封装成RipPacket传回去
+ * @param packet IN 收到的包
+ * @param output OUT 组装成的RipPacket
+ * @param packet_num OUT 当前表项需要组成多少个包
+ * @return 路由表项的条数
  */
-uint8_t assemble_rip(const uint8_t *packet, uint32_t len, RipPacket *output) {
-
+uint8_t assemble_rip(const uint8_t *packet, RipPacket *output, uint32_t *packet_num) {
+    // 遍历路由表，封装所有和源ip地址不在同一网段的路由表项到RIP报文里，填充Rip报文，command为字段2
+    // 详见《路由器实验开发指南.pdf》 4.4.2<4>
+    uint32_t cur_entry = 0; // 当前entry条数
+    *packet_num = 0;
+    uint32_t *p32 = (uint32_t*) packet; // 猜测是大端序
+    uint32_t src_ip = p32[3]; // 从packet中取出源IP地址
+    for (int i = 32; ~i; -- i) {
+        for (auto &entry : table[i]) {
+            if (entry.second.addr == src_ip) {
+                // 在同一网段中，略过
+            } else {
+                if (cur_entry >= 25) { // 达到25条，放入下一个rip packet
+                    output[*packet_num].command = 2;
+                    output[*packet_num].numEntries = 25;
+                    cur_entry = 0;
+                    *packet_num++;
+                }
+                output[*packet_num].entries[cur_entry] = {
+                    .addr = entry.second.addr,
+                    .mask = entry.second.len,
+                    .nexthop = entry.second.nexthop,
+                    .metric = entry.second.metric
+                };
+                cur_entry++;
+            }
+        }
+        src_ip &= ~(1u << (32 - i));
+    }
+    output[*packet_num].command = 2;
+    output[*packet_num].numEntries = cur_entry;
+    *packet_num++;
 }
 }
