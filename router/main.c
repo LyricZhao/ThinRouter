@@ -101,8 +101,11 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        // TODO
+        // DONE
         // 处理组播地址224.0.0.9
+        if (dst_addr == 0x090000e0) {
+            dst_is_me = 1; // 对组播地址发消息等价于发给自己
+        }
 
         if (dst_is_me) {
             // 3a.1
@@ -128,7 +131,7 @@ int main(int argc, char *argv[]) {
                     // ...
                     // UDP
                     // port = 520
-                    output[20] = 0x02;
+                    output[20] = 0x02; // 出入端口都是520
                     output[21] = 0x08;
                     output[22] = 0x02;
                     output[23] = 0x08;
