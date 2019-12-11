@@ -23,10 +23,11 @@ extern uint8_t query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index);
 extern uint8_t forward(uint8_t *packet, size_t len);
 extern uint8_t disassemble(const uint8_t *packet, uint32_t len, RipPacket *output);
 extern uint32_t assemble(const RipPacket *rip, uint8_t *buffer);
-
+extern void assemble_rip(uint32_t src_ip, uint32_t if_index, RipPacket *output, uint32_t *packet_num);
 // buffer
 uint8_t packet[2048];
 uint8_t output[2048];
+RipPacket rip_packets[50];
 
 in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0100000a, 0x0101000a, 0x0102000a, 0x0103000a};
 
@@ -114,38 +115,43 @@ int main(int argc, char *argv[]) {
                 if (rip.command == 1) {
                     // 3a.3 request, 参考 RFC2453 3.9.1
                     // 只需要回复整个路由表的请求
-                    RipPacket resp;
-                    uint16_t rip_len = assemble(&resp, &output[20 + 8]);
-                    // TODO: 填完response
-                    // IP
-                    output[0] = 0x45;
-                    output[1] = 0;
-                    output[2] = (rip_len + 28) >> 8; // rip_len高八位
-                    output[3] = (rip_len + 28) & 255; // rip_len低八位
-                    output[4] = output[5] = output[6] = output[7] = 0;
-                    output[8] = 1; // ttl=1
-                    output[9] = 0x11; // 协议类型udp
-                    *((uint32_t*)(output+12)) = src_addr; // 源地址
-                    *((uint32_t*)(output+16)) = dst_addr; // 目的地址
-                    *((uint16_t*)(output+10)) = getChecksum(output); // 获得校验和
-                    // ...
-                    // UDP
-                    // port = 520
-                    output[20] = 0x02; // 出入端口都是520
-                    output[21] = 0x08;
-                    output[22] = 0x02;
-                    output[23] = 0x08;
-                    output[24] = (rip_len + 8) >> 8; // rip_len高八位
-                    output[25] = (rip_len + 8) & 255; // rip_len低八位
-                    output[26] = 0x00; // udp校验和直接填0
-                    output[27] = 0x00;
-                    // ...
-                    // RIP
-                    
-                    // checksum calculation for ip and udp
-                    // if you don't want to calculate udp checksum, set it to zero
-                    // send it back
-                    HAL_SendIPPacket(if_index, output, rip_len + 20 + 8, src_mac);
+                    uint32_t* packet_num;
+                    assemble_rip(src_addr, if_index, rip_packets, packet_num);
+                    for (int i = 0; i < *packet_num; i++) {
+                        RipPacket resp = rip_packets[i];
+                        uint16_t rip_len = assemble(&resp, &output[20 + 8]);
+                        // DONE: 填完response
+                        // IP
+                        output[0] = 0x45;
+                        output[1] = 0;
+                        output[2] = (rip_len + 28) >> 8; // rip_len高八位
+                        output[3] = (rip_len + 28) & 255; // rip_len低八位
+                        output[4] = output[5] = output[6] = output[7] = 0;
+                        output[8] = 1; // ttl=1
+                        output[9] = 0x11; // 协议类型udp
+                        *((uint32_t*)(output+12)) = src_addr; // 源地址
+                        *((uint32_t*)(output+16)) = dst_addr; // 目的地址
+                        *((uint16_t*)(output+10)) = getChecksum(output); // 获得校验和
+                        // ...
+                        // UDP
+                        // port = 520
+                        output[20] = 0x02; // 出入端口都是520
+                        output[21] = 0x08;
+                        output[22] = 0x02;
+                        output[23] = 0x08;
+                        output[24] = (rip_len + 8) >> 8; // rip_len高八位
+                        output[25] = (rip_len + 8) & 255; // rip_len低八位
+                        output[26] = 0x00; // udp校验和直接填0
+                        output[27] = 0x00;
+                        // ...
+                        // RIP
+                        
+                        // checksum calculation for ip and udp
+                        // if you don't want to calculate udp checksum, set it to zero
+                        // send it back
+                        HAL_SendIPPacket(if_index, output, rip_len + 20 + 8, src_mac);
+                    }
+
                 } else {
                     // 3a.2 response, ref. RFC2453 3.9.2
                     // 更新路由表

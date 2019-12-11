@@ -46,6 +46,7 @@ void update(uint8_t insert, RoutingTableEntry entry) {
  * @param addr 需要查询的目标地址，大端序
  * @param nexthop 如果查询到目标，把表项的 nexthop 写入
  * @param if_index 如果查询到目标，把表项的 if_index 写入
+ * @param metric 如果查询到目标，把表项的 metric 写入
  * @return 查到则返回 true ，没查到则返回 false
  */
 uint8_t query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index, uint32_t *metric) {
@@ -63,22 +64,22 @@ uint8_t query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index, uint32_t *me
 
 /**
  * @brief 当收到rip的request时，把路由表项封装成RipPacket传回去
- * @param packet IN 收到的包
+ * @param src_ip IN 源IP，大端序
+ * @param if_index IN 即将发回的端口号
  * @param output OUT 组装成的RipPacket
  * @param packet_num OUT 当前表项需要组成多少个包
  * @return 路由表项的条数
  */
-uint8_t assemble_rip(const uint8_t *packet, RipPacket *output, uint32_t *packet_num) {
+void assemble_rip(uint32_t src_ip, uint32_t if_index, RipPacket *output, uint32_t *packet_num) {
     // 遍历路由表，封装所有和源ip地址不在同一网段的路由表项到RIP报文里，填充Rip报文，command为字段2
     // 详见《路由器实验开发指南.pdf》 4.4.2<4>
     uint32_t cur_entry = 0; // 当前entry条数
     *packet_num = 0;
-    uint32_t *p32 = (uint32_t*) packet; // 猜测是大端序
-    uint32_t src_ip = p32[3]; // 从packet中取出源IP地址
+    src_ip = htonl(src_ip); // 转换成小端序
     for (int i = 32; ~i; -- i) {
         for (auto &entry : table[i]) {
-            if (entry.second.addr == src_ip) {
-                // 在同一网段中，略过
+            if (entry.second.addr == src_ip || entry.second.if_index == if_index) {
+                // 目的地址与源IP在同一网段中，或者if_index相同，略过
             } else {
                 if (cur_entry >= 25) { // 达到25条，放入下一个rip packet
                     output[*packet_num].command = 2;
@@ -98,7 +99,7 @@ uint8_t assemble_rip(const uint8_t *packet, RipPacket *output, uint32_t *packet_
         src_ip &= ~(1u << (32 - i));
     }
     output[*packet_num].command = 2;
-    output[*packet_num].numEntries = cur_entry;
+    output[*packet_num].numEntries = cur_entry; // !有可能出现0个表项的rip包
     *packet_num++;
 }
 }
