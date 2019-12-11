@@ -11,6 +11,7 @@ logic [7:0] tx_data;
 logic tx_valid;
 logic tx_last;
 wire tx_ready = 1;
+logic [15:0] debug;
 
 localparam WAIT = 9;
 localparam READ_LABEL = 10;

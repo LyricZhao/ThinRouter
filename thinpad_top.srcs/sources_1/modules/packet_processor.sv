@@ -11,6 +11,8 @@ module packet_processor (
     input  logic process_ip,            // 处理 IP 包
     input  logic reset,                 // 手动清除 done bad 标志
 
+    output logic [15:0] debug,
+
     input  ip_t  ip_input,              // 输入 IP
     input  logic [5:0] mask_input,      // 掩码长度（用于插入路由）
     input  ip_t  nexthop_input,         // 输入 nexthop
@@ -85,6 +87,8 @@ routing_table routing_table_inst (
     .clk_125M(clk),
     .rst_n,
     .second('0),
+
+    .debug,
     
     .ip_query(ip_input),
     .query_valid(ip_lookup),

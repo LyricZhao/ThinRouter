@@ -13,6 +13,10 @@ module routing_table #(
     // 计时信号（秒）
     input  time_t second,
 
+    output logic [7:0] digit0_out,
+    output logic [7:0] digit1_out,
+    output logic [15:0] debug,
+
     // 需要查询的 IP 地址
     input  ip_t  ip_query,
     // 进行查询，同步置 1
@@ -88,6 +92,8 @@ pointer_t memory_addr;
 node_t memory_in;
 node_t memory_out;
 logic memory_write_en;
+
+assign debug = memory_addr;
 
 // 存储空间
 xpm_memory_spram #(
@@ -212,7 +218,58 @@ endfunction
     end
 
 // 在 query 过程中，用组合逻辑将从内存中读取到的数据分析出下一步访问的地址
+
+
+// 将内部状态转换为输出
 always_comb begin
+    if (!rst_n) begin
+        query_ready = 0;
+    end else begin
+        case (work_mode)
+            // 在空闲模式，每种模式都是 ready
+            ModeIdle: begin
+                query_ready = 1;
+            end
+            ModeQuery: begin
+                // 输出查询的 ready
+                case (query_state)
+                    Query, QueryResultFetching: begin
+                        query_ready = 0;
+                    end
+                    default: begin
+                        query_ready = 1;
+                    end
+                endcase
+            end
+            default: begin
+                query_ready = 0;
+            end
+        endcase
+    end
+end
+
+always_ff @ (posedge clk_125M) begin
+    if (!rst_n) begin
+        work_mode <= ModeIdle;
+        ip_target <= '0;
+    end else begin
+        // 查询结束则置 ModeIdle
+        if (work_mode == ModeQuery && query_ready) begin
+            work_mode = ModeIdle;
+        end
+        case (work_mode)
+            ModeIdle: begin
+                if (query_valid) begin
+                    work_mode = ModeQuery;
+                    ip_target = ip_query;
+                end else begin
+                    work_mode = ModeIdle;
+                    ip_target = '0;
+                end
+            end
+        endcase
+    end
+
     if (!rst_n || work_mode == ModeIdle) begin
         // 复位
         query_state = QueryIdle;
@@ -269,7 +326,7 @@ always_comb begin
                                 // 下一位是 0
                                     if (memory_out.branch.next0[15] != 1) begin
                                     // 存在这个分支，继续搜索
-                                        $display("Goto next node: %x", memory_addr);
+                                        $display("Goto next node: %x", memory_out.branch.next0);
                                         memory_addr = memory_out.branch.next0;
                                         query_state = Query;
                                     end else begin
@@ -281,7 +338,7 @@ always_comb begin
                                 // 下一位是 1
                                     if (memory_out.branch.next1[15] != 1) begin
                                     // 存在这个分支，继续搜索
-                                        $display("Goto next node: %x", memory_addr);
+                                        $display("Goto next node: %x", memory_out.branch.next1);
                                         memory_addr = memory_out.branch.next1;
                                         query_state = Query;
                                     end else begin
@@ -323,67 +380,15 @@ always_comb begin
     end
 end
 
-// 将内部状态转换为输出
-always_comb begin
-    if (!rst_n) begin
-        query_ready = 0;
-    end else begin
-        case (work_mode)
-            // 在空闲模式，每种模式都是 ready
-            ModeIdle: begin
-                query_ready = 1;
-            end
-            ModeQuery: begin
-                // 输出查询的 ready
-                case (query_state)
-                    Query, QueryResultFetching: begin
-                        query_ready = 0;
-                    end
-                    default: begin
-                        query_ready = 1;
-                    end
-                endcase
-            end
-            default: begin
-                query_ready = 0;
-            end
-        endcase
-        
-    end
-end
-
-always_ff @ (posedge clk_125M) begin
-    if (!rst_n) begin
-        work_mode <= ModeIdle;
-        ip_target <= '0;
-    end else begin
-        // 查询结束则置 ModeIdle
-        if (work_mode == ModeQuery && query_ready) begin
-            work_mode = ModeIdle;
-        end
-        case (work_mode)
-            ModeIdle: begin
-                if (query_valid) begin
-                    work_mode <= ModeQuery;
-                    ip_target <= ip_query;
-                end else begin
-                    work_mode <= ModeIdle;
-                    ip_target <= '0;
-                end
-            end
-        endcase
-    end
-end
-
-always_ff @ (negedge clk_125M) begin
-    insert_fifo_read_valid <= !insert_fifo_empty;
-    if (!insert_fifo_empty) begin
-        $display("Add Route Queued");
-        $write("\tPrefix:\t");
-        `DISPLAY_IP(insert_fifo_data.prefix);
-        $write("\tNexthop:\t");
-        `DISPLAY_IP(insert_fifo_data.nexthop);
-    end
-end
+// always_ff @ (negedge clk_125M) begin
+//     insert_fifo_read_valid <= !insert_fifo_empty;
+//     if (!insert_fifo_empty) begin
+//         $display("Add Route Queued");
+//         $write("\tPrefix:\t");
+//         `DISPLAY_IP(insert_fifo_data.prefix);
+//         $write("\tNexthop:\t");
+//         `DISPLAY_IP(insert_fifo_data.nexthop);
+//     end
+// end
 
 endmodule

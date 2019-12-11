@@ -20,9 +20,11 @@ module io_manager (
     input   wire    clk_btn,            // 硬件 clk 按键
     input   wire    [3:0] btn,          // 硬件按钮
 
-    output  wire    [15:0] led_out,     // 硬件 led 指示灯
-    output  wire    [7:0]  digit0_out,  // 硬件低位数码管
-    output  wire    [7:0]  digit1_out,  // 硬件高位数码管
+    output  logic   [15:0] led_out,     // 硬件 led 指示灯
+    output  logic   [7:0]  digit0_out,  // 硬件低位数码管
+    output  logic   [7:0]  digit1_out,  // 硬件高位数码管
+
+    output  logic   [15:0] debug,
 
     // 目前先接上 eth_mac_fifo_block
     input   wire    [7:0] rx_data,      // 数据入口
@@ -191,6 +193,7 @@ wire process_bad;
 packet_processor packet_processor_inst (
     .clk(clk_125M),
     .rst_n,
+    .debug,
     .reset(process_reset),
     .add_arp,
     .add_routing,
@@ -582,5 +585,18 @@ digit_loop debug_discard (
     .clk(packet_type == PacketBad),
     .digit_out(digit0_out)
 );
+
+always_comb begin
+    // led_out[0] = packet_type == PacketBad;
+    // led_out[1] = packet_type == PacketIP;
+    // led_out[2] = packet_type == PacketARPRequest;
+    // led_out[3] = packet_type == PacketARPResponse;
+    // led_out[4] = packet_type == PacketRIPDefault;
+    // led_out[5] = packet_type == PacketRIPRequest;
+    // led_out[6] = packet_type == PacketRIPResponse;
+    // led_out[15] = rx_ready;
+    // led_out[14] = ip_packet_process_status == IP_PACKET_PROCESSING;
+    // led_out[14] = ip_packet_process_status == IP_PACKET_STILL_PROCESSING;
+end
 
 endmodule

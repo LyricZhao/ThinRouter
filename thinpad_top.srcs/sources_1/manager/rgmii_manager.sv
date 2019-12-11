@@ -11,6 +11,8 @@ module rgmii_manager(
     input   wire    clk_200M,           // 给 IDELAYCTRL (这个模块在eth_mac里面) 用的 200M 时钟
     input   wire    rst_n,              // PLL分频稳定后为1，后级电路复位，也加入了用户的按键
 
+    output  logic   [15:0] debug,
+
     input   wire    clk_btn,            // 硬件 clk 按键
     input   wire    [3:0] btn,          // 硬件按钮
 
@@ -51,6 +53,7 @@ io_manager io_manager_inst (
     .led_out,
     .digit0_out,
     .digit1_out,
+    .debug,
 
     .rx_data(axis_rx_data),
     .rx_valid(axis_rx_valid),
