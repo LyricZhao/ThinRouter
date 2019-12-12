@@ -214,14 +214,6 @@ begin
         packet_type <= PacketBad;
     end
 end endtask
-task assert_rx_ignore;
-input wire [7:0] expected;
-begin
-    if (rx_data != expected) begin
-        $display("Assertion fails at rx_data == %02x (expected %02x)", rx_data, expected);
-        packet_type <= PacketBad;
-    end
-end endtask
 
 task fifo_write_none; begin
     fifo_din <= 'x;
@@ -304,9 +296,10 @@ always_ff @(posedge clk_125M) begin
                     17: begin
                         if (packet_type == PacketIP) case (rx_data) 
                             // IPv4 标签，可能是 RIP
+                            // todo 可能有目标为本机的 RIP Responnse？
                             8'h00: packet_type <= dst_mac == Address::McastMAC ? PacketRIPDefault : PacketIP;
                             // ARP 标签
-                            8'h06: packet_type <= dst_mac == '1 ? PacketARPRequest : PacketARPResponse;
+                            8'h06: packet_type <= PacketARPRequest;
                             default: packet_type <= PacketBad;
                         endcase
                     end
@@ -330,15 +323,7 @@ always_ff @(posedge clk_125M) begin
                                 fifo_din <= {rx_last, rx_data};
                             end
                             fifo_wr_en <= 1;
-                        end else begin
-                            fifo_din <= 'x;
-                            fifo_wr_en <= 0;
                         end
-                    end
-                    // ARP 回复，什么都不发
-                    PacketARPResponse: begin
-                        fifo_din <= 'x;
-                        fifo_wr_en <= 0;
                     end
                     // IP 包
                     PacketIP: begin
@@ -385,7 +370,17 @@ always_ff @(posedge clk_125M) begin
                             22: assert_rx(8'h06);
                             23: assert_rx(8'h04);
                             24: assert_rx(8'h00);
-                            25: assert_rx(8'h01);
+                            // Request or Response
+                            25: begin
+                                case (rx_data)
+                                    // Request
+                                    8'h01: begin end
+                                    // Response
+                                    8'h02: packet_type <= PacketARPResponse;
+                                    // bad
+                                    default: packet_type <= PacketBad;
+                                endcase
+                            end
                             // 记录来源 IP，准备添加 ARP 条目
                             32: ip_input[24 +: 8] <= rx_data;
                             33: ip_input[16 +: 8] <= rx_data;
@@ -403,24 +398,16 @@ always_ff @(posedge clk_125M) begin
                     PacketARPResponse: begin
                         // 过程中检验
                         case (read_cnt)
-                            18: assert_rx_ignore(8'h00);
-                            19: assert_rx_ignore(8'h01);
-                            20: assert_rx_ignore(8'h08);
-                            21: assert_rx_ignore(8'h00);
-                            22: assert_rx_ignore(8'h06);
-                            23: assert_rx_ignore(8'h04);
-                            24: assert_rx_ignore(8'h00);
-                            25: assert_rx_ignore(8'h01);
                             // 记录来源 IP，准备添加 ARP 条目
                             32: ip_input[24 +: 8] <= rx_data;
                             33: ip_input[16 +: 8] <= rx_data;
                             34: ip_input[ 8 +: 8] <= rx_data;
                             35: ip_input[ 0 +: 8] <= rx_data;
                             // 检查目标 IP 是否为路由器自己 IP
-                            42: assert_rx_ignore(router_ip[24 +: 8]);
-                            43: assert_rx_ignore(router_ip[16 +: 8]);
-                            44: assert_rx_ignore(router_ip[ 8 +: 8]);
-                            45: assert_rx_ignore(router_ip[ 0 +: 8]);
+                            42: assert_rx(router_ip[24 +: 8]);
+                            43: assert_rx(router_ip[16 +: 8]);
+                            44: assert_rx(router_ip[ 8 +: 8]);
+                            45: assert_rx(router_ip[ 0 +: 8]);
                         endcase
                         // 需要在 ARP 表中记录一下包的来源
                         add_arp <= read_cnt == 36;
@@ -483,22 +470,22 @@ always_ff @(posedge clk_125M) begin
                         rip_read_cycle <= 0;
                         case (read_cnt)
                             // UDP
-                            27: assert_rx_ignore(8'h11);
+                            27: assert_rx(8'h11);
                             // 记录源 IP 作为可能添加的条目的下一条
                             30: nexthop_input[24 +: 8] <= rx_data;
                             31: nexthop_input[16 +: 8] <= rx_data;
                             32: nexthop_input[ 8 +: 8] <= rx_data;
                             33: nexthop_input[ 0 +: 8] <= rx_data;
                             // 检查目标 IP
-                            34: assert_rx_ignore(Address::McastIP[24 +: 8]);
-                            35: assert_rx_ignore(Address::McastIP[16 +: 8]);
-                            36: assert_rx_ignore(Address::McastIP[ 8 +: 8]);
-                            37: assert_rx_ignore(Address::McastIP[ 0 +: 8]);
+                            34: assert_rx(Address::McastIP[24 +: 8]);
+                            35: assert_rx(Address::McastIP[16 +: 8]);
+                            36: assert_rx(Address::McastIP[ 8 +: 8]);
+                            37: assert_rx(Address::McastIP[ 0 +: 8]);
                             // 检查 UDP 头
-                            38: assert_rx_ignore(8'h02);
-                            39: assert_rx_ignore(8'h08);
-                            40: assert_rx_ignore(8'h02);
-                            41: assert_rx_ignore(8'h08);
+                            38: assert_rx(8'h02);
+                            39: assert_rx(8'h08);
+                            40: assert_rx(8'h02);
+                            41: assert_rx(8'h08);
                             // RIP Command
                             46: begin
                                 case (rx_data)
@@ -514,9 +501,9 @@ always_ff @(posedge clk_125M) begin
                     PacketRIPResponse: begin
                         case (read_cnt)
                             // RIPv2
-                            47: assert_rx_ignore(8'h02);
-                            48: assert_rx_ignore(8'h00);
-                            49: assert_rx_ignore(8'h00);
+                            47: assert_rx(8'h02);
+                            48: assert_rx(8'h00);
+                            49: assert_rx(8'h00);
                             default: begin
                                 case (rip_read_cycle)
                                     // 检验标签：family=2, route=0
