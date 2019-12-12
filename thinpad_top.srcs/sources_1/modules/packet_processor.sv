@@ -1,25 +1,60 @@
-`include "address.vh"
 `include "debug.vh"
+`include "types.vh"
 
 module packet_processor (
-    input  wire  clk,                   // 125M 时钟
-    input  wire  clk_62M5,               // 路由表专用时钟
-    input  wire  rst_n,                 // 初始化
-    input  wire  add_arp,               // 添加 ARP 项
-    input  wire  add_routing,           // 添加路由项
-    input  wire  process_arp,           // 查询 ARP
-    input  wire  process_ip,            // 处理 IP 包
-    input  wire  reset,                 // 手动清除 done bad 标志
+    input  logic clk,                   // 125M 时钟
+    input  logic rst_n,                 // 初始化
+    input  logic add_arp,               // 添加 ARP 项
+    input  logic add_routing,           // 添加路由项
+    input  logic process_arp,           // 查询 ARP
+    input  logic process_ip,            // 处理 IP 包
+    input  logic reset,                 // 手动清除 done bad 标志
 
-    input  wire  [31:0] ip_input,       // 输入 IP
-    input  wire  [7:0]  mask_input,     // 掩码长度（用于插入路由）
-    input  wire  [31:0] nexthop_input,  // 输入 nexthop
-    input  wire  [47:0] mac_input,      // 输入 MAC
-    input  wire  [2:0]  vlan_input,     // 输入 VLAN
+    output logic [15:0] debug,
+
+    input  ip_t  ip_input,              // 输入 IP
+    input  logic [5:0] mask_input,      // 掩码长度（用于插入路由）
+    input  ip_t  nexthop_input,         // 输入 nexthop
+    input  mac_t mac_input,             // 输入 MAC
+    input  logic [4:0] metric_input,    // 输入 metric
+    input  logic [2:0] vlan_input,      // 输入 VLAN
     output logic done,                  // 处理完成
     output logic bad,                   // 查不到
     output logic [47:0] mac_output,     // 目标 MAC
     output logic [2:0]  vlan_output     // 目标 VLAN
+);
+
+////// 用一个 fifo 来处理添加路由：此模块放进 fifo 并立即返回 done，路由表会在没有查询任务的时候执行一个插入
+// 存到 fifo 里面提供给路由表
+routing_entry_t fifo_in;
+logic fifo_write_valid;
+// 忽略
+logic _fifo_full;
+// 连接到路由表，由路由表进行读取和控制
+routing_entry_t fifo_out;
+logic fifo_empty;
+logic fifo_read_valid;
+// 这个 fifo 的输出提供给路由表模块
+xpm_fifo_sync #(
+    .FIFO_MEMORY_TYPE("distributed"),
+    .FIFO_READ_LATENCY(0),
+    .FIFO_WRITE_DEPTH(64),
+    .READ_DATA_WIDTH($bits(routing_entry_t)),
+    .READ_MODE("fwft"),
+    .USE_ADV_FEATURES("0000"),
+    .WRITE_DATA_WIDTH($bits(routing_entry_t))
+) routing_insert_fifo (
+    .din(fifo_in),
+    .dout(fifo_out),
+    .empty(fifo_empty),
+    .full(_fifo_full),
+    .injectdbiterr(0),
+    .injectsbiterr(0),
+    .rd_en(fifo_read_valid),
+    .rst(0),
+    .sleep(0),
+    .wr_clk(clk),
+    .wr_en(fifo_write_valid)
 );
 
 enum reg [2:0] {
@@ -30,21 +65,8 @@ enum reg [2:0] {
     ProcessRouting      // 查询路由表
 } state;
 
-// 组合逻辑分析 ip_input 是否属于 1~4 子网，0 则不属于
-logic [2:0] subnet;
-always_comb begin
-    case (ip_input[8 +: 24])
-        `SUBNET_1: subnet = 1;
-        `SUBNET_2: subnet = 2;
-        `SUBNET_3: subnet = 3;
-        `SUBNET_4: subnet = 4;
-        default:   subnet = 0;
-    endcase
-end
-
 // 路由表
 reg  ip_lookup;
-reg  ip_insert;
 wire ip_complete;
 wire [31:0] ip_nexthop;
 wire ip_found = ip_nexthop != '0;
@@ -52,19 +74,17 @@ routing_table routing_table_inst (
     .clk_125M(clk),
     .rst_n,
     .second('0),
+
+    .debug,
     
     .ip_query(ip_input),
     .query_valid(ip_lookup),
     .nexthop_result(ip_nexthop),
     .query_ready(ip_complete),
 
-    .ip_insert(ip_input),
-    .mask_insert(mask_input),
-    .nexthop_insert(nexthop_input),
-    .metric_insert('0),
-    .vlan_port_insert('0),
-    .insert_valid(ip_insert),
-    .insert_ready(),
+    .insert_fifo_data(fifo_out),
+    .insert_fifo_empty(fifo_empty),
+    .insert_fifo_read_valid(fifo_read_valid),
 
     .overflow()
 );
@@ -96,7 +116,7 @@ begin
     arp_query <= 0;
     arp_query_nexthop <= 0;
     ip_lookup <= 0;
-    ip_insert <= 0;
+    fifo_write_valid <= 0;
     done <= 0;
     bad <= 0;
     state <= Idle;
@@ -104,6 +124,13 @@ end
 endtask
 
 always_ff @ (negedge clk) begin
+    // 将模块输入连接到 fifo 的输入，由后面的逻辑控制 wr_en 即可
+    fifo_in.prefix <= ip_input;
+    fifo_in.nexthop <= nexthop_input;
+    fifo_in.mask <= mask_input;
+    fifo_in.metric <= metric_input;
+    fifo_in.from_vlan <= vlan_input;
+
     if (~rst_n) begin
         reset_module();
     end else begin
@@ -118,7 +145,7 @@ always_ff @ (negedge clk) begin
                         arp_add_entry <= 0;
                         arp_query <= 0;
                         ip_lookup <= 0;
-                        ip_insert <= 0;
+                        fifo_write_valid <= 0;
                         arp_query_nexthop <= 0;
                         state <= Idle;
                     end
@@ -127,7 +154,7 @@ always_ff @ (negedge clk) begin
                         arp_add_entry <= 1;
                         arp_query <= 0;
                         ip_lookup <= 0;
-                        ip_insert <= 0;
+                        fifo_write_valid <= 0;
                         done <= 0;
                         bad <= 0;
                         arp_query_nexthop <= 0;
@@ -138,7 +165,7 @@ always_ff @ (negedge clk) begin
                         arp_add_entry <= 0;
                         arp_query <= 0;
                         ip_lookup <= 0;
-                        ip_insert <= 1;
+                        fifo_write_valid <= 1;
                         done <= 0;
                         bad <= 0;
                         arp_query_nexthop <= 0;
@@ -149,7 +176,7 @@ always_ff @ (negedge clk) begin
                         arp_add_entry <= 0;
                         arp_query <= 1;
                         ip_lookup <= 0;
-                        ip_insert <= 0;
+                        fifo_write_valid <= 0;
                         done <= 0;
                         bad <= 0;
                         arp_query_nexthop <= 0;
@@ -159,12 +186,12 @@ always_ff @ (negedge clk) begin
                         // 开始处理 IP 包
                         done <= 0;
                         bad <= 0;
-                        if (subnet == 0) begin
+                        if (Address::port(ip_input) == 0) begin
                             // 不是直连，需要查路由表
                             arp_add_entry <= 0;
                             arp_query <= 0;
                             ip_lookup <= 1;
-                            ip_insert <= 0;
+                            fifo_write_valid <= 0;
                             arp_query_nexthop <= 1;
                             state <= ProcessRouting;
                         end else begin
@@ -172,7 +199,7 @@ always_ff @ (negedge clk) begin
                             arp_add_entry <= 0;
                             arp_query <= 1;
                             ip_lookup <= 0;
-                            ip_insert <= 0;
+                            fifo_write_valid <= 0;
                             arp_query_nexthop <= 0;
                             state <= ProcessArp;
                         end
@@ -181,7 +208,7 @@ always_ff @ (negedge clk) begin
                         arp_add_entry <= 0;
                         arp_query <= 0;
                         ip_lookup <= 0;
-                        ip_insert <= 0;
+                        fifo_write_valid <= 0;
                         arp_query_nexthop <= 0;
                         state <= Idle;
                         $display("ERROR!");
@@ -192,7 +219,7 @@ always_ff @ (negedge clk) begin
                 arp_add_entry <= 0;
                 arp_query <= 0;
                 ip_lookup <= 0;
-                ip_insert <= 0;
+                fifo_write_valid <= 0;
                 done <= arp_done;
                 bad <= 0;
                 if (arp_done) begin
@@ -202,25 +229,21 @@ always_ff @ (negedge clk) begin
                     state <= AddArp;
                 end
             end
+            // 直接返回，由路由表慢慢处理
             AddRouting: begin
                 arp_add_entry <= 0;
                 arp_query <= 0;
                 ip_lookup <= 0;
-                ip_insert <= 0;
-                done <= ip_complete;
+                fifo_write_valid <= 0;
+                done <= 1;
                 bad <= 0;
-                if (ip_complete) begin
-                    // $display("Routing entry added\n");
-                    state <= Idle;
-                end else begin
-                    state <= AddRouting;
-                end
+                state <= Idle;
             end
             ProcessArp: begin
                 arp_add_entry <= 0;
                 arp_query <= 0;
                 ip_lookup <= 0;
-                ip_insert <= 0;
+                fifo_write_valid <= 0;
                 done <= arp_done;
                 bad <= arp_done && !arp_found;
                 if (arp_done) begin
@@ -234,7 +257,7 @@ always_ff @ (negedge clk) begin
             ProcessRouting: begin
                 arp_add_entry <= 0;
                 ip_lookup <= 0;
-                ip_insert <= 0;
+                fifo_write_valid <= 0;
                 done <= ip_complete && !ip_found;
                 bad <= ip_complete && !ip_found;
                 if (ip_complete) begin

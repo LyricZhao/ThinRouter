@@ -1,7 +1,7 @@
 // Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
 // --------------------------------------------------------------------------------
 // Tool Version: Vivado v.2018.3 (lin64) Build 2405991 Thu Dec  6 23:36:41 MST 2018
-// Date        : Tue Nov 19 17:49:26 2019
+// Date        : Thu Dec 12 18:28:00 2019
 // Host        : parallels-Parallels-Virtual-Platform running 64-bit Ubuntu 18.04.1 LTS
 // Command     : write_verilog -force -mode funcsim
 //               /media/psf/Home/Work/Programs/semester5/CPU/cod19grp4/thinpad_top.srcs/sources_1/ip/pll/pll_sim_netlist.v
@@ -14,30 +14,30 @@
 
 (* NotValidForBitStream *)
 module pll
-   (clk_62M5,
+   (clk_100M,
     clk_125M,
     clk_200M,
     reset,
     locked,
     clk_in1);
-  output clk_62M5;
+  output clk_100M;
   output clk_125M;
   output clk_200M;
   input reset;
   output locked;
   input clk_in1;
 
+  wire clk_100M;
   wire clk_125M;
   wire clk_200M;
-  wire clk_62M5;
   (* IBUF_LOW_PWR *) wire clk_in1;
   wire locked;
   wire reset;
 
   pll_pll_clk_wiz inst
-       (.clk_125M(clk_125M),
+       (.clk_100M(clk_100M),
+        .clk_125M(clk_125M),
         .clk_200M(clk_200M),
-        .clk_62M5(clk_62M5),
         .clk_in1(clk_in1),
         .locked(locked),
         .reset(reset));
@@ -45,25 +45,25 @@ endmodule
 
 (* ORIG_REF_NAME = "pll_clk_wiz" *) 
 module pll_pll_clk_wiz
-   (clk_62M5,
+   (clk_100M,
     clk_125M,
     clk_200M,
     reset,
     locked,
     clk_in1);
-  output clk_62M5;
+  output clk_100M;
   output clk_125M;
   output clk_200M;
   input reset;
   output locked;
   input clk_in1;
 
+  wire clk_100M;
+  wire clk_100M_pll;
   wire clk_125M;
   wire clk_125M_pll;
   wire clk_200M;
   wire clk_200M_pll;
-  wire clk_62M5;
-  wire clk_62M5_pll;
   wire clk_in1;
   wire clk_in1_pll;
   wire clkfbout_buf_pll;
@@ -100,8 +100,8 @@ module pll_pll_clk_wiz
         .O(clk_in1_pll));
   (* BOX_TYPE = "PRIMITIVE" *) 
   BUFG clkout1_buf
-       (.I(clk_62M5_pll),
-        .O(clk_62M5));
+       (.I(clk_100M_pll),
+        .O(clk_100M));
   (* BOX_TYPE = "PRIMITIVE" *) 
   BUFG clkout2_buf
        (.I(clk_125M_pll),
@@ -118,7 +118,7 @@ module pll_pll_clk_wiz
     .CLKFBOUT_USE_FINE_PS("FALSE"),
     .CLKIN1_PERIOD(20.000000),
     .CLKIN2_PERIOD(0.000000),
-    .CLKOUT0_DIVIDE_F(16.000000),
+    .CLKOUT0_DIVIDE_F(10.000000),
     .CLKOUT0_DUTY_CYCLE(0.500000),
     .CLKOUT0_PHASE(0.000000),
     .CLKOUT0_USE_FINE_PS("FALSE"),
@@ -169,7 +169,7 @@ module pll_pll_clk_wiz
         .CLKIN2(1'b0),
         .CLKINSEL(1'b1),
         .CLKINSTOPPED(NLW_mmcm_adv_inst_CLKINSTOPPED_UNCONNECTED),
-        .CLKOUT0(clk_62M5_pll),
+        .CLKOUT0(clk_100M_pll),
         .CLKOUT0B(NLW_mmcm_adv_inst_CLKOUT0B_UNCONNECTED),
         .CLKOUT1(clk_125M_pll),
         .CLKOUT1B(NLW_mmcm_adv_inst_CLKOUT1B_UNCONNECTED),

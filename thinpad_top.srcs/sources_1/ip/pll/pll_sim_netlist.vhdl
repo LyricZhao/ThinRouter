@@ -1,7 +1,7 @@
 -- Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
 -- --------------------------------------------------------------------------------
 -- Tool Version: Vivado v.2018.3 (lin64) Build 2405991 Thu Dec  6 23:36:41 MST 2018
--- Date        : Tue Nov 19 17:49:26 2019
+-- Date        : Thu Dec 12 18:28:00 2019
 -- Host        : parallels-Parallels-Virtual-Platform running 64-bit Ubuntu 18.04.1 LTS
 -- Command     : write_vhdl -force -mode funcsim
 --               /media/psf/Home/Work/Programs/semester5/CPU/cod19grp4/thinpad_top.srcs/sources_1/ip/pll/pll_sim_netlist.vhdl
@@ -16,7 +16,7 @@ library UNISIM;
 use UNISIM.VCOMPONENTS.ALL;
 entity pll_pll_clk_wiz is
   port (
-    clk_62M5 : out STD_LOGIC;
+    clk_100M : out STD_LOGIC;
     clk_125M : out STD_LOGIC;
     clk_200M : out STD_LOGIC;
     reset : in STD_LOGIC;
@@ -28,9 +28,9 @@ entity pll_pll_clk_wiz is
 end pll_pll_clk_wiz;
 
 architecture STRUCTURE of pll_pll_clk_wiz is
+  signal clk_100M_pll : STD_LOGIC;
   signal clk_125M_pll : STD_LOGIC;
   signal clk_200M_pll : STD_LOGIC;
-  signal clk_62M5_pll : STD_LOGIC;
   signal clk_in1_pll : STD_LOGIC;
   signal clkfbout_buf_pll : STD_LOGIC;
   signal clkfbout_pll : STD_LOGIC;
@@ -77,8 +77,8 @@ clkin1_ibufg: unisim.vcomponents.IBUF
     );
 clkout1_buf: unisim.vcomponents.BUFG
      port map (
-      I => clk_62M5_pll,
-      O => clk_62M5
+      I => clk_100M_pll,
+      O => clk_100M
     );
 clkout2_buf: unisim.vcomponents.BUFG
      port map (
@@ -98,7 +98,7 @@ mmcm_adv_inst: unisim.vcomponents.MMCME2_ADV
       CLKFBOUT_USE_FINE_PS => false,
       CLKIN1_PERIOD => 20.000000,
       CLKIN2_PERIOD => 0.000000,
-      CLKOUT0_DIVIDE_F => 16.000000,
+      CLKOUT0_DIVIDE_F => 10.000000,
       CLKOUT0_DUTY_CYCLE => 0.500000,
       CLKOUT0_PHASE => 0.000000,
       CLKOUT0_USE_FINE_PS => false,
@@ -150,7 +150,7 @@ mmcm_adv_inst: unisim.vcomponents.MMCME2_ADV
       CLKIN2 => '0',
       CLKINSEL => '1',
       CLKINSTOPPED => NLW_mmcm_adv_inst_CLKINSTOPPED_UNCONNECTED,
-      CLKOUT0 => clk_62M5_pll,
+      CLKOUT0 => clk_100M_pll,
       CLKOUT0B => NLW_mmcm_adv_inst_CLKOUT0B_UNCONNECTED,
       CLKOUT1 => clk_125M_pll,
       CLKOUT1B => NLW_mmcm_adv_inst_CLKOUT1B_UNCONNECTED,
@@ -183,7 +183,7 @@ library UNISIM;
 use UNISIM.VCOMPONENTS.ALL;
 entity pll is
   port (
-    clk_62M5 : out STD_LOGIC;
+    clk_100M : out STD_LOGIC;
     clk_125M : out STD_LOGIC;
     clk_200M : out STD_LOGIC;
     reset : in STD_LOGIC;
@@ -198,9 +198,9 @@ architecture STRUCTURE of pll is
 begin
 inst: entity work.pll_pll_clk_wiz
      port map (
+      clk_100M => clk_100M,
       clk_125M => clk_125M,
       clk_200M => clk_200M,
-      clk_62M5 => clk_62M5,
       clk_in1 => clk_in1,
       locked => locked,
       reset => reset

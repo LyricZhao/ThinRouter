@@ -6,22 +6,23 @@
 `timescale 1ns / 1ps
 
 `include "debug.vh"
-`include "packet.vh"
-`include "address.vh"
+`include "types.vh"
 
 module io_manager (
     // 由父模块提供各种时钟
     input   wire    clk_125M,
-    input   wire    clk_62M5,
+    input   wire    clk_200M,
     input   wire    rst_n,
 
     // top 硬件
     input   wire    clk_btn,            // 硬件 clk 按键
     input   wire    [3:0] btn,          // 硬件按钮
 
-    output  wire    [15:0] led_out,     // 硬件 led 指示灯
-    output  wire    [7:0]  digit0_out,  // 硬件低位数码管
-    output  wire    [7:0]  digit1_out,  // 硬件高位数码管
+    output  logic   [15:0] led_out,     // 硬件 led 指示灯
+    output  logic   [7:0]  digit0_out,  // 硬件低位数码管
+    output  logic   [7:0]  digit1_out,  // 硬件高位数码管
+
+    output  logic   [15:0] debug,
 
     // 目前先接上 eth_mac_fifo_block
     input   wire    [7:0] rx_data,      // 数据入口
@@ -39,8 +40,6 @@ module io_manager (
     // output  logic   [5:0] read_cnt
 
 );
-
-assign rx_ready = 1;
 
 reg  [8:0] fifo_din;
 wire [8:0] fifo_dout;
@@ -72,47 +71,91 @@ xpm_fifo_sync #(
     .wr_rst_busy(fifo_wr_busy)
 );
 
-// 遇到无法处理的包则 bad 置 1
-// 此后不再读内容，rx_last 时向 fifo 扔一个带 last 标志的字节，然后让 tx 清 fifo
-reg  bad;
 
 // 已经读了多少字节
-reg  [5:0]  read_cnt;
+logic [5:0] read_cnt;
 
 // 包的信息
-reg  [47:0] dst_mac;
-reg  [47:0] src_mac;
-reg  [2:0]  vlan_id;
-reg  is_ip;
-reg  ip_checksum_overflow;  // checksum >= 0xfeff，则输出 checksum 高 8 位为 0，低 8 位 +1
-reg  ip_checksum_fe;     // checksum == 0xfe??
+mac_t dst_mac;
+mac_t src_mac;
+logic [2:0] vlan_id;
+logic ip_checksum_overflow; // checksum >= 0xfeff，则输出 checksum 高 8 位为 0，低 8 位 +1
+logic ip_checksum_fe;       // checksum == 0xfe??
+// 根据 vlan_id 得出的路由器 IP
+ip_t  router_ip;
+always_comb router_ip = Address::ip(vlan_id);
+// 遇到无法处理的包则 bad 置 1
+// 此后不再读内容，rx_last 时向 fifo 扔一个带 last 标志的字节，然后让 tx 清 fifo
+enum logic [2:0] {
+    // 
+    PacketBad,
+    PacketIP,
+    PacketARPRequest,
+    PacketARPResponse,
+    PacketRIPDefault,
+    PacketRIPRequest,
+    PacketRIPResponse
+} packet_type;
 
 // 让 tx_manager 开始发送当前包的信号
-reg  tx_start;
+logic tx_start;
+
+////// 如果包的处理流程太慢，或者执行 RIP 流程，会暂停 rx_ready
+// 正在处理 IP 包
+enum logic [1:0] {
+    // 开始处理时
+    IPPacketProcessing,
+    // read_cnt=58 而还没有处理完
+    IPPacketStillProcessing,
+    // 处理完或不是 IP 包
+    IPPacketDone
+} ip_packet_process_status;
+
+// 正在处理接收到的 RIP 数据
+enum logic {
+    // 开始处理时
+    RIPResponseProcessing,
+    // 处理完成或者未在处理
+    RIPResponseDone
+} rip_response_process_status;
+
+// 是否需要发送 RIP Response
+// maybe todo 支持发送 >25 条
+// 每个端口是否应该发送 RIP Response 了。会在接收到 RIP 请求时，或时间到时置 1
+logic [1:0] rip_send_pending;
+// 正在发送，则暂停 rx
+logic rip_sending;
+
+assign rx_ready = 
+    (ip_packet_process_status != IPPacketStillProcessing) &&
+    (rip_response_process_status == RIPResponseDone) &&
+    !rip_sending;
+
+////// RIP 处理
+// 20 字节循环
+logic [4:0] rip_read_cycle;
+// 一个 RIP 条目是否正确（可能是 nexthop 为本路由器，或者格式错误）
+logic rip_entry_valid;
+// RIP 包的来源 IP
+ip_t  rip_src_ip;
 
 // 提供的信息
-reg  [47:0] tx_dst_mac;
-reg  [2:0]  tx_vlan_id;
+mac_t tx_dst_mac;
+logic [2:0]  tx_vlan_id;
 
-// 根据 vlan_id 得出的路由器 MAC
-wire [47:0] router_mac;
-// 根据 vlan_id 得出的路由器 IP
-wire [31:0] router_ip;
-// 组合逻辑给出 router_mac 和 router_ip
-address router_address (
-    .vlan_id,
-    .mac(router_mac),
-    .ip(router_ip)
-);
-
+logic tx_bad;
+always_comb case (packet_type)
+    PacketBad, PacketRIPDefault, PacketRIPRequest, PacketRIPResponse: tx_bad = 1;
+    default: tx_bad = 0;
+endcase
 tx_manager tx_manager_inst (
     .clk_125M,
     .rst_n,
     .input_dst_mac(tx_dst_mac),
     .input_vlan_id(tx_vlan_id),
-    .input_is_ip(is_ip),
+    .input_is_ip(packet_type == PacketIP),
     .input_ip_checksum_overflow(ip_checksum_overflow),
-    .input_bad(bad),
+    .input_bad(tx_bad),
     .start(tx_start),
     .fifo_data(fifo_dout),
     .fifo_empty,
@@ -125,9 +168,12 @@ tx_manager tx_manager_inst (
 );
 
 // 需要处理的数据
-reg  [31:0] ip_input;
-wire [47:0] mac_result;
-wire [2:0]  vlan_result;
+ip_t  ip_input;
+logic [5:0] mask_input;
+logic [4:0] metric_input;
+ip_t  nexthop_input;
+mac_t mac_result;
+logic [2:0]  vlan_result;
 
 // 处理信号
 reg  process_reset;
@@ -140,16 +186,17 @@ wire process_bad;
 
 packet_processor packet_processor_inst (
     .clk(clk_125M),
-    .clk_62M5,
     .rst_n,
+    .debug,
     .reset(process_reset),
     .add_arp,
     .add_routing,
     .process_arp,
     .process_ip,
     .ip_input,
-    //.mask_input(),
-    //.nexthop_input,
+    .metric_input,
+    .mask_input,
+    .nexthop_input,
     .mac_input(src_mac),
     .vlan_input(vlan_id),
     .done(process_done),
@@ -164,7 +211,15 @@ input wire [7:0] expected;
 begin
     if (rx_data != expected) begin
         $display("Assertion fails at rx_data == %02x (expected %02x)", rx_data, expected);
-        bad <= 1;
+        packet_type <= PacketBad;
+    end
+end endtask
+task assert_rx_ignore;
+input wire [7:0] expected;
+begin
+    if (rx_data != expected) begin
+        $display("Assertion fails at rx_data == %02x (expected %02x)", rx_data, expected);
+        packet_type <= PacketBad;
     end
 end endtask
 
@@ -185,202 +240,332 @@ begin
     fifo_wr_en <= 1;
 end endtask
 
+function logic[3:0] count_left_ones;
+input wire [7:0] data;
+begin 
+    casez (data)
+        8'b0???????: count_left_ones = 0;
+        8'b10??????: count_left_ones = 1;
+        8'b110?????: count_left_ones = 2;
+        8'b1110????: count_left_ones = 3;
+        8'b11110???: count_left_ones = 4;
+        8'b111110??: count_left_ones = 5;
+        8'b1111110?: count_left_ones = 6;
+        8'b11111110: count_left_ones = 7;
+        8'b11111111: count_left_ones = 8;
+    endcase
+end endfunction
+
 always_ff @(posedge clk_125M) begin
+    // 默认值
+    process_reset <= 0;
+    add_arp <= 0;
+    add_routing <= 0;
+    process_arp <= 0;
+    process_ip <= 0;
+
+    tx_start <= 0;
+    tx_dst_mac <= '0;
+    tx_vlan_id <= '0;
+
+    fifo_din <= 'x;
+    fifo_wr_en <= 0;
+
+    rip_sending <= 0;
+    rip_send_pending <= '0;
+
+    ip_packet_process_status <= IPPacketDone;
+    rip_response_process_status <= RIPResponseDone;
+
     if (!rst_n) begin
         // 复位
-        process_reset <= 0;
-        add_arp <= 0;
-        add_routing <= 0;
-        process_arp <= 0;
-        process_ip <= 0;
-
         read_cnt <= 0;
-        tx_start <= 0;
     end else begin
         // 处理 rx 输入
         if (rx_valid) begin
-            // 对于 IP 和 ARP 都需要寄存的地方
-            case (read_cnt)
-                0 : begin
-                    dst_mac[40 +: 8] <= rx_data;
-                    bad <= 0;
-                    is_ip <= 0;
+            // 前 18 个字节进行存储，并用来确定包的类型
+            if (read_cnt < 18) begin
+                case (read_cnt)
+                    0 : dst_mac[40 +: 8] <= rx_data;
+                    1 : dst_mac[32 +: 8] <= rx_data;
+                    2 : dst_mac[24 +: 8] <= rx_data;
+                    3 : dst_mac[16 +: 8] <= rx_data;
+                    4 : dst_mac[ 8 +: 8] <= rx_data;
+                    5 : dst_mac[ 0 +: 8] <= rx_data;
+                    6 : src_mac[40 +: 8] <= rx_data;
+                    7 : src_mac[32 +: 8] <= rx_data;
+                    8 : src_mac[24 +: 8] <= rx_data;
+                    9 : src_mac[16 +: 8] <= rx_data;
+                    10: src_mac[ 8 +: 8] <= rx_data;
+                    11: src_mac[ 0 +: 8] <= rx_data;
+                    15: vlan_id <= rx_data[2:0];
+                    // 0x0806 ARP or 0x0800 IPv4
+                    16: packet_type <= rx_data == 8'h08 ? PacketIP : PacketBad;
+                    17: begin
+                        if (packet_type == PacketIP) case (rx_data) 
+                            // IPv4 标签，可能是 RIP
+                            8'h00: packet_type <= dst_mac == Address::McastMAC ? PacketRIPDefault : PacketIP;
+                            // ARP 标签
+                            8'h06: packet_type <= dst_mac == '1 ? PacketARPRequest : PacketARPResponse;
+                            default: packet_type <= PacketBad;
+                        endcase
+                    end
+                endcase
+                // 12-18 字节传入 fifo
+                if (read_cnt >= 12) begin
+                    fifo_din <= {rx_last, rx_data};
+                    fifo_wr_en <= 1;
                 end
-                1 : dst_mac[32 +: 8] <= rx_data;
-                2 : dst_mac[24 +: 8] <= rx_data;
-                3 : dst_mac[16 +: 8] <= rx_data;
-                4 : dst_mac[ 8 +: 8] <= rx_data;
-                5 : dst_mac[ 0 +: 8] <= rx_data;
-                6 : src_mac[40 +: 8] <= rx_data;
-                7 : src_mac[32 +: 8] <= rx_data;
-                8 : src_mac[24 +: 8] <= rx_data;
-                9 : src_mac[16 +: 8] <= rx_data;
-                10: src_mac[ 8 +: 8] <= rx_data;
-                11: src_mac[ 0 +: 8] <= rx_data;
-                // 0x8100: protocol VLAN
-                12: assert_rx(8'h81);
-                13: assert_rx(8'h00);
-                15: vlan_id <= rx_data[2:0];
-                // 0x0806 ARP or 0x0800 IPv4
-                16: assert_rx(8'h08);
-                17: begin
-                    case (rx_data) 
-                        8'h00: is_ip <= 1;
-                        8'h06: is_ip <= 0;
-                        default: bad <= 1;
-                    endcase
-                end
-            endcase
-            // 单独处理 IP 和 ARP 包的 fifo 操作
-            casez ({bad, is_ip})
-                // ARP 包
-                2'b00: begin
-                    // ARP 包中，12 字节后，除目标 MAC IP 以外都入 fifo
-                    if (read_cnt >= 12 && (read_cnt < 36 || read_cnt >= 46)) begin
-                        // 将 ARP Request 改为 ARP Reply
-                        if (read_cnt == 25) begin
-                            fifo_din <= {rx_last, 8'h02};
+            end else begin
+            // 对于 18 字节之后，有各种处理流程
+                // 处理 fifo 操作
+                case (packet_type)
+                    // ARP 请求，18 字节后，除目标 MAC IP 以外都入 fifo
+                    PacketARPRequest: begin
+                        if (read_cnt < 36 || read_cnt >= 46) begin
+                            // 将 ARP Request 改为 ARP Reply
+                            if (read_cnt == 25) begin
+                                fifo_din <= {rx_last, 8'h02};
+                            end else begin
+                                fifo_din <= {rx_last, rx_data};
+                            end
+                            fifo_wr_en <= 1;
                         end else begin
-                            fifo_din <= {rx_last, rx_data};
+                            fifo_din <= 'x;
+                            fifo_wr_en <= 0;
                         end
-                        fifo_wr_en <= 1;
-                    end else begin
+                    end
+                    // ARP 回复，什么都不发
+                    PacketARPResponse: begin
                         fifo_din <= 'x;
                         fifo_wr_en <= 0;
                     end
-                end
-                // IP 包
-                2'b01: begin
-                    case (read_cnt)
-                        // TTL
-                        26: begin
-                            fifo_din[8] <= rx_last;
-                            fifo_din[7:0] <= rx_data - 1;
-                            fifo_wr_en <= 1;
-                        end
-                        // checksum 高 8 位
-                        28: begin
-                            fifo_din[8] <= rx_last;
-                            fifo_din[7:0] <= rx_data + 1;
-                            fifo_wr_en <= 1;
-                        end
-                        // 其他情况，12 字节后全部进 fifo，其中 TTL 和 checksum 需要处理
-                        default: begin
-                            if (read_cnt >= 12) begin
+                    // IP 包
+                    PacketIP: begin
+                        case (read_cnt)
+                            // TTL
+                            26: begin
+                                fifo_din[8] <= rx_last;
+                                fifo_din[7:0] <= rx_data - 1;
+                                fifo_wr_en <= 1;
+                            end
+                            // checksum 高 8 位
+                            28: begin
+                                fifo_din[8] <= rx_last;
+                                fifo_din[7:0] <= rx_data + 1;
+                                fifo_wr_en <= 1;
+                            end
+                            // 其他情况，18 字节后全部进 fifo，其中 TTL 和 checksum 需要处理
+                            default: begin
                                 fifo_din <= {rx_last, rx_data};
                                 fifo_wr_en <= 1;
+                            end
+                        endcase
+                    end
+                    // Bad, RIP 包，不直接回复，不用 fifo
+                    PacketRIPDefault, PacketRIPRequest, PacketRIPResponse, PacketBad: begin
+                        // last 时 flush fifo
+                        fifo_din[8] <= rx_last;
+                        fifo_wr_en <= rx_last;
+                    end
+                endcase
+                // 其他的处理流程
+                case (packet_type)
+                    PacketARPRequest: begin
+                        // 46 字节后开始发送
+                        tx_dst_mac <= src_mac;
+                        tx_vlan_id <= vlan_id;
+                        tx_start <= read_cnt == 46;
+                        // 过程中检验
+                        case (read_cnt)
+                            18: assert_rx(8'h00);
+                            19: assert_rx(8'h01);
+                            20: assert_rx(8'h08);
+                            21: assert_rx(8'h00);
+                            22: assert_rx(8'h06);
+                            23: assert_rx(8'h04);
+                            24: assert_rx(8'h00);
+                            25: assert_rx(8'h01);
+                            // 记录来源 IP，准备添加 ARP 条目
+                            32: ip_input[24 +: 8] <= rx_data;
+                            33: ip_input[16 +: 8] <= rx_data;
+                            34: ip_input[ 8 +: 8] <= rx_data;
+                            35: ip_input[ 0 +: 8] <= rx_data;
+                            // 检查目标 IP 是否为路由器自己 IP
+                            42: assert_rx(router_ip[24 +: 8]);
+                            43: assert_rx(router_ip[16 +: 8]);
+                            44: assert_rx(router_ip[ 8 +: 8]);
+                            45: assert_rx(router_ip[ 0 +: 8]);
+                        endcase
+                        // 需要在 ARP 表中记录一下包的来源
+                        add_arp <= read_cnt == 36;
+                    end
+                    PacketARPResponse: begin
+                        // 过程中检验
+                        case (read_cnt)
+                            18: assert_rx_ignore(8'h00);
+                            19: assert_rx_ignore(8'h01);
+                            20: assert_rx_ignore(8'h08);
+                            21: assert_rx_ignore(8'h00);
+                            22: assert_rx_ignore(8'h06);
+                            23: assert_rx_ignore(8'h04);
+                            24: assert_rx_ignore(8'h00);
+                            25: assert_rx_ignore(8'h01);
+                            // 记录来源 IP，准备添加 ARP 条目
+                            32: ip_input[24 +: 8] <= rx_data;
+                            33: ip_input[16 +: 8] <= rx_data;
+                            34: ip_input[ 8 +: 8] <= rx_data;
+                            35: ip_input[ 0 +: 8] <= rx_data;
+                            // 检查目标 IP 是否为路由器自己 IP
+                            42: assert_rx_ignore(router_ip[24 +: 8]);
+                            43: assert_rx_ignore(router_ip[16 +: 8]);
+                            44: assert_rx_ignore(router_ip[ 8 +: 8]);
+                            45: assert_rx_ignore(router_ip[ 0 +: 8]);
+                        endcase
+                        // 需要在 ARP 表中记录一下包的来源
+                        add_arp <= read_cnt == 36;
+                    end
+                    // IP
+                    PacketIP: begin
+                        tx_dst_mac <= mac_result;
+                        tx_vlan_id <= vlan_result;
+                        case (read_cnt)
+                            // TTL > 0
+                            26: begin
+                                if (rx_data == '0)
+                                    packet_type <= PacketBad;
+                            end
+                            // checksum_overflow <= checksum >= 0xfeff
+                            28: begin
+                                ip_checksum_fe <= rx_data == 8'hfe;
+                                ip_checksum_overflow <= rx_data == '1;
+                            end
+                            29: begin
+                                if (ip_checksum_fe && rx_data == '1)
+                                    ip_checksum_overflow <= 1;
+                            end
+                            // 记录目标 IP，准备查表
+                            34: ip_input[24 +: 8] <= rx_data;
+                            35: ip_input[16 +: 8] <= rx_data;
+                            36: ip_input[ 8 +: 8] <= rx_data;
+                            37: ip_input[ 0 +: 8] <= rx_data;
+                        endcase
+                        // 发送取决于 packet_processor 返回结果
+                        if (read_cnt > 38 && process_done) begin
+                            ip_packet_process_status <= IPPacketDone;
+                            if (process_bad) begin
+                                // flush tx
+                                tx_start <= read_cnt >= 46;
+                                packet_type <= PacketBad;
+                                process_reset <= 0;
                             end else begin
-                                fifo_din <= 'x;
-                                fifo_wr_en <= 0;
+                                // tx_start 置一拍后，packet_processor 重置，process_done = 0
+                                tx_start <= 1;
+                                process_reset <= 1;
                             end
-                        end
-                    endcase
-                end
-                // 异常情况
-                2'b1?: begin
-                    if (rx_last) begin
-                        fifo_din <= 9'b1_xxxx_xxxx;
-                        fifo_wr_en <= 1;
-                    end else begin
-                        fifo_din <= 'x;
-                        fifo_wr_en <= 0;
-                    end
-                end
-            endcase
-            // 其他 IP ARP 特定的处理流程
-            casez ({bad, is_ip})
-                // ARP
-                2'b00: begin
-                    // 46 字节后开始发送
-                    tx_dst_mac <= src_mac;
-                    tx_vlan_id <= vlan_id;
-                    tx_start <= read_cnt == 46;
-                    // 过程中检验
-                    case (read_cnt)
-                        // 检验目标 MAC 为广播
-                        18: begin
-                            if (dst_mac != '1 || rx_data != 8'h00) begin
-                                bad <= 1;
-                            end
-                        end
-                        // 检验其他 ARP 东西
-                        19: assert_rx(8'h01);
-                        20: assert_rx(8'h08);
-                        21: assert_rx(8'h00);
-                        22: assert_rx(8'h06);
-                        23: assert_rx(8'h04);
-                        24: assert_rx(8'h00);
-                        25: assert_rx(8'h01);
-                        // 记录来源 IP，准备添加 ARP 条目
-                        32: ip_input[24 +: 8] <= rx_data;
-                        33: ip_input[16 +: 8] <= rx_data;
-                        34: ip_input[ 8 +: 8] <= rx_data;
-                        35: ip_input[ 0 +: 8] <= rx_data;
-                        // 检查目标 IP 是否为路由器自己 IP
-                        42: assert_rx(router_ip[24 +: 8]);
-                        43: assert_rx(router_ip[16 +: 8]);
-                        44: assert_rx(router_ip[ 8 +: 8]);
-                        45: assert_rx(router_ip[ 0 +: 8]);
-                    endcase
-                    // 需要在 ARP 表中记录一下包的来源
-                    add_arp <= read_cnt == 36;
-                    add_routing <= 0;
-                    process_arp <= 0;
-                    process_ip <= 0;
-                    process_reset <= 0;
-                end
-                // IP
-                2'b01: begin
-                    tx_dst_mac <= mac_result;
-                    tx_vlan_id <= vlan_result;
-                    case (read_cnt)
-                        // TTL > 0
-                        26: begin
-                            if (rx_data == '0)
-                                bad <= 1;
-                        end
-                        // checksum_overflow <= checksum >= 0xfeff
-                        28: begin
-                            ip_checksum_fe <= rx_data == 8'hfe;
-                            ip_checksum_overflow <= rx_data == '1;
-                        end
-                        29: begin
-                            if (ip_checksum_fe && rx_data == '1)
-                                ip_checksum_overflow <= 1;
-                        end
-                        // 记录目标 IP，准备查表
-                        34: ip_input[24 +: 8] <= rx_data;
-                        35: ip_input[16 +: 8] <= rx_data;
-                        36: ip_input[ 8 +: 8] <= rx_data;
-                        37: ip_input[ 0 +: 8] <= rx_data;
-                    endcase
-                    // 发送取决于 packet_processor 返回结果
-                    if (read_cnt > 38 && process_done) begin
-                        if (process_bad) begin
-                            bad <= 1;
-                            tx_start <= read_cnt >= 46;
-                            process_reset <= 0;
                         end else begin
-                            // tx_start 置一拍后，packet_processor 重置，process_done = 0
-                            tx_start <= 1;
-                            process_reset <= 1;
+                            tx_start <= 0;
+                            process_reset <= 0;
                         end
-                    end else begin
-                        tx_start <= 0;
-                        process_reset <= 0;
+                        // 调用 packet_processor
+                        process_ip <= read_cnt == 38;
+                        // 38 时置 PROCESSING
+                        if (read_cnt == 38) begin
+                            ip_packet_process_status <= IPPacketProcessing;
+                        end
+                        // 58 还未处理完则置 STILL_PROCESSING，暂停 rx
+                        if (read_cnt == 58 && !process_done && ip_packet_process_status == IPPacketProcessing) begin
+                            ip_packet_process_status <= IPPacketStillProcessing;
+                        end
                     end
-                    // 调用 packet_processor
-                    add_arp <= 0;
-                    add_routing <= 0;
-                    process_arp <= 0;
-                    process_ip <= read_cnt == 38;
-                end
-                // Bad
-                2'b1?: begin
-                    // 这里用 46 因为 bad 最晚在 45 被设置
-                    tx_start <= read_cnt == 46;
-                end
-            endcase
+                    // 在第 47 字节确定是 RIP Request 还是 Response
+                    PacketRIPDefault: begin
+                        rip_read_cycle <= 0;
+                        case (read_cnt)
+                            // UDP
+                            27: assert_rx_ignore(8'h11);
+                            // 记录源 IP 作为可能添加的条目的下一条
+                            30: nexthop_input[24 +: 8] <= rx_data;
+                            31: nexthop_input[16 +: 8] <= rx_data;
+                            32: nexthop_input[ 8 +: 8] <= rx_data;
+                            33: nexthop_input[ 0 +: 8] <= rx_data;
+                            // 检查目标 IP
+                            34: assert_rx_ignore(Address::McastIP[24 +: 8]);
+                            35: assert_rx_ignore(Address::McastIP[16 +: 8]);
+                            36: assert_rx_ignore(Address::McastIP[ 8 +: 8]);
+                            37: assert_rx_ignore(Address::McastIP[ 0 +: 8]);
+                            // 检查 UDP 头
+                            38: assert_rx_ignore(8'h02);
+                            39: assert_rx_ignore(8'h08);
+                            40: assert_rx_ignore(8'h02);
+                            41: assert_rx_ignore(8'h08);
+                            // RIP Command
+                            46: begin
+                                case (rx_data)
+                                    1: packet_type <= PacketRIPRequest;
+                                    2: packet_type <= PacketRIPResponse;
+                                    default: packet_type <= PacketBad;
+                                endcase
+                                // 丢掉 fifo 中的数据
+                                tx_start <= 1;
+                            end
+                        endcase
+                    end
+                    PacketRIPResponse: begin
+                        case (read_cnt)
+                            // RIPv2
+                            47: assert_rx_ignore(8'h02);
+                            48: assert_rx_ignore(8'h00);
+                            49: assert_rx_ignore(8'h00);
+                            default: begin
+                                case (rip_read_cycle)
+                                    // 检验标签：family=2, route=0
+                                    0 : rip_entry_valid <= (rx_data == 8'h00);
+                                    1 : rip_entry_valid <= rip_entry_valid && (rx_data == 8'h02);
+                                    2 : rip_entry_valid <= rip_entry_valid && (rx_data == 8'h00);
+                                    3 : rip_entry_valid <= rip_entry_valid && (rx_data == 8'h00);
+                                    // 记录 prefix 地址
+                                    4 : ip_input[24 +: 8] <= rx_data;
+                                    5 : ip_input[16 +: 8] <= rx_data;
+                                    6 : ip_input[ 8 +: 8] <= rx_data;
+                                    7 : ip_input[ 0 +: 8] <= rx_data;
+                                    // 记录 mask
+                                    8 : mask_input <= count_left_ones(rx_data);
+                                    9 : mask_input <= mask_input == 8 ? (mask_input + count_left_ones(rx_data)) : mask_input;
+                                    10: mask_input <= mask_input == 16 ? (mask_input + count_left_ones(rx_data)) : mask_input;
+                                    11: mask_input <= mask_input == 24 ? (mask_input + count_left_ones(rx_data)) : mask_input;
+                                    // todo 检验 nexthop 不能是本机
+                                    // 12: nexthop_input[24 +: 8] <= rx_data;
+                                    // 13: nexthop_input[16 +: 8] <= rx_data;
+                                    // 14: nexthop_input[ 8 +: 8] <= rx_data;
+                                    // 15: nexthop_input[ 0 +: 8] <= rx_data;
+                                    // 记录 metric，metric_input[4] 为 metric >= 16
+                                    16: metric_input[4] <= (rx_data != 0);
+                                    17: metric_input[4] <= (metric_input[4] || rx_data != 0);
+                                    18: metric_input[4] <= (metric_input[4] || rx_data != 0);
+                                    19: metric_input <= {(metric_input[4] || rx_data[7:4] != 0), rx_data[3:0]};
+                                endcase
+                                if (rip_read_cycle == 19) begin
+                                    rip_read_cycle <= 0;
+                                    add_routing <= rip_entry_valid;
+                                end else begin
+                                    rip_read_cycle <= rip_read_cycle + 1;
+                                end
+                            end
+                        endcase
+                    end
+                    // todo 回复 RIP 请求
+                    PacketRIPRequest: begin
+                        packet_type <= PacketBad;
+                    end
+                    // Bad
+                    PacketBad: begin
+                        // 这里用 46 因为 bad 最晚在 45 被设置
+                        tx_start <= read_cnt == 46;
+                    end
+                endcase
+            end
+            
 
             if (rx_last) begin
                 read_cnt <= 0;
@@ -411,8 +596,21 @@ digit_loop debug_send (
 // 丢包显示在低位数码管
 digit_loop debug_discard (
     .rst_n(rst_n),
-    .clk(bad),
+    .clk(packet_type == PacketBad),
     .digit_out(digit0_out)
 );
+
+always_comb begin
+    // led_out[0] = packet_type == PacketBad;
+    // led_out[1] = packet_type == PacketIP;
+    // led_out[2] = packet_type == PacketARPRequest;
+    // led_out[3] = packet_type == PacketARPResponse;
+    // led_out[4] = packet_type == PacketRIPDefault;
+    // led_out[5] = packet_type == PacketRIPRequest;
+    // led_out[6] = packet_type == PacketRIPResponse;
+    // led_out[15] = rx_ready;
+    // led_out[14] = ip_packet_process_status == IPPacketProcessing;
+    // led_out[14] = ip_packet_process_status == IPPacketStillProcessing;
+end
 
 endmodule

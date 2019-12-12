@@ -90,11 +90,11 @@ module thinpad_top(
 
 // PLL分频
 
-logic locked, clk_62M5, clk_125M, clk_200M;
+logic locked, clk_100M, clk_125M, clk_200M;
 pll clock_gen 
 (
     // Clock out ports
-    .clk_62M5,
+    .clk_100M,
     .clk_125M,
     .clk_200M,
     .reset(reset_btn),                // PLL 复位输入，这里是用户按键
@@ -138,7 +138,7 @@ eth_conf conf(
  *********************/
 
 rgmii_manager rgmii_manager_inst (
-    .clk_62M5,
+    .clk_100M,
     .clk_125M,
     .clk_200M,
     .rst_n(locked),

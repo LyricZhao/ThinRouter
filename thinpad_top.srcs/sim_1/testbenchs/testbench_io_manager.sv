@@ -11,6 +11,7 @@ logic [7:0] tx_data;
 logic tx_valid;
 logic tx_last;
 wire tx_ready = 1;
+logic [15:0] debug;
 
 localparam WAIT = 9;
 localparam READ_LABEL = 10;
@@ -43,6 +44,7 @@ always_ff @ (negedge clk_125M) begin
     end
 end
 
+string info_line = "";
 string packet_info = "";
 string rx_packet = "";
 always_ff @ (negedge clk_125M) begin
@@ -54,8 +56,8 @@ always_ff @ (negedge clk_125M) begin
                 $fscanf(fd, "%s", buffer);
                 case (buffer)
                     "info:": begin
-                        packet_info = "";
-                        $fgets(packet_info, fd);
+                        $fgets(info_line, fd);
+                        $sformat(packet_info, "%s%s", packet_info, info_line);
                     end
                     "eth_frame:": begin
                         state = state + 1;
@@ -75,6 +77,7 @@ always_ff @ (negedge clk_125M) begin
                 $display("%0t", $realtime);
                 $write("Info:\t%s", packet_info);
                 $display("Router IN:\t%s\n", rx_packet);
+                packet_info = "";
                 // $display("");
             end else begin
                 rx_valid = 1;
