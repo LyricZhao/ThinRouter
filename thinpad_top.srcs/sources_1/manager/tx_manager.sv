@@ -48,64 +48,62 @@ ARP 包
 `timescale 1ns / 1ps
 
 `include "debug.vh"
+`include "types.vh"
 
 module tx_manager (
-    input   wire    clk_125M,
-    input   wire    rst_n,
+    input   logic   clk_125M,
+    input   logic   rst_n,
 
-    input   wire    [47:0]  input_dst_mac,
-    input   wire    [2:0]   input_vlan_id,
+    input   logic   [47:0]  input_dst_mac,
+    input   logic   [2:0]   input_vlan_id,
     // 是 IP 包 / ARP 包
-    input   wire    input_is_ip,
+    input   logic   input_is_ip,
     // 如果 ip checksum 的低 8 位是 ff，则还需要再处理（不然就由 io_manager 流上处理了）
-    input   wire    input_ip_checksum_overflow,
+    input   logic   input_ip_checksum_overflow,
     // 如果出现问题，需要直接丢掉 fifo 中数据，直到 fifo 传来 last
-    input   wire    input_bad,
+    input   logic   input_bad,
 
     // 告知 tx 开始发送
-    input   wire    start,
+    input   logic   start,
 
     // fifo 中最高位表示 last，低 8 为数据
-    input   wire    [8:0]   fifo_data,
-    input   wire    fifo_empty,
-    output  reg     fifo_rd_en,
+    input   logic   [8:0]   fifo_data,
+    input   logic   fifo_empty,
+    output  logic   fifo_rd_en,
 
     // todo
-    input   wire    abort,
+    input   logic   abort,
 
-    output  reg     [7:0] tx_data,
-    output  reg     tx_valid,
-    output  reg     tx_last,
+    output  logic   [7:0] tx_data,
+    output  logic   tx_valid,
+    output  logic   tx_last,
     // todo
-    input  wire     tx_ready
+    input   logic    tx_ready
 );
 
 // 接到处理指示后，记录各种信息
-reg [47:0] dst_mac;
-reg [47:0] src_mac;
-reg [31:0] src_ip;
-reg [2:0]  vlan_id;
-reg is_ip;
-reg ip_checksum_overflow;
-reg bad;
+mac_t dst_mac;
+mac_t src_mac;
+ip_t  src_ip;
+logic [2:0]  vlan_id;
+logic is_ip;
+logic ip_checksum_overflow;
+logic bad;
 
 // 在处理过程中又接到处理指示，也记录下来
-reg [47:0] pending_dst_mac;
-reg [2:0]  pending_vlan_id;
-reg pending_is_ip;
-reg pending_ip_checksum_overflow;
-reg pending_bad;
+mac_t pending_dst_mac;
+logic [2:0]  pending_vlan_id;
+logic pending_is_ip;
+logic pending_ip_checksum_overflow;
+logic pending_bad;
 
-reg working;
-reg has_job_pending;
-reg [5:0]  send_cnt;
+logic working;
+logic has_job_pending;
+logic [5:0] send_cnt;
 
 // 给定 vlan_id，组合逻辑获取路由器对应接口的 MAC 和 IP
-address router_address (
-    .vlan_id,
-    .mac(src_mac),
-    .ip(src_ip)
-);
+always_comb src_mac = Address::mac(vlan_id);
+always_comb src_ip = Address::ip(vlan_id);
 
 task no_tx;
 begin
@@ -135,21 +133,22 @@ end
 endtask
 
 always_ff @(negedge clk_125M) begin
+    // 默认：不发送数据
+    tx_data <= 'x;
+    tx_valid <= 0;
+    tx_last <= 0;
+    fifo_rd_en <= 0;
+
     if (!rst_n) begin
         working <= 0;
         has_job_pending <= 0;
-        no_tx();
     end else begin
         if (working) begin
             if (fifo_empty) begin
                 // 先简单处理，遇到 fifo 空了就暂停处理
-                no_tx();
             end else begin
                 if (bad) begin
                     // 丢弃 fifo
-                    tx_data <= 'x;
-                    tx_valid <= 0;
-                    tx_last <= 0;
                     fifo_rd_en <= 1;
                 end else if (is_ip) begin
                     // IP 包
@@ -275,7 +274,6 @@ always_ff @(negedge clk_125M) begin
             end else begin  
                 working <= 0;
             end
-            no_tx();
         end
     end
 end

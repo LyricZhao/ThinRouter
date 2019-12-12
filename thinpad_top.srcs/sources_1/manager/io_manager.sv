@@ -11,7 +11,7 @@
 module io_manager (
     // 由父模块提供各种时钟
     input   wire    clk_125M,
-    input   wire    clk_62M5,
+    input   wire    clk_200M,
     input   wire    rst_n,
 
     // top 硬件
@@ -542,7 +542,7 @@ always_ff @(posedge clk_125M) begin
                                     // 记录 metric，metric_input[4] 为 metric >= 16
                                     16: metric_input[4] <= (rx_data != 0);
                                     17: metric_input[4] <= (metric_input[4] || rx_data != 0);
-                                    17: metric_input[4] <= (metric_input[4] || rx_data != 0);
+                                    18: metric_input[4] <= (metric_input[4] || rx_data != 0);
                                     19: metric_input <= {(metric_input[4] || rx_data[7:4] != 0), rx_data[3:0]};
                                 endcase
                                 if (rip_read_cycle == 19) begin

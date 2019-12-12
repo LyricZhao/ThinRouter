@@ -6,7 +6,7 @@
 `timescale 1ns / 1ps
 
 module rgmii_manager(
-    input   wire    clk_62M5,
+    input   wire    clk_100M,
     input   wire    clk_125M,           // RGMII 和 FIFO 的 125M 时钟
     input   wire    clk_200M,           // 给 IDELAYCTRL (这个模块在eth_mac里面) 用的 200M 时钟
     input   wire    rst_n,              // PLL分频稳定后为1，后级电路复位，也加入了用户的按键
@@ -44,8 +44,8 @@ wire axis_tx_last;
 wire axis_tx_ready;
 
 io_manager io_manager_inst (
-    .clk_62M5,
     .clk_125M,
+    .clk_200M,
 
     .rst_n,
     .clk_btn,
