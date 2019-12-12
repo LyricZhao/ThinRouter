@@ -1,4 +1,3 @@
-`include "address.vh"
 `include "debug.vh"
 `include "types.vh"
 
@@ -65,18 +64,6 @@ enum reg [2:0] {
     ProcessArp,         // 查询 ARP 表
     ProcessRouting      // 查询路由表
 } state;
-
-// 组合逻辑分析 ip_input 是否属于 1~4 子网，0 则不属于
-logic [2:0] subnet;
-always_comb begin
-    case (ip_input[8 +: 24])
-        `SUBNET_1: subnet = 1;
-        `SUBNET_2: subnet = 2;
-        `SUBNET_3: subnet = 3;
-        `SUBNET_4: subnet = 4;
-        default:   subnet = 0;
-    endcase
-end
 
 // 路由表
 reg  ip_lookup;
@@ -199,7 +186,7 @@ always_ff @ (negedge clk) begin
                         // 开始处理 IP 包
                         done <= 0;
                         bad <= 0;
-                        if (subnet == 0) begin
+                        if (Address::port(ip_input) == 0) begin
                             // 不是直连，需要查路由表
                             arp_add_entry <= 0;
                             arp_query <= 0;

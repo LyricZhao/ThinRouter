@@ -6,8 +6,6 @@
 `timescale 1ns / 1ps
 
 `include "debug.vh"
-`include "packet.vh"
-`include "address.vh"
 `include "types.vh"
 
 module io_manager (
@@ -75,14 +73,17 @@ xpm_fifo_sync #(
 
 
 // 已经读了多少字节
-reg  [5:0]  read_cnt;
+logic [5:0] read_cnt;
 
 // 包的信息
-reg  [47:0] dst_mac;
-reg  [47:0] src_mac;
-reg  [2:0]  vlan_id;
-reg  ip_checksum_overflow;  // checksum >= 0xfeff，则输出 checksum 高 8 位为 0，低 8 位 +1
-reg  ip_checksum_fe;     // checksum == 0xfe??
+mac_t dst_mac;
+mac_t src_mac;
+logic [2:0] vlan_id;
+logic ip_checksum_overflow; // checksum >= 0xfeff，则输出 checksum 高 8 位为 0，低 8 位 +1
+logic ip_checksum_fe;       // checksum == 0xfe??
+// 根据 vlan_id 得出的路由器 IP
+ip_t  router_ip;
+always_comb router_ip = Address::ip(vlan_id);
 // 遇到无法处理的包则 bad 置 1
 // 此后不再读内容，rx_last 时向 fifo 扔一个带 last 标志的字节，然后让 tx 清 fifo
 enum logic [2:0] {
@@ -97,25 +98,25 @@ enum logic [2:0] {
 } packet_type;
 
 // 让 tx_manager 开始发送当前包的信号
-reg  tx_start;
+logic tx_start;
 
 ////// 如果包的处理流程太慢，或者执行 RIP 流程，会暂停 rx_ready
 // 正在处理 IP 包
 enum logic [1:0] {
     // 开始处理时
-    IP_PACKET_PROCESSING,
+    IPPacketProcessing,
     // read_cnt=58 而还没有处理完
-    IP_PACKET_STILL_PROCESSING,
+    IPPacketStillProcessing,
     // 处理完或不是 IP 包
-    IP_PACKET_DONE
+    IPPacketDone
 } ip_packet_process_status;
 
 // 正在处理接收到的 RIP 数据
 enum logic {
     // 开始处理时
-    RIP_RESPONSE_PROCESSING,
+    RIPResponseProcessing,
     // 处理完成或者未在处理
-    RIP_RESPONSE_DONE
+    RIPResponseDone
 } rip_response_process_status;
 
 // 是否需要发送 RIP Response
@@ -126,28 +127,21 @@ logic [1:0] rip_send_pending;
 logic rip_sending;
 
 assign rx_ready = 
-    (ip_packet_process_status != IP_PACKET_STILL_PROCESSING) &&
-    (rip_response_process_status == RIP_RESPONSE_DONE) &&
+    (ip_packet_process_status != IPPacketStillProcessing) &&
+    (rip_response_process_status == RIPResponseDone) &&
     !rip_sending;
 
 ////// RIP 处理
 // 20 字节循环
 logic [4:0] rip_read_cycle;
+// 一个 RIP 条目是否正确（可能是 nexthop 为本路由器，或者格式错误）
+logic rip_entry_valid;
+// RIP 包的来源 IP
+ip_t  rip_src_ip;
 
 // 提供的信息
-reg  [47:0] tx_dst_mac;
-reg  [2:0]  tx_vlan_id;
-
-// 根据 vlan_id 得出的路由器 MAC
-wire [47:0] router_mac;
-// 根据 vlan_id 得出的路由器 IP
-wire [31:0] router_ip;
-// 组合逻辑给出 router_mac 和 router_ip
-address router_address (
-    .vlan_id,
-    .mac(router_mac),
-    .ip(router_ip)
-);
+mac_t tx_dst_mac;
+logic [2:0]  tx_vlan_id;
 
 logic tx_bad;
 always_comb case (packet_type)
@@ -200,6 +194,7 @@ packet_processor packet_processor_inst (
     .process_arp,
     .process_ip,
     .ip_input,
+    .metric_input,
     .mask_input,
     .nexthop_input,
     .mac_input(src_mac),
@@ -279,8 +274,8 @@ always_ff @(posedge clk_125M) begin
     rip_sending <= 0;
     rip_send_pending <= '0;
 
-    ip_packet_process_status <= IP_PACKET_DONE;
-    rip_response_process_status <= RIP_RESPONSE_DONE;
+    ip_packet_process_status <= IPPacketDone;
+    rip_response_process_status <= RIPResponseDone;
 
     if (!rst_n) begin
         // 复位
@@ -309,7 +304,7 @@ always_ff @(posedge clk_125M) begin
                     17: begin
                         if (packet_type == PacketIP) case (rx_data) 
                             // IPv4 标签，可能是 RIP
-                            8'h00: packet_type <= dst_mac == `RIP_MAC ? PacketRIPDefault : PacketIP;
+                            8'h00: packet_type <= dst_mac == Address::McastMAC ? PacketRIPDefault : PacketIP;
                             // ARP 标签
                             8'h06: packet_type <= dst_mac == '1 ? PacketARPRequest : PacketARPResponse;
                             default: packet_type <= PacketBad;
@@ -457,7 +452,7 @@ always_ff @(posedge clk_125M) begin
                         endcase
                         // 发送取决于 packet_processor 返回结果
                         if (read_cnt > 38 && process_done) begin
-                            ip_packet_process_status <= IP_PACKET_DONE;
+                            ip_packet_process_status <= IPPacketDone;
                             if (process_bad) begin
                                 // flush tx
                                 tx_start <= read_cnt >= 46;
@@ -476,26 +471,29 @@ always_ff @(posedge clk_125M) begin
                         process_ip <= read_cnt == 38;
                         // 38 时置 PROCESSING
                         if (read_cnt == 38) begin
-                            ip_packet_process_status <= IP_PACKET_PROCESSING;
+                            ip_packet_process_status <= IPPacketProcessing;
                         end
                         // 58 还未处理完则置 STILL_PROCESSING，暂停 rx
-                        if (read_cnt == 58 && !process_done && ip_packet_process_status == IP_PACKET_PROCESSING) begin
-                            ip_packet_process_status <= IP_PACKET_STILL_PROCESSING;
+                        if (read_cnt == 58 && !process_done && ip_packet_process_status == IPPacketProcessing) begin
+                            ip_packet_process_status <= IPPacketStillProcessing;
                         end
                     end
                     // 在第 47 字节确定是 RIP Request 还是 Response
                     PacketRIPDefault: begin
+                        rip_read_cycle <= 0;
                         case (read_cnt)
-                            // todo 记录源 IP
-                            // 30: ip_input[24 +: 8] <= rx_data;
-                            // 31: ip_input[16 +: 8] <= rx_data;
-                            // 32: ip_input[ 8 +: 8] <= rx_data;
-                            // 33: ip_input[ 0 +: 8] <= rx_data;
+                            // UDP
+                            27: assert_rx_ignore(8'h11);
+                            // 记录源 IP 作为可能添加的条目的下一条
+                            30: nexthop_input[24 +: 8] <= rx_data;
+                            31: nexthop_input[16 +: 8] <= rx_data;
+                            32: nexthop_input[ 8 +: 8] <= rx_data;
+                            33: nexthop_input[ 0 +: 8] <= rx_data;
                             // 检查目标 IP
-                            34: assert_rx_ignore(8'he0);
-                            35: assert_rx_ignore(8'h00);
-                            36: assert_rx_ignore(8'h00);
-                            37: assert_rx_ignore(8'h09);
+                            34: assert_rx_ignore(Address::McastIP[24 +: 8]);
+                            35: assert_rx_ignore(Address::McastIP[16 +: 8]);
+                            36: assert_rx_ignore(Address::McastIP[ 8 +: 8]);
+                            37: assert_rx_ignore(Address::McastIP[ 0 +: 8]);
                             // 检查 UDP 头
                             38: assert_rx_ignore(8'h02);
                             39: assert_rx_ignore(8'h08);
@@ -514,31 +512,47 @@ always_ff @(posedge clk_125M) begin
                         endcase
                     end
                     PacketRIPResponse: begin
-                        if (read_cnt < 50) begin
-                            rip_read_cycle <= 0;
-                        end else begin
-                            case (rip_read_cycle)
-                                4: ip_input[24 +: 8] <= rx_data;
-                                5: ip_input[16 +: 8] <= rx_data;
-                                6: ip_input[ 8 +: 8] <= rx_data;
-                                7: ip_input[ 0 +: 8] <= rx_data;
-                                8: mask_input <= count_left_ones(rx_data);
-                                9: mask_input <= mask_input == 8 ? (mask_input + count_left_ones(rx_data)) : mask_input;
-                                10: mask_input <= mask_input == 16 ? (mask_input + count_left_ones(rx_data)) : mask_input;
-                                11: mask_input <= mask_input == 24 ? (mask_input + count_left_ones(rx_data)) : mask_input;
-                                12: nexthop_input[24 +: 8] <= rx_data;
-                                13: nexthop_input[16 +: 8] <= rx_data;
-                                14: nexthop_input[ 8 +: 8] <= rx_data;
-                                15: nexthop_input[ 0 +: 8] <= rx_data;
-                                19: metric_input <= rx_data[4:0];
-                            endcase
-                            if (rip_read_cycle == 19) begin
-                                rip_read_cycle <= 0;
-                                add_routing <= 1;
-                            end else begin
-                                rip_read_cycle <= rip_read_cycle + 1;
+                        case (read_cnt)
+                            // RIPv2
+                            47: assert_rx_ignore(8'h02);
+                            48: assert_rx_ignore(8'h00);
+                            49: assert_rx_ignore(8'h00);
+                            default: begin
+                                case (rip_read_cycle)
+                                    // 检验标签：family=2, route=0
+                                    0 : rip_entry_valid <= (rx_data == 8'h00);
+                                    1 : rip_entry_valid <= rip_entry_valid && (rx_data == 8'h02);
+                                    2 : rip_entry_valid <= rip_entry_valid && (rx_data == 8'h00);
+                                    3 : rip_entry_valid <= rip_entry_valid && (rx_data == 8'h00);
+                                    // 记录 prefix 地址
+                                    4 : ip_input[24 +: 8] <= rx_data;
+                                    5 : ip_input[16 +: 8] <= rx_data;
+                                    6 : ip_input[ 8 +: 8] <= rx_data;
+                                    7 : ip_input[ 0 +: 8] <= rx_data;
+                                    // 记录 mask
+                                    8 : mask_input <= count_left_ones(rx_data);
+                                    9 : mask_input <= mask_input == 8 ? (mask_input + count_left_ones(rx_data)) : mask_input;
+                                    10: mask_input <= mask_input == 16 ? (mask_input + count_left_ones(rx_data)) : mask_input;
+                                    11: mask_input <= mask_input == 24 ? (mask_input + count_left_ones(rx_data)) : mask_input;
+                                    // todo 检验 nexthop 不能是本机
+                                    // 12: nexthop_input[24 +: 8] <= rx_data;
+                                    // 13: nexthop_input[16 +: 8] <= rx_data;
+                                    // 14: nexthop_input[ 8 +: 8] <= rx_data;
+                                    // 15: nexthop_input[ 0 +: 8] <= rx_data;
+                                    // 记录 metric，metric_input[4] 为 metric >= 16
+                                    16: metric_input[4] <= (rx_data != 0);
+                                    17: metric_input[4] <= (metric_input[4] || rx_data != 0);
+                                    17: metric_input[4] <= (metric_input[4] || rx_data != 0);
+                                    19: metric_input <= {(metric_input[4] || rx_data[7:4] != 0), rx_data[3:0]};
+                                endcase
+                                if (rip_read_cycle == 19) begin
+                                    rip_read_cycle <= 0;
+                                    add_routing <= rip_entry_valid;
+                                end else begin
+                                    rip_read_cycle <= rip_read_cycle + 1;
+                                end
                             end
-                        end
+                        endcase
                     end
                     // todo 回复 RIP 请求
                     PacketRIPRequest: begin
@@ -595,8 +609,8 @@ always_comb begin
     // led_out[5] = packet_type == PacketRIPRequest;
     // led_out[6] = packet_type == PacketRIPResponse;
     // led_out[15] = rx_ready;
-    // led_out[14] = ip_packet_process_status == IP_PACKET_PROCESSING;
-    // led_out[14] = ip_packet_process_status == IP_PACKET_STILL_PROCESSING;
+    // led_out[14] = ip_packet_process_status == IPPacketProcessing;
+    // led_out[14] = ip_packet_process_status == IPPacketStillProcessing;
 end
 
 endmodule

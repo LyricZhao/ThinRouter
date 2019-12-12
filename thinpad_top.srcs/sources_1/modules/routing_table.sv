@@ -4,7 +4,7 @@
 
 module routing_table #(
     // 节点数量。每个节点 72 bits，每条路由项占用两个节点
-    parameter NODE_POOL_SIZE = 8192
+    parameter NODE_POOL_SIZE = 32768
 ) (
     // 125M 时钟
     input  logic clk_125M,

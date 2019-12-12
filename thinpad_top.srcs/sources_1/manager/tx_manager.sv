@@ -48,8 +48,6 @@ ARP 包
 `timescale 1ns / 1ps
 
 `include "debug.vh"
-`include "packet.vh"
-`include "address.vh"
 
 module tx_manager (
     input   wire    clk_125M,
