@@ -469,7 +469,7 @@ always_ff @ (posedge clk_125M) begin
                             $display("Current is prefix node");
                             // 对比插入的 prefix 和节点的 mask 长度
                             if (insert_shared_mask < memory_out.branch.mask) begin
-                            // 插入的更短，则需要将当前节点接到后面
+                            // 插入的更短，则需要插入一个节点来连接
                                 $display("insert shorter prefix");
                                 if (entry_to_insert.metric[4] == 1) begin
                                 // 插入的是之前不存在的条目，如果 metric=16 则直接退出
@@ -479,7 +479,7 @@ always_ff @ (posedge clk_125M) begin
                                 // 插入的 mask 更短，但是当前节点完全匹配
                                     // 当前节点直接写到下一个空位里面
                                     `Move_Node;
-                                    // 在下一拍再修改此节点，
+                                    // 在下一拍再将此节点变为一个 prefix
                                     insert_state <= InsertSituation1;
                                 end else begin
                                 // 需要当前节点分割成两部分，一部分是插入节点的 prefix，另一部分是原节点
@@ -499,7 +499,6 @@ always_ff @ (posedge clk_125M) begin
                                         work_mode <= ModeIdle;
                                     end else begin
                                         // 原节点已经被删除，直接添加新的叶子节点
-                                        memory_addr <= memory_addr;
                                         memory_write_en <= 1;
                                         memory_in <= memory_out;
                                         memory_in.branch.next0 <= nexthop_write_addr;
@@ -507,8 +506,7 @@ always_ff @ (posedge clk_125M) begin
                                     end
                                 end else begin
                                     // 替换原叶子节点
-                                    memory_addr <= memory_addr;
-                                    insert_pointer_buffer <= memory_out.branch.next0;
+                                    memory_addr <= memory_out.branch.next0;
                                     insert_state <= InsertEditNexthop;
                                 end
                             end else begin
@@ -636,13 +634,13 @@ always_ff @ (posedge clk_125M) begin
                             else $fatal(1, "%m: split error");
                         $display("split node at mask len %0d", insert_shared_mask);
                         // 当前节点根据 insert_shared_mask 进行分开
-                        if (memory_out.branch.prefix[31 - insert_shared_mask] == 0) begin
+                        if (entry_to_insert.prefix[31 - insert_shared_mask] == 1) begin
                         // 原本节点放到 next0
                             memory_in.branch <= '{
                                 is_nexthop: 1'b0,
                                 is_prefix: 1'b0,
                                 mask: insert_shared_mask,
-                                prefix: memory_out.branch.prefix,
+                                prefix: entry_to_insert.prefix,
                                 next0: branch_write_addr,
                                 next1: branch_write_addr + 1
                             };
@@ -652,7 +650,7 @@ always_ff @ (posedge clk_125M) begin
                                 is_nexthop: 1'b0,
                                 is_prefix: 1'b0,
                                 mask: insert_shared_mask,
-                                prefix: memory_out.branch.prefix,
+                                prefix: entry_to_insert.prefix,
                                 next0: branch_write_addr + 1,
                                 next1: branch_write_addr
                             };
@@ -684,7 +682,7 @@ always_ff @ (posedge clk_125M) begin
                         // 首先等待 nexthop 节点被读取
                         if (memory_out.branch.is_nexthop) begin
                             $display("read nexthop node at %x", memory_addr);
-                            if (entry_to_insert.metric[4] == 0) begin
+                            if (entry_to_insert.metric[4] == 1) begin
                                 // 删除路由
                                 $display("removing nexthop node");
                                 insert_state <= InsertRemoveLeaf;
@@ -700,7 +698,6 @@ always_ff @ (posedge clk_125M) begin
                                     update_time: second,
                                     parent: memory_out.nexthop.parent
                                 };
-                                branch_write_addr <= branch_write_addr + 1;
                                 work_mode <= ModeIdle;
                             end else begin
                                 // 更差的路由，退出
