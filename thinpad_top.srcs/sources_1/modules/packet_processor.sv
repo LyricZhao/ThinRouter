@@ -75,7 +75,7 @@ routing_table routing_table_inst (
     .rst_n,
     .second('0),
 
-    .debug,
+    // .debug,
     
     .ip_query(ip_input),
     .query_valid(ip_lookup),
