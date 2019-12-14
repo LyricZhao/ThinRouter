@@ -3,7 +3,7 @@
 */
 
 `timescale 1ns / 1ps
-`include "debug.vh"
+`include "constants.vh"
 
 module rip_packer (
     input   wire    clk_125M,
@@ -23,6 +23,8 @@ module rip_packer (
 
     output  logic    outer_fifo_empty,
     output  logic    [7:0]  outer_fifo_out,
+    
+    output  logic    [7:0]  outer_fifo_in_debug,
 
     output  logic    finished // 打包完成
 );
@@ -55,12 +57,12 @@ assign udp_len = rip_items_len + 12;
 // 给头部固定部分赋值
 // ip头部分
 assign ip_udp_header[0]  = 8'h45;
-assign ip_udp_header[1]  = 8'h00;
+assign ip_udp_header[1]  = 8'hc0; // only one choice
 assign ip_udp_header[2]  = ip_len[15:8];
 assign ip_udp_header[3]  = ip_len[7:0];
 assign ip_udp_header[4]  = 8'h00;
 assign ip_udp_header[5]  = 8'h00;
-assign ip_udp_header[6]  = 8'h00;
+assign ip_udp_header[6]  = 8'h40; // only one choice
 assign ip_udp_header[7]  = 8'h00;
 assign ip_udp_header[8]  = 8'h01; // ttl=1
 assign ip_udp_header[9]  = 8'h11; // 协议类型udp
@@ -83,6 +85,8 @@ logic [31:0] tmp_udp_checksum; // 用于计算UDP checksum的中间变量
 
 assign tmp_ip_checksum = {16'b0, ip_udp_header[0], ip_udp_header[1]}
                         + {16'b0, ip_udp_header[2], ip_udp_header[3]}
+                        + {16'b0, ip_udp_header[4], ip_udp_header[5]}
+                        + {16'b0, ip_udp_header[6], ip_udp_header[7]}
                         + {16'b0, ip_udp_header[8], ip_udp_header[9]} // 4,5,6,7项均为0，略去
                         + {16'b0, ip_udp_header[12],ip_udp_header[13]}
                         + {16'b0, ip_udp_header[14],ip_udp_header[15]}
@@ -91,6 +95,9 @@ assign tmp_ip_checksum = {16'b0, ip_udp_header[0], ip_udp_header[1]}
 
 assign tmp_udp_checksum = {32'h00000208} + {32'h00000208}
                         + {16'b0, ip_udp_header[24], ip_udp_header[25]}
+                        + {16'b0, src_ip[31:16]} + {16'b0, src_ip[15:0]} // udp伪首部
+                        + {16'b0, dst_ip[31:16]} + {16'b0, dst_ip[15:0]}
+                        + {16'b0, 16'h0011} + {16'b0, udp_len[15:0]}
                         + {32'h00000202}; // !此处将rip包头也考虑了
 
 always_comb begin // 把mask转为32位
@@ -172,6 +179,8 @@ logic _outer_fifo_full;
 logic [7:0] outer_fifo_in;
 logic outer_fifo_write_valid;
 
+assign outer_fifo_in_debug = outer_fifo_in;
+
 xpm_fifo_sync #(
     .FIFO_MEMORY_TYPE("distributed"),
     .FIFO_READ_LATENCY(0),
@@ -217,16 +226,16 @@ always_ff @ (posedge clk) begin
                     inner_fifo_in[32*2-1:32*1] <= prefix;
                     inner_fifo_in[32*3-1:32*2] <= mask32;
                     inner_fifo_in[32*4-1:32*3] <= nexthop;
-                    inner_fifo_in[32*5-1:32*4] <= {12'b0, metric};
+                    inner_fifo_in[32*5-1:32*4] <= {12'b0, metric[3:0]};
                     // !maybe time-consuming
                     udp_checksum <= udp_checksum + {16'b0, prefix[15:0]} + {16'b0, prefix[31:16]}
                                     + {16'b0, mask32[15:0]} + {16'b0, mask32[31:16]}
                                     + {16'b0, nexthop[15:0]} + {16'b0, nexthop[31:16]}
-                                    + {8'b0, metric[3:0]} + 32'h00020000;
+                                    + {28'b0, metric[3:0]} + 32'h00020000;
                     rip_items_len <= rip_items_len + 20; // 一次加20，避免后面的乘法
-                    if (last == 1'b1) begin
-                        state <= ComputeCheckSum1; // 进入checksum的计算
-                    end
+                end
+                if (last == 1'b1) begin
+                    state <= ComputeCheckSum1; // 进入checksum的计算
                 end
             end
             ComputeCheckSum1: begin // 把数据段中的和与头部和相加
@@ -286,6 +295,7 @@ always_ff @ (posedge clk) begin
                     6'b011110: begin outer_fifo_in <= 8'h00; end
                     6'b011111: begin outer_fifo_in <= 8'h00; state <= AssembleBody; end
                 endcase
+                $display("IP %h",outer_fifo_in[7:0]);
                 header_pointer <= header_pointer + 1;
             end
             AssembleBody: begin
@@ -326,6 +336,7 @@ always_ff @ (posedge clk) begin
                     5'b10010: begin outer_fifo_in <= inner_fifo_out[18*8-1:17*8]; end
                     5'b10011: begin outer_fifo_in <= inner_fifo_out[17*8-1:16*8]; state <= AssembleBody; end
                 endcase
+                $display("IP %h",outer_fifo_in[7:0]);
                 body_pointer <= body_pointer + 1;
             end
             Finished: begin // 完毕
