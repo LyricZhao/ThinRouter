@@ -683,10 +683,17 @@ always_ff @ (posedge clk_125M) begin
                         if (memory_out.branch.is_nexthop) begin
                             $display("read nexthop node at %x", memory_addr);
                             if (entry_to_insert.metric[4] == 1) begin
-                                // 删除路由
-                                $display("removing nexthop node");
-                                insert_state <= InsertRemoveLeaf;
-                                memory_addr <= memory_out.nexthop.parent;
+                                // 删除路由？
+                                if (memory_out.nexthop.port == entry_to_insert.from_vlan[1:0]) begin
+                                // 如果消息来源就是之前提供路由的端口，则真的删除
+                                // todo 整理内存
+                                    $display("removing nexthop node");
+                                    insert_state <= InsertRemoveLeaf;
+                                    memory_addr <= memory_out.nexthop.parent;
+                                end else begin
+                                // 如果消息来源不是路由 nexthop 的端口，说明这是一个 poison reverse，忽略
+                                    work_mode <= ModeIdle;
+                                end
                             end else if (entry_to_insert.metric + 1 < memory_out.nexthop.metric) begin
                                 // 更好的路由，替换
                                 memory_write_en <= 1;
