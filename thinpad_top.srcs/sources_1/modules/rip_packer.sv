@@ -296,7 +296,7 @@ always_ff @ (posedge clk) begin
                     6'b011110: begin outer_fifo_in <= 8'h00; end
                     6'b011111: begin outer_fifo_in <= 8'h00; state <= AssembleBody; end
                 endcase
-                $display("IP %h",outer_fifo_in[7:0]);
+                //$display("IP %h",outer_fifo_in[7:0]);
                 header_pointer <= header_pointer + 1;
             end
             AssembleBody: begin
@@ -337,7 +337,7 @@ always_ff @ (posedge clk) begin
                     5'b10010: begin outer_fifo_in <= inner_fifo_out[18*8-1:17*8]; end
                     5'b10011: begin outer_fifo_in <= inner_fifo_out[17*8-1:16*8]; state <= AssembleBody_R; inner_fifo_read_valid <= 1; end
                 endcase
-                $display("IP %h",outer_fifo_in[7:0]);
+                //$display("IP %h",outer_fifo_in[7:0]);
                 body_pointer <= body_pointer + 1;
             end
             Finished: begin // 完毕
