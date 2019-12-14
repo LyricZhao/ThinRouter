@@ -182,6 +182,8 @@ xpm_fifo_sync #(
     .wr_en(outer_fifo_write_valid)
 );
 
+logic [5:0] header_pointer; // 临时变量，用于作为数组下标打包头部
+
 always_ff @ (posedge clk) begin
     if (rst) begin
         state <= Receive;
@@ -190,7 +192,7 @@ always_ff @ (posedge clk) begin
         rip_items_len <= 0;
     end else begin
         {inner_fifo_read_valid, inner_fifo_write_valid} <= 0;
-        
+        outer_fifo_write_valid <= 0;
         case (state)
             Receive: begin
                 if (valid == 1'b1) begin
@@ -229,7 +231,49 @@ always_ff @ (posedge clk) begin
             ComputeCheckSum4: begin
                 udp_checksum <= ~udp_checksum; // 取反
                 ip_checksum <= ~ip_checksum; // 取反
-                state <= Assemble;
+                state <= AssembleHeader;
+                header_pointer <= 0; // 初始化头部指针
+            end
+            AssembleHeader: begin
+                outer_fifo_write_valid <= 1;
+                case (header_pointer) begin
+                    6'b000000: begin outer_fifo_in <= ip_udp_header[0]; end
+                    6'b000001: begin outer_fifo_in <= ip_udp_header[1]; end
+                    6'b000010: begin outer_fifo_in <= ip_udp_header[2]; end
+                    6'b000011: begin outer_fifo_in <= ip_udp_header[3]; end
+                    6'b000100: begin outer_fifo_in <= ip_udp_header[4]; end
+                    6'b000101: begin outer_fifo_in <= ip_udp_header[5]; end
+                    6'b000110: begin outer_fifo_in <= ip_udp_header[6]; end
+                    6'b000111: begin outer_fifo_in <= ip_udp_header[7]; end
+                    6'b001000: begin outer_fifo_in <= ip_udp_header[8]; end
+                    6'b001001: begin outer_fifo_in <= ip_udp_header[9]; end
+                    6'b001010: begin outer_fifo_in <= ip_udp_header[10]; end
+                    6'b001011: begin outer_fifo_in <= ip_udp_header[11]; end
+                    6'b001100: begin outer_fifo_in <= ip_udp_header[12]; end
+                    6'b001101: begin outer_fifo_in <= ip_udp_header[13]; end
+                    6'b001110: begin outer_fifo_in <= ip_udp_header[14]; end
+                    6'b001111: begin outer_fifo_in <= ip_udp_header[15]; end
+                    6'b010000: begin outer_fifo_in <= ip_udp_header[16]; end
+                    6'b010001: begin outer_fifo_in <= ip_udp_header[17]; end
+                    6'b010010: begin outer_fifo_in <= ip_udp_header[18]; end
+                    6'b010011: begin outer_fifo_in <= ip_udp_header[19]; end
+                    6'b010100: begin outer_fifo_in <= ip_udp_header[20]; end
+                    6'b010101: begin outer_fifo_in <= ip_udp_header[21]; end
+                    6'b010110: begin outer_fifo_in <= ip_udp_header[22]; end
+                    6'b010111: begin outer_fifo_in <= ip_udp_header[23]; end
+                    6'b011000: begin outer_fifo_in <= ip_udp_header[24]; end
+                    6'b011001: begin outer_fifo_in <= ip_udp_header[25]; end
+                    6'b011010: begin outer_fifo_in <= ip_udp_header[26]; end
+                    6'b011011: begin outer_fifo_in <= ip_udp_header[27]; end
+                    6'b011100: begin outer_fifo_in <= 8'h02; end // rip头
+                    6'b011101: begin outer_fifo_in <= 8'h02; end
+                    6'b011110: begin outer_fifo_in <= 8'h00; end
+                    6'b011111: begin outer_fifo_in <= 8'h00; state <= AssembleBody; end
+                endcase
+                header_pointer <= header_pointer + 1;
+            end
+            AssembleBody: begin
+                
             end
             default: begin
                 /*nothing*/
