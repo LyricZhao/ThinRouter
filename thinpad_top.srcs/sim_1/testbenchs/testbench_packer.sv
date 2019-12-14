@@ -46,9 +46,8 @@ end
 always clk = #4 ~clk;
 
 initial begin
-    src_ip = 32'hc0a80101;
+    src_ip = 32'hc0a80101; // protocal_input1.pcap
     dst_ip = 32'he0000009;
-    clk_125M = 0;
     rst = 1;
     rst = #100 0;
 
@@ -68,6 +67,35 @@ initial begin
 
     # 1000
     outer_fifo_read_valid = 1;
+    # 1000
+    src_ip = 32'hc0a80101; // protocal_input3.pcap
+    dst_ip = 32'he0000009;
+
+    prefix = 32'hc0a80500;
+    mask = 6'b011000;
+    nexthop = 0;
+    metric = 4'b0001;
+    valid = 1;
+    # 8
+    //valid = 0;
+    //# 8
+    prefix = 32'hc0a80600;
+    mask = 6'b011000;
+    nexthop = 0;
+    metric = 4'b0001;
+    valid = 1;
+   // # 8
+    //valid = 0;
+    # 8
+    prefix = 32'hc0a80700;
+    mask = 6'b011000;
+    nexthop = 0;
+    metric = 4'b0001;
+    //valid = 1;
+    last = 1;
+    # 8
+    valid = 0;
+    last = 0;
 end
 
 endmodule
