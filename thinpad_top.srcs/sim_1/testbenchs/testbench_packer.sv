@@ -56,14 +56,18 @@ initial begin
     mask = 6'b011000;
     nexthop = 0;
     metric = 4'b0001;
-    # 20
+    # 120
     valid = 1;
+    # 8
+    valid = 0;
+    # 100
     last = 1;
     # 20
     valid = 0;
     last = 0;
 
-
+    # 1000
+    outer_fifo_read_valid = 1;
 end
 
 endmodule

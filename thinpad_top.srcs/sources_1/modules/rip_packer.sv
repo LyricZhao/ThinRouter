@@ -30,7 +30,7 @@ module rip_packer (
 );
 
 enum logic [3:0] {
-    Receive,               // 不断接受rip表项
+    Receive, // 不断接受rip表项
     ComputeCheckSum1,
     ComputeCheckSum2,
     ComputeCheckSum3,
@@ -51,18 +51,18 @@ logic [0:27][7:0] ip_udp_header; // ip和udp的包头
 
 logic [31:0] ip_len; // ip包的长度（byte）
 logic [31:0] udp_len; // udp包的长度（byte）
-assign ip_len = rip_items_len +32;
+assign ip_len = rip_items_len + 32;
 assign udp_len = rip_items_len + 12;
 
 // 给头部固定部分赋值
 // ip头部分
 assign ip_udp_header[0]  = 8'h45;
-assign ip_udp_header[1]  = 8'hc0; // only one choice
+assign ip_udp_header[1]  = 8'hc0; // 此字段参考样例.pcap文件设计
 assign ip_udp_header[2]  = ip_len[15:8];
 assign ip_udp_header[3]  = ip_len[7:0];
 assign ip_udp_header[4]  = 8'h00;
 assign ip_udp_header[5]  = 8'h00;
-assign ip_udp_header[6]  = 8'h40; // only one choice
+assign ip_udp_header[6]  = 8'h40; // 此字段参考样例.pcap文件设计
 assign ip_udp_header[7]  = 8'h00;
 assign ip_udp_header[8]  = 8'h01; // ttl=1
 assign ip_udp_header[9]  = 8'h11; // 协议类型udp
@@ -184,7 +184,7 @@ assign outer_fifo_in_debug = outer_fifo_in;
 xpm_fifo_sync #(
     .FIFO_MEMORY_TYPE("distributed"),
     .FIFO_READ_LATENCY(0),
-    .FIFO_WRITE_DEPTH(64), // TODO
+    .FIFO_WRITE_DEPTH(1024), // TODO
     .READ_DATA_WIDTH(8), // 读是一个byte地读
     .READ_MODE("fwft"),
     .USE_ADV_FEATURES("0000"),
@@ -220,6 +220,7 @@ always_ff @ (posedge clk) begin
         finished <= 0;
         case (state)
             Receive: begin
+                inner_fifo_write_valid <= 0;
                 if (valid == 1'b1) begin
                     inner_fifo_write_valid <= 1;
                     inner_fifo_in[32*1-1:32*0] <= 32'h00020000;
