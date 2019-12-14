@@ -232,7 +232,7 @@ always_ff @ (posedge clk) begin
                     udp_checksum <= udp_checksum + {16'b0, prefix[15:0]} + {16'b0, prefix[31:16]}
                                     + {16'b0, mask32[15:0]} + {16'b0, mask32[31:16]}
                                     + {16'b0, nexthop[15:0]} + {16'b0, nexthop[31:16]}
-                                    + {28'b0, metric[3:0]} + 32'h00020000;
+                                    + {28'b0, metric[3:0]} + 32'h00000002;
                     rip_items_len <= rip_items_len + 20; // 一次加20，避免后面的乘法
                 end
                 if (last == 1'b1) begin
@@ -304,14 +304,14 @@ always_ff @ (posedge clk) begin
                 if (inner_fifo_empty == 1'b1) begin
                     state <= Finished;
                 end else begin
-                    inner_fifo_read_valid <= 1;
-                    state <= AssembleBody_R;
+                    //inner_fifo_read_valid <= 1;
+                    body_pointer <= 0;
+                    state <= AssembleBody_W;
                 end
             end
             AssembleBody_R: begin // 从inner fifo读表项
                 inner_fifo_read_valid <= 0;
-                body_pointer <= 0;
-                state <= AssembleBody_W;
+                state <= AssembleBody;
             end
             AssembleBody_W: begin
                 outer_fifo_write_valid <= 1;
@@ -335,7 +335,7 @@ always_ff @ (posedge clk) begin
                     5'b10000: begin outer_fifo_in <= inner_fifo_out[20*8-1:19*8]; end
                     5'b10001: begin outer_fifo_in <= inner_fifo_out[19*8-1:18*8]; end
                     5'b10010: begin outer_fifo_in <= inner_fifo_out[18*8-1:17*8]; end
-                    5'b10011: begin outer_fifo_in <= inner_fifo_out[17*8-1:16*8]; state <= AssembleBody; end
+                    5'b10011: begin outer_fifo_in <= inner_fifo_out[17*8-1:16*8]; state <= AssembleBody_R; inner_fifo_read_valid <= 1; end
                 endcase
                 $display("IP %h",outer_fifo_in[7:0]);
                 body_pointer <= body_pointer + 1;
@@ -343,6 +343,8 @@ always_ff @ (posedge clk) begin
             Finished: begin // 完毕
                 finished <= 1;
                 rip_items_len <= 0;
+                ip_checksum <= 0;
+                udp_checksum <= 0;
                 state <= Receive;
             end
             default: begin
