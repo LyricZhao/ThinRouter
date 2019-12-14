@@ -1,10 +1,10 @@
 // Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
 // --------------------------------------------------------------------------------
-// Tool Version: Vivado v.2018.3 (lin64) Build 2405991 Thu Dec  6 23:36:41 MST 2018
-// Date        : Thu Dec 12 18:27:59 2019
-// Host        : parallels-Parallels-Virtual-Platform running 64-bit Ubuntu 18.04.1 LTS
+// Tool Version: Vivado v.2018.3 (win64) Build 2405991 Thu Dec  6 23:38:27 MST 2018
+// Date        : Sat Dec 14 14:16:29 2019
+// Host        : DESKTOP-1MS8OIO running 64-bit major release  (build 9200)
 // Command     : write_verilog -force -mode synth_stub
-//               /media/psf/Home/Work/Programs/semester5/CPU/cod19grp4/thinpad_top.srcs/sources_1/ip/pll/pll_stub.v
+//               D:/Computer_Science/tp_git/cod19grp4/thinpad_top.srcs/sources_1/ip/pll/pll_stub.v
 // Design      : pll
 // Purpose     : Stub declaration of top-level module interface
 // Device      : xc7a100tfgg676-2L

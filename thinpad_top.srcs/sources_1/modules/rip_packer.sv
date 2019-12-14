@@ -19,12 +19,25 @@ module rip_packer (
     input   logic    [31:0] nexthop,
     input   logic    [3:0]  metric,
 
+    input   logic    outer_fifo_read_valid,
+
+    output  logic    outer_fifo_empty,
+    output  logic    [7:0]  outer_fifo_out,
+
     output  logic    finished // 打包完成
 );
 
-enum logic [2:0] {
+enum logic [3:0] {
     Receive,               // 不断接受rip表项
-    Assemble,              // 将rip表项组装
+    ComputeCheckSum1,
+    ComputeCheckSum2,
+    ComputeCheckSum3,
+    ComputeCheckSum4,
+    AssembleHeader, // 将rip表项组装
+    AssembleBody,
+    AssembleBody_R,
+    AssembleBody_W,
+    Finished
 } state;
 
 logic [31:0] ip_checksum; // 理论上是16bit，这里为了处理进位的方便，用32bit暂存
@@ -81,40 +94,43 @@ assign tmp_udp_checksum = {32'h00000208} + {32'h00000208}
                         + {32'h00000202}; // !此处将rip包头也考虑了
 
 always_comb begin // 把mask转为32位
-    case (mask) begin
-        6'b000000: begin mask32 <= 32'b00000000000000000000000000000000 end
-        6'b000001: begin mask32 <= 32'b10000000000000000000000000000000 end
-        6'b000010: begin mask32 <= 32'b11000000000000000000000000000000 end
-        6'b000011: begin mask32 <= 32'b11100000000000000000000000000000 end
-        6'b000100: begin mask32 <= 32'b11110000000000000000000000000000 end
-        6'b000101: begin mask32 <= 32'b11111000000000000000000000000000 end
-        6'b000110: begin mask32 <= 32'b11111100000000000000000000000000 end
-        6'b000111: begin mask32 <= 32'b11111110000000000000000000000000 end
-        6'b001000: begin mask32 <= 32'b11111111000000000000000000000000 end
-        6'b001001: begin mask32 <= 32'b11111111100000000000000000000000 end
-        6'b001010: begin mask32 <= 32'b11111111110000000000000000000000 end
-        6'b001011: begin mask32 <= 32'b11111111111000000000000000000000 end
-        6'b001100: begin mask32 <= 32'b11111111111100000000000000000000 end
-        6'b001101: begin mask32 <= 32'b11111111111110000000000000000000 end
-        6'b001110: begin mask32 <= 32'b11111111111111000000000000000000 end
-        6'b001111: begin mask32 <= 32'b11111111111111100000000000000000 end
-        6'b010000: begin mask32 <= 32'b11111111111111110000000000000000 end
-        6'b010001: begin mask32 <= 32'b11111111111111111000000000000000 end
-        6'b010010: begin mask32 <= 32'b11111111111111111100000000000000 end
-        6'b010011: begin mask32 <= 32'b11111111111111111110000000000000 end
-        6'b010100: begin mask32 <= 32'b11111111111111111111000000000000 end
-        6'b010101: begin mask32 <= 32'b11111111111111111111100000000000 end
-        6'b010110: begin mask32 <= 32'b11111111111111111111110000000000 end
-        6'b010111: begin mask32 <= 32'b11111111111111111111111000000000 end
-        6'b011000: begin mask32 <= 32'b11111111111111111111111100000000 end
-        6'b011001: begin mask32 <= 32'b11111111111111111111111110000000 end
-        6'b011010: begin mask32 <= 32'b11111111111111111111111111000000 end
-        6'b011011: begin mask32 <= 32'b11111111111111111111111111100000 end
-        6'b011100: begin mask32 <= 32'b11111111111111111111111111110000 end
-        6'b011101: begin mask32 <= 32'b11111111111111111111111111111000 end
-        6'b011110: begin mask32 <= 32'b11111111111111111111111111111100 end
-        6'b011111: begin mask32 <= 32'b11111111111111111111111111111110 end
-        6'b100000: begin mask32 <= 32'b11111111111111111111111111111111 end
+    case (mask)
+        6'b000000: begin mask32 <= 32'b00000000000000000000000000000000; end
+        6'b000001: begin mask32 <= 32'b10000000000000000000000000000000; end
+        6'b000010: begin mask32 <= 32'b11000000000000000000000000000000; end
+        6'b000011: begin mask32 <= 32'b11100000000000000000000000000000; end
+        6'b000100: begin mask32 <= 32'b11110000000000000000000000000000; end
+        6'b000101: begin mask32 <= 32'b11111000000000000000000000000000; end
+        6'b000110: begin mask32 <= 32'b11111100000000000000000000000000; end
+        6'b000111: begin mask32 <= 32'b11111110000000000000000000000000; end
+        6'b001000: begin mask32 <= 32'b11111111000000000000000000000000; end
+        6'b001001: begin mask32 <= 32'b11111111100000000000000000000000; end
+        6'b001010: begin mask32 <= 32'b11111111110000000000000000000000; end
+        6'b001011: begin mask32 <= 32'b11111111111000000000000000000000; end
+        6'b001100: begin mask32 <= 32'b11111111111100000000000000000000; end
+        6'b001101: begin mask32 <= 32'b11111111111110000000000000000000; end
+        6'b001110: begin mask32 <= 32'b11111111111111000000000000000000; end
+        6'b001111: begin mask32 <= 32'b11111111111111100000000000000000; end
+        6'b010000: begin mask32 <= 32'b11111111111111110000000000000000; end
+        6'b010001: begin mask32 <= 32'b11111111111111111000000000000000; end
+        6'b010010: begin mask32 <= 32'b11111111111111111100000000000000; end
+        6'b010011: begin mask32 <= 32'b11111111111111111110000000000000; end
+        6'b010100: begin mask32 <= 32'b11111111111111111111000000000000; end
+        6'b010101: begin mask32 <= 32'b11111111111111111111100000000000; end
+        6'b010110: begin mask32 <= 32'b11111111111111111111110000000000; end
+        6'b010111: begin mask32 <= 32'b11111111111111111111111000000000; end
+        6'b011000: begin mask32 <= 32'b11111111111111111111111100000000; end
+        6'b011001: begin mask32 <= 32'b11111111111111111111111110000000; end
+        6'b011010: begin mask32 <= 32'b11111111111111111111111111000000; end
+        6'b011011: begin mask32 <= 32'b11111111111111111111111111100000; end
+        6'b011100: begin mask32 <= 32'b11111111111111111111111111110000; end
+        6'b011101: begin mask32 <= 32'b11111111111111111111111111111000; end
+        6'b011110: begin mask32 <= 32'b11111111111111111111111111111100; end
+        6'b011111: begin mask32 <= 32'b11111111111111111111111111111110; end
+        6'b100000: begin mask32 <= 32'b11111111111111111111111111111111; end
+        default: begin
+            mask32 <= 0;
+        end
     endcase
 end
 
@@ -153,11 +169,7 @@ xpm_fifo_sync #(
 
 // 忽略
 logic _outer_fifo_full;
-
-logic outer_fifo_empty;
 logic [7:0] outer_fifo_in;
-logic [7:0] outer_fifo_out;
-logic outer_fifo_read_valid;
 logic outer_fifo_write_valid;
 
 xpm_fifo_sync #(
@@ -190,11 +202,13 @@ always_ff @ (posedge clk) begin
         state <= Receive;
         {ip_checksum, udp_checksum} <= 0;
         {inner_fifo_read_valid, inner_fifo_write_valid} <= 0;
+        outer_fifo_write_valid <= 0;
         rip_items_len <= 0;
+        finished <= 0;
     end else begin
         {inner_fifo_read_valid, inner_fifo_write_valid} <= 0;
         outer_fifo_write_valid <= 0;
-        finished <= 1;
+        finished <= 0;
         case (state)
             Receive: begin
                 if (valid == 1'b1) begin
@@ -218,7 +232,7 @@ always_ff @ (posedge clk) begin
             ComputeCheckSum1: begin // 把数据段中的和与头部和相加
                 udp_checksum <= udp_checksum + tmp_udp_checksum;
                 ip_checksum <= tmp_ip_checksum;
-                state <= ComputeCheckSum2
+                state <= ComputeCheckSum2;
             end
             ComputeCheckSum2: begin // 加法回滚
                 udp_checksum <= {16'b0, udp_checksum[31:16]} + {16'b0, udp_checksum[15:0]};
@@ -238,7 +252,7 @@ always_ff @ (posedge clk) begin
             end
             AssembleHeader: begin
                 outer_fifo_write_valid <= 1;
-                case (header_pointer) begin
+                case (header_pointer)
                     6'b000000: begin outer_fifo_in <= ip_udp_header[0]; end
                     6'b000001: begin outer_fifo_in <= ip_udp_header[1]; end
                     6'b000010: begin outer_fifo_in <= ip_udp_header[2]; end
@@ -290,7 +304,7 @@ always_ff @ (posedge clk) begin
             end
             AssembleBody_W: begin
                 outer_fifo_write_valid <= 1;
-                case (body_pointer) begin
+                case (body_pointer)
                     5'b00000: begin outer_fifo_in <= inner_fifo_out[4*8-1:3*8];   end
                     5'b00001: begin outer_fifo_in <= inner_fifo_out[3*8-1:2*8];   end
                     5'b00010: begin outer_fifo_in <= inner_fifo_out[2*8-1:1*8];   end
@@ -312,9 +326,11 @@ always_ff @ (posedge clk) begin
                     5'b10010: begin outer_fifo_in <= inner_fifo_out[18*8-1:17*8]; end
                     5'b10011: begin outer_fifo_in <= inner_fifo_out[17*8-1:16*8]; state <= AssembleBody; end
                 endcase
+                body_pointer <= body_pointer + 1;
             end
             Finished: begin // 完毕
                 finished <= 1;
+                rip_items_len <= 0;
                 state <= Receive;
             end
             default: begin
