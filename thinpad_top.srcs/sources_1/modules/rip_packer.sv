@@ -207,12 +207,29 @@ always_ff @ (posedge clk) begin
                                     + {8'b0, metric[3:0]} + 32'h00020000;
                     rip_items_len <= rip_items_len + 20; // 一次加20，避免后面的乘法
                     if (last == 1'b1) begin
-                        state <= Assemble;
+                        state <= ComputeCheckSum1; // 进入checksum的计算
                     end
                 end
             end
-            Assemble: begin
-
+            ComputeCheckSum1: begin // 把数据段中的和与头部和相加
+                udp_checksum <= udp_checksum + tmp_udp_checksum;
+                ip_checksum <= tmp_ip_checksum;
+                state <= ComputeCheckSum2
+            end
+            ComputeCheckSum2: begin // 加法回滚
+                udp_checksum <= {16'b0, udp_checksum[31:16]} + {16'b0, udp_checksum[15:0]};
+                ip_checksum <= {16'b0, ip_checksum[31:16]} + {16'b0, ip_checksum[15:0]};
+                state <= ComputeCheckSum3;
+            end
+            ComputeCheckSum3: begin // 第2次加法回滚
+                udp_checksum <= {16'b0, udp_checksum[31:16]} + {16'b0, udp_checksum[15:0]};
+                ip_checksum <= {16'b0, ip_checksum[31:16]} + {16'b0, ip_checksum[15:0]};
+                state <= ComputeCheckSum4;
+            end
+            ComputeCheckSum4: begin
+                udp_checksum <= ~udp_checksum; // 取反
+                ip_checksum <= ~ip_checksum; // 取反
+                state <= Assemble;
             end
             default: begin
                 /*nothing*/
