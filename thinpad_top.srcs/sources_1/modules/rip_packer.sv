@@ -183,6 +183,7 @@ xpm_fifo_sync #(
 );
 
 logic [5:0] header_pointer; // 临时变量，用于作为数组下标打包头部
+logic [5:0] body_pointer; // 临时变量，用于作为数组下标rip表项
 
 always_ff @ (posedge clk) begin
     if (rst) begin
@@ -193,6 +194,7 @@ always_ff @ (posedge clk) begin
     end else begin
         {inner_fifo_read_valid, inner_fifo_write_valid} <= 0;
         outer_fifo_write_valid <= 0;
+        finished <= 1;
         case (state)
             Receive: begin
                 if (valid == 1'b1) begin
@@ -273,7 +275,47 @@ always_ff @ (posedge clk) begin
                 header_pointer <= header_pointer + 1;
             end
             AssembleBody: begin
-                
+                outer_fifo_write_valid <= 0;
+                if (inner_fifo_empty == 1'b1) begin
+                    state <= Finished;
+                end else begin
+                    inner_fifo_read_valid <= 1;
+                    state <= AssembleBody_R;
+                end
+            end
+            AssembleBody_R: begin // 从inner fifo读表项
+                inner_fifo_read_valid <= 0;
+                body_pointer <= 0;
+                state <= AssembleBody_W;
+            end
+            AssembleBody_W: begin
+                outer_fifo_write_valid <= 1;
+                case (body_pointer) begin
+                    5'b00000: begin outer_fifo_in <= inner_fifo_out[4*8-1:3*8];   end
+                    5'b00001: begin outer_fifo_in <= inner_fifo_out[3*8-1:2*8];   end
+                    5'b00010: begin outer_fifo_in <= inner_fifo_out[2*8-1:1*8];   end
+                    5'b00011: begin outer_fifo_in <= inner_fifo_out[1*8-1:0*8];   end
+                    5'b00100: begin outer_fifo_in <= inner_fifo_out[8*8-1:7*8];   end
+                    5'b00101: begin outer_fifo_in <= inner_fifo_out[7*8-1:6*8];   end
+                    5'b00110: begin outer_fifo_in <= inner_fifo_out[6*8-1:5*8];   end
+                    5'b00111: begin outer_fifo_in <= inner_fifo_out[5*8-1:4*8];   end
+                    5'b01000: begin outer_fifo_in <= inner_fifo_out[12*8-1:11*8]; end
+                    5'b01001: begin outer_fifo_in <= inner_fifo_out[11*8-1:10*8]; end
+                    5'b01010: begin outer_fifo_in <= inner_fifo_out[10*8-1:9*8];  end
+                    5'b01011: begin outer_fifo_in <= inner_fifo_out[9*8-1:8*8];   end
+                    5'b01100: begin outer_fifo_in <= inner_fifo_out[16*8-1:15*8]; end
+                    5'b01101: begin outer_fifo_in <= inner_fifo_out[15*8-1:14*8]; end
+                    5'b01110: begin outer_fifo_in <= inner_fifo_out[14*8-1:13*8]; end
+                    5'b01111: begin outer_fifo_in <= inner_fifo_out[13*8-1:12*8]; end
+                    5'b10000: begin outer_fifo_in <= inner_fifo_out[20*8-1:19*8]; end
+                    5'b10001: begin outer_fifo_in <= inner_fifo_out[19*8-1:18*8]; end
+                    5'b10010: begin outer_fifo_in <= inner_fifo_out[18*8-1:17*8]; end
+                    5'b10011: begin outer_fifo_in <= inner_fifo_out[17*8-1:16*8]; state <= AssembleBody; end
+                endcase
+            end
+            Finished: begin // 完毕
+                finished <= 1;
+                state <= Receive;
             end
             default: begin
                 /*nothing*/
