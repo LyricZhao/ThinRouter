@@ -145,7 +145,7 @@ rgmii_manager rgmii_manager_inst (
 
     .clk_btn(clock_btn),
     .btn(touch_btn),
-    .led_out(leds),
+    .debug(leds),
     .digit0_out(dpy0),
     .digit1_out(dpy1),
 
