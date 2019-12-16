@@ -2,7 +2,7 @@
 module testbench_io_manager ();
 
 bit clk_125M;
-bit clk_62M5;
+bit clk_200M;
 reg [7:0] rx_data = 0;
 reg rx_valid = 0;
 reg rx_last = 0;
@@ -30,8 +30,8 @@ initial begin
     rst_n = #100 1;
 end
 
-always clk_125M = #4 ~clk_125M;
-always clk_62M5 = #6.25 ~clk_62M5;
+always #2.5 clk_200M = ~clk_200M;
+always #4 clk_125M = ~clk_125M;
 
 string tx_packet = "";
 always_ff @ (negedge clk_125M) begin

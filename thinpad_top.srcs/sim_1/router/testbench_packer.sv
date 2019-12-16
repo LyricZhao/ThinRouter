@@ -1,8 +1,7 @@
 `timescale 1ns / 1ps
 module testbench_packer ();
 
-logic    clk_125M;
-logic    clk;
+bit      clk_125M = 0;
 logic    rst;
 
 logic    valid;
@@ -21,8 +20,7 @@ logic    [7:0]  outer_fifo_out;
 logic    [7:0]  outer_fifo_in;
 logic    finished; // 打包完成
 rip_packer dut (
-    .clk_125M(clk_125M),
-    .clk(clk),
+    .clk(clk_125M),
     .rst(rst),
     .valid(valid),
     .last(last),
@@ -39,11 +37,7 @@ rip_packer dut (
     .finished(finished)
 );
 
-initial begin
-    clk = 0;
-end
-
-always clk = #4 ~clk;
+always #4 clk_125M = ~clk_125M;
 
 initial begin
     src_ip = 32'hc0a80101; // protocal_input1.pcap

@@ -6,7 +6,6 @@
 `include "constants.vh"
 
 module rip_packer (
-    input   wire    clk_125M,
     input   wire    clk,
     input   wire    rst,
 
