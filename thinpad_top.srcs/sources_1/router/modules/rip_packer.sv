@@ -144,11 +144,10 @@ end
 logic _inner_fifo_full;
 
 logic inner_fifo_empty;
-logic [`RIP_ENTRY_LEN-1:0] inner_fifo_in; /*高至低位:|metric|nexthop|mask|IP|other| */
+logic [`RIP_ENTRY_LEN-1:0] inner_fifo_in; /* 高至低位:|metric|nexthop|mask|IP|other| */
 logic [`RIP_ENTRY_LEN-1:0] inner_fifo_out;
 logic inner_fifo_read_valid;
 logic inner_fifo_write_valid;
-
 
 
 xpm_fifo_sync #(
@@ -164,11 +163,11 @@ xpm_fifo_sync #(
     .dout(inner_fifo_out),
     .empty(inner_fifo_empty),
     .full(_inner_fifo_full),
-    .injectdbiterr(0),
-    .injectsbiterr(0),
+    .injectdbiterr('0),
+    .injectsbiterr('0),
     .rd_en(inner_fifo_read_valid),
-    .rst(0),
-    .sleep(0),
+    .rst('0),
+    .sleep('0),
     .wr_clk(clk),
     .wr_en(inner_fifo_write_valid)
 );
@@ -193,11 +192,11 @@ xpm_fifo_sync #(
     .dout(outer_fifo_out),
     .empty(outer_fifo_empty),
     .full(_outer_fifo_full),
-    .injectdbiterr(0),
-    .injectsbiterr(0),
+    .injectdbiterr('0),
+    .injectsbiterr('0),
     .rd_en(outer_fifo_read_valid),
-    .rst(0),
-    .sleep(0),
+    .rst('0),
+    .sleep('0),
     .wr_clk(clk),
     .wr_en(outer_fifo_write_valid)
 );
@@ -295,7 +294,6 @@ always_ff @ (posedge clk) begin
                     6'b011110: begin outer_fifo_in <= 8'h00; end
                     6'b011111: begin outer_fifo_in <= 8'h00; state <= AssembleBody; end
                 endcase
-                //$display("IP %h",outer_fifo_in[7:0]);
                 header_pointer <= header_pointer + 1;
             end
             AssembleBody: begin
@@ -303,7 +301,6 @@ always_ff @ (posedge clk) begin
                 if (inner_fifo_empty == 1'b1) begin
                     state <= Finished;
                 end else begin
-                    //inner_fifo_read_valid <= 1;
                     body_pointer <= 0;
                     state <= AssembleBody_W;
                 end
@@ -336,7 +333,7 @@ always_ff @ (posedge clk) begin
                     5'b10010: begin outer_fifo_in <= inner_fifo_out[18*8-1:17*8]; end
                     5'b10011: begin outer_fifo_in <= inner_fifo_out[17*8-1:16*8]; state <= AssembleBody_R; inner_fifo_read_valid <= 1; end
                 endcase
-                //$display("IP %h",outer_fifo_in[7:0]);
+                // $display("IP %h",outer_fifo_in[7:0]);
                 body_pointer <= body_pointer + 1;
             end
             Finished: begin // 完毕
@@ -346,9 +343,7 @@ always_ff @ (posedge clk) begin
                 udp_checksum <= 0;
                 state <= Receive;
             end
-            default: begin
-                /*nothing*/
-            end
+            default: begin end
         endcase
     end
 end
