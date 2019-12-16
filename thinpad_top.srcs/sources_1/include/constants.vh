@@ -23,3 +23,6 @@
 `define ARP_BUCKET_NUM_WIDTH 3
 `define ARP_BUCKET_NUM 8 //==2^{ARP_BUCKET_NUM_WIDTH}
 `define PORT_WIDTH 2
+
+/* RIP */
+`define RIP_ENTRY_LEN 160

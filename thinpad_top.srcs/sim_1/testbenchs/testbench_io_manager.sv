@@ -1,7 +1,8 @@
 `timescale 1ns / 1ps
 module testbench_io_manager ();
 
-reg clk_125M;
+bit clk_125M;
+bit clk_62M5;
 reg [7:0] rx_data = 0;
 reg rx_valid = 0;
 reg rx_last = 0;
@@ -10,6 +11,7 @@ logic [7:0] tx_data;
 logic tx_valid;
 logic tx_last;
 wire tx_ready = 1;
+logic [15:0] debug;
 
 localparam WAIT = 9;
 localparam READ_LABEL = 10;
@@ -29,19 +31,21 @@ initial begin
 end
 
 always clk_125M = #4 ~clk_125M;
+always clk_62M5 = #6.25 ~clk_62M5;
 
 string tx_packet = "";
 always_ff @ (negedge clk_125M) begin
     if (tx_valid) begin
         $sformat(tx_packet, "%s %02x", tx_packet, tx_data);
         if (tx_last) begin
-            $display("LAST");
-            $display("TX:%s", tx_packet);
+            $display("Router OUT:\t%s\n", tx_packet);
             tx_packet = "";
         end
     end
 end
 
+string info_line = "";
+string packet_info = "";
 string rx_packet = "";
 always_ff @ (negedge clk_125M) begin
     if (fd) case (state)
@@ -52,8 +56,8 @@ always_ff @ (negedge clk_125M) begin
                 $fscanf(fd, "%s", buffer);
                 case (buffer)
                     "info:": begin
-                        $fgets(buffer, fd);
-                        $write("Info:\t%s", buffer);
+                        $fgets(info_line, fd);
+                        $sformat(packet_info, "%s%s", packet_info, info_line);
                     end
                     "eth_frame:": begin
                         state = state + 1;
@@ -70,7 +74,10 @@ always_ff @ (negedge clk_125M) begin
                 state = WAIT;
                 rx_valid = 0;
                 rx_last = 0;
-                $display("RX:%s", rx_packet);
+                $display("%0t", $realtime);
+                $write("Info:\t%s", packet_info);
+                $display("Router IN:\t%s\n", rx_packet);
+                packet_info = "";
                 // $display("");
             end else begin
                 rx_valid = 1;
@@ -85,41 +92,20 @@ always_ff @ (negedge clk_125M) begin
             state = state + 1;
     endcase
     else
-        fd = $fopen("eth_frame_test.mem", "r");
+        fd = #100 $fopen("io_manager_test.mem", "r");
 end
 
-
-wire [4:0] debug_state;
-wire [15:0] debug_countdown;
-wire [5:0] debug_current;
-wire [5:0] debug_tx;
-wire [5:0] debug_last;
-wire [6:0] debug_case;
-string io_state;
-
-always_comb case (debug_state)
-    0: io_state = "Idle";
-    1: io_state = "Load_Unprocessed_Packet";
-    2: io_state = "Load_Processing_Packet";
-    3: io_state = "Discard_Packet";
-    4: io_state = "Send_Load_Packet";
-    5: io_state = "Send_Detrailer_Packet";
-    6: io_state = "Send_Packet";
-    7: io_state = "Send_Load_Another_Unprocessed";
-    8: io_state = "Send_Load_Another_Processing";
-    9: io_state = "Send_Load_Another_Processed";
-    10: io_state = "Send_Discard_Another";
-endcase
-
-logic clk_internal;
 logic clk_btn;
 logic [3:0]  btn;
 logic [15:0] led_out;
 logic [7:0]  digit0_out;
 logic [7:0]  digit1_out;
 
+
+logic   [8:0] fifo_din;
+logic   [8:0] fifo_wr_en;
+logic   [5:0] read_cnt;
 io_manager inst (
-    .clk_fifo(clk_125M),
     .*
 );
 

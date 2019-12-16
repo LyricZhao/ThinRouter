@@ -1,10 +1,10 @@
 -- Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
 -- --------------------------------------------------------------------------------
--- Tool Version: Vivado v.2018.3 (lin64) Build 2405991 Thu Dec  6 23:36:41 MST 2018
--- Date        : Mon Oct 14 19:36:38 2019
--- Host        : parallels-Parallels-Virtual-Platform running 64-bit Ubuntu 18.04.1 LTS
--- Command     : write_vhdl -force -mode synth_stub -rename_top ila_0 -prefix
---               ila_0_ ila_0_stub.vhdl
+-- Tool Version: Vivado v.2018.3 (win64) Build 2405991 Thu Dec  6 23:38:27 MST 2018
+-- Date        : Sat Dec 14 14:18:53 2019
+-- Host        : DESKTOP-1MS8OIO running 64-bit major release  (build 9200)
+-- Command     : write_vhdl -force -mode synth_stub
+--               D:/Computer_Science/tp_git/cod19grp4/thinpad_top.srcs/sources_1/ip/ila_0/ila_0_stub.vhdl
 -- Design      : ila_0
 -- Purpose     : Stub declaration of top-level module interface
 -- Device      : xc7a100tfgg676-2L

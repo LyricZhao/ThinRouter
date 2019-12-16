@@ -6,680 +6,598 @@
 `timescale 1ns / 1ps
 
 `include "debug.vh"
-`include "packet.vh"
-`include "address.vh"
+`include "types.vh"
 
 module io_manager (
     // 由父模块提供各种时钟
-    input   wire    clk_fifo,           // FIFO 时钟
-    input   wire    clk_internal,       // 内部处理逻辑用的时钟
-    input   wire    rst_n,              // rstn 逻辑
+    input   wire    clk_125M,
+    input   wire    clk_200M,
+    input   wire    rst_n,
 
     // top 硬件
     input   wire    clk_btn,            // 硬件 clk 按键
     input   wire    [3:0] btn,          // 硬件按钮
 
-    output  wire    [15:0] led_out,     // 硬件 led 指示灯
-    output  wire    [7:0]  digit0_out,  // 硬件低位数码管
-    output  wire    [7:0]  digit1_out,  // 硬件高位数码管
+    output  logic   [15:0] led_out,     // 硬件 led 指示灯
+    output  logic   [7:0]  digit0_out,  // 硬件低位数码管
+    output  logic   [7:0]  digit1_out,  // 硬件高位数码管
+
+    output  logic   [15:0] debug,
 
     // 目前先接上 eth_mac_fifo_block
     input   wire    [7:0] rx_data,      // 数据入口
     input   wire    rx_valid,           // 数据入口正在传输
-    output  bit     rx_ready,           // 是否允许数据进入
+    output  wire    rx_ready,           // 是否允许数据进入
     input   wire    rx_last,            // 数据传入结束
     output  bit     [7:0] tx_data,      // 数据出口
     output  bit     tx_valid,           // 数据出口正在传输
     input   wire    tx_ready,           // 外面是否准备接收：当前不处理外部不 ready 的逻辑 （TODO）
-    output  bit     tx_last,            // 数据传出结束
+    output  bit     tx_last             // 数据传出结束
 
-    output wire [4:0] debug_state,
-    output wire [15:0] debug_countdown,
-    output wire [5:0] debug_current,
-    output wire [5:0] debug_tx,
-    output wire [5:0] debug_last,
-    output wire [6:0] debug_case
+    // ,
+    // output  logic   [8:0] fifo_din,
+    // output  logic   [8:0] fifo_wr_en,
+    // output  logic   [5:0] read_cnt
+
 );
 
-reg [511:0] buffer;
+reg  [8:0] fifo_din;
+wire [8:0] fifo_dout;
+wire fifo_empty;
+wire fifo_full;
+reg  fifo_rd_en;
+wire fifo_rd_busy;
+reg  fifo_rst;
+reg  fifo_wr_en;
+wire fifo_wr_busy;
+xpm_fifo_sync #(
+    .FIFO_MEMORY_TYPE("distributed"),
+    .FIFO_READ_LATENCY(0),
+    .READ_DATA_WIDTH(9),
+    .READ_MODE("fwft"),
+    .USE_ADV_FEATURES("0000"),
+    .WRITE_DATA_WIDTH(9)
+) fifo (
+    .din(fifo_din),
+    .dout(fifo_dout),
+    .empty(fifo_empty),
+    .full(fifo_full),
+    .rd_en(fifo_rd_en),
+    .rd_rst_busy(fifo_rd_busy),
+    .rst(fifo_rst),
+    .sleep(0),
+    .wr_clk(clk_125M),
+    .wr_en(fifo_wr_en),
+    .wr_rst_busy(fifo_wr_busy)
+);
 
-reg [5:0] current_pos;
-reg [5:0] tx_pos;
-reg [5:0] last_pos;
-reg [15:0] rx_countdown;
 
-wire [47:0] target_mac = 48'haaaaaaaaaaaa;
-wire [2:0] target_vlan;
-wire process_complete = start_process;
-reg process_bad;
-reg reset_process;
-reg start_process;
+// 已经读了多少字节
+logic [5:0] read_cnt;
 
-reg process_started;
-
-enum logic [1:0] {
-    IP,
-    ARP,
-    Other
+// 包的信息
+mac_t dst_mac;
+mac_t src_mac;
+logic [2:0] vlan_id;
+logic ip_checksum_overflow; // checksum >= 0xfeff，则输出 checksum 高 8 位为 0，低 8 位 +1
+logic ip_checksum_fe;       // checksum == 0xfe??
+// 根据 vlan_id 得出的路由器 IP
+ip_t  router_ip;
+always_comb router_ip = Address::ip(vlan_id);
+// 遇到无法处理的包则 bad 置 1
+// 此后不再读内容，rx_last 时向 fifo 扔一个带 last 标志的字节，然后让 tx 清 fifo
+enum logic [2:0] {
+    // 
+    PacketBad,
+    PacketIP,
+    PacketARPRequest,
+    PacketARPResponse,
+    PacketRIPDefault,
+    PacketRIPRequest,
+    PacketRIPResponse
 } packet_type;
 
-enum logic [4:0] { 
-    Idle,
-    Load_Unprocessed_Packet,
-    Load_Processing_Packet,
-    // Detrailer_Processing_Packet,
-    Discard_Packet,
-    // Processing_Loaded_Packet, // impossible
-    Send_Load_Packet,
-    Send_Detrailer_Packet,
-    Send_Packet,
-    Send_Load_Another_Unprocessed,
-    Send_Load_Another_Processing,
-    Send_Load_Another_Processed,
-    Send_Discard_Another
-    //Send_Detrailer_Another,
-} state;
+// 让 tx_manager 开始发送当前包的信号
+logic tx_start;
 
-// tx_pos - 1
-wire [5:0] tx_pos_minus_one = tx_pos - 1;
-// 接收完成，还没 last（last 时会设 countdown 为 ffff）
-wire rx_complete = rx_countdown == 0;
-// 接下来接收的 rx 会是新一个包的开始
-wire rx_new = rx_countdown == '1;
-// 有缓存的数据可以发送
-wire tx_available = tx_pos != last_pos;
-// 可以发送的数据仅剩一字节（后面可能还有一个数据包准备发送）
-wire tx_one_left = tx_pos_minus_one == last_pos;
-// 正在转发 payload，且 payload 未接收完
-wire direct_forward = last_pos == 0 && !rx_complete && !rx_new;
-// 所有包都已经处理完毕（其实只能有一个包）
-wire all_processed = current_pos == 0;
-// 应当移动 buffer
-wire shifting = rx_valid && !rx_complete;
-// rx_countdown 只剩一个字节
-wire last_byte = rx_countdown == 1;
+////// 如果包的处理流程太慢，或者执行 RIP 流程，会暂停 rx_ready
+// 正在处理 IP 包
+enum logic [1:0] {
+    // 开始处理时
+    IPPacketProcessing,
+    // read_cnt=58 而还没有处理完
+    IPPacketStillProcessing,
+    // 处理完或不是 IP 包
+    IPPacketDone
+} ip_packet_process_status;
 
-task tx_none; begin
-    tx_valid <= 0;
-    tx_last <= 0;
-    if (shifting) begin
-        tx_pos <= tx_pos + 1;
-        last_pos <= last_pos + 1;
+// 正在处理接收到的 RIP 数据
+enum logic {
+    // 开始处理时
+    RIPResponseProcessing,
+    // 处理完成或者未在处理
+    RIPResponseDone
+} rip_response_process_status;
+
+// 是否需要发送 RIP Response
+// maybe todo 支持发送 >25 条
+// 每个端口是否应该发送 RIP Response 了。会在接收到 RIP 请求时，或时间到时置 1
+logic [1:0] rip_send_pending;
+// 正在发送，则暂停 rx
+logic rip_sending;
+
+assign rx_ready = 
+    (ip_packet_process_status != IPPacketStillProcessing) &&
+    (rip_response_process_status == RIPResponseDone) &&
+    !rip_sending;
+
+////// RIP 处理
+// 20 字节循环
+logic [4:0] rip_read_cycle;
+// 一个 RIP 条目是否正确（可能是 nexthop 为本路由器，或者格式错误）
+logic rip_entry_valid;
+// RIP 包的来源 IP
+ip_t  rip_src_ip;
+
+// 提供的信息
+mac_t tx_dst_mac;
+logic [2:0]  tx_vlan_id;
+
+logic tx_bad;
+always_comb case (packet_type)
+    PacketBad, PacketRIPDefault, PacketRIPRequest, PacketRIPResponse: tx_bad = 1;
+    default: tx_bad = 0;
+endcase
+tx_manager tx_manager_inst (
+    .clk_125M,
+    .rst_n,
+    .input_dst_mac(tx_dst_mac),
+    .input_vlan_id(tx_vlan_id),
+    .input_is_ip(packet_type == PacketIP),
+    .input_ip_checksum_overflow(ip_checksum_overflow),
+    .input_bad(tx_bad),
+    .start(tx_start),
+    .fifo_data(fifo_dout),
+    .fifo_empty,
+    .fifo_rd_en,
+    .tx_data,
+    .tx_valid,
+    .tx_last
+    // tx_ready
+    // abort
+);
+
+// 需要处理的数据
+ip_t  ip_input;
+logic [5:0] mask_input;
+logic [4:0] metric_input;
+ip_t  nexthop_input;
+mac_t mac_result;
+logic [2:0]  vlan_result;
+
+// 处理信号
+reg  process_reset;
+reg  add_arp;
+reg  add_routing;
+reg  process_arp;
+reg  process_ip;
+wire process_done;
+wire process_bad;
+
+packet_processor packet_processor_inst (
+    .clk(clk_125M),
+    .rst_n,
+    .debug,
+    .reset(process_reset),
+    .add_arp,
+    .add_routing,
+    .process_arp,
+    .process_ip,
+    .ip_input,
+    .metric_input,
+    .mask_input,
+    .nexthop_input,
+    .mac_input(src_mac),
+    .vlan_input(vlan_id),
+    .done(process_done),
+    .bad(process_bad),
+    .mac_output(mac_result),
+    .vlan_output(vlan_result)
+);
+
+// 断言 rx_data 的数据，如果不一样则置 bad 为 1
+task assert_rx;
+input wire [7:0] expected;
+begin
+    if (rx_data != expected) begin
+        $display("Assertion fails at rx_data == %02x (expected %02x)", rx_data, expected);
+        packet_type <= PacketBad;
     end
-end
-endtask
+end endtask
 
-task tx_default; begin
-    tx_data <= buffer[8 * tx_pos_minus_one +: 8];
-    tx_valid <= 1;
-    tx_last <= tx_one_left;
-    if (!shifting) begin
-        tx_pos <= tx_pos_minus_one;
-    end
-end
-endtask
+task fifo_write_none; begin
+    fifo_din <= 'x;
+    fifo_wr_en <= 0;
+end endtask
 
-task tx_no_last; begin
-    tx_data <= buffer[8 * tx_pos_minus_one +: 8];
-    tx_valid <= 1;
-    tx_last <= 0;
-    if (!shifting) begin
-        tx_pos <= tx_pos_minus_one;
-    end
-end
-endtask
+task fifo_write_rx; begin
+    fifo_din <= {rx_last, rx_data};
+    fifo_wr_en <= 1;
+end endtask
 
-task rx_default; begin
-    buffer <= {buffer[0 +: 504], rx_data};
-    current_pos <= current_pos + 1;
-    last_pos <= last_pos + 1;
-    rx_countdown <= rx_countdown - 1;
-end
-endtask
+task fifo_write;
+input wire [7:0] data;
+begin
+    fifo_din <= {rx_last, data};
+    fifo_wr_en <= 1;
+end endtask
 
-task rx_keep_pos; begin
-    buffer <= {buffer[0 +: 504], rx_data};
-    rx_countdown <= rx_countdown - 1;
-end
-endtask
-
-// 此时的 ARP 帧应该对齐 buffer 末尾
-task process_arp; begin
-    case (buffer[368`ETH_VLAN_ID])
-        1: begin
-            if (buffer[368`ARP_DST_IP] == `ROUTER_IP_1) begin
-                buffer[368`ETH_DST_MAC] = buffer[368`ETH_SRC_MAC];
-                buffer[368`ETH_SRC_MAC] = `ROUTER_MAC_1;
-                buffer[368`ARP_DST_MAC] = buffer[368`ARP_SRC_MAC];
-                buffer[368`ARP_DST_IP] = buffer[368`ARP_SRC_IP];
-                buffer[368`ARP_SRC_MAC] = `ROUTER_MAC_1;
-                buffer[368`ARP_SRC_IP] = `ROUTER_IP_1;
-            end else begin
-                process_bad <= 1;
-            end
-        end
-        2: begin
-            if (buffer[368`ARP_DST_IP] == `ROUTER_IP_2) begin
-                buffer[368`ETH_DST_MAC] = buffer[368`ETH_SRC_MAC];
-                buffer[368`ETH_SRC_MAC] = `ROUTER_MAC_2;
-                buffer[368`ARP_DST_MAC] = buffer[368`ARP_SRC_MAC];
-                buffer[368`ARP_DST_IP] = buffer[368`ARP_SRC_IP];
-                buffer[368`ARP_SRC_MAC] = `ROUTER_MAC_2;
-                buffer[368`ARP_SRC_IP] = `ROUTER_IP_2;
-            end else begin
-                process_bad <= 1;
-            end
-        end
-        3: begin
-            if (buffer[368`ARP_DST_IP] == `ROUTER_IP_3) begin
-                buffer[368`ETH_DST_MAC] = buffer[368`ETH_SRC_MAC];
-                buffer[368`ETH_SRC_MAC] = `ROUTER_MAC_3;
-                buffer[368`ARP_DST_MAC] = buffer[368`ARP_SRC_MAC];
-                buffer[368`ARP_DST_IP] = buffer[368`ARP_SRC_IP];
-                buffer[368`ARP_SRC_MAC] = `ROUTER_MAC_3;
-                buffer[368`ARP_SRC_IP] = `ROUTER_IP_3;
-            end else begin
-                process_bad <= 1;
-            end
-        end
-        4: begin
-            if (buffer[368`ARP_DST_IP] == `ROUTER_IP_4) begin
-                buffer[368`ETH_DST_MAC] = buffer[368`ETH_SRC_MAC];
-                buffer[368`ETH_SRC_MAC] = `ROUTER_MAC_4;
-                buffer[368`ARP_DST_MAC] = buffer[368`ARP_SRC_MAC];
-                buffer[368`ARP_DST_IP] = buffer[368`ARP_SRC_IP];
-                buffer[368`ARP_SRC_MAC] = `ROUTER_MAC_4;
-                buffer[368`ARP_SRC_IP] = `ROUTER_IP_4;
-            end else begin
-                process_bad <= 1;
-            end
-        end
-        default: begin
-            process_bad <= 1;
-        end
+function logic[3:0] count_left_ones;
+input wire [7:0] data;
+begin 
+    casez (data)
+        8'b0???????: count_left_ones = 0;
+        8'b10??????: count_left_ones = 1;
+        8'b110?????: count_left_ones = 2;
+        8'b1110????: count_left_ones = 3;
+        8'b11110???: count_left_ones = 4;
+        8'b111110??: count_left_ones = 5;
+        8'b1111110?: count_left_ones = 6;
+        8'b11111110: count_left_ones = 7;
+        8'b11111111: count_left_ones = 8;
     endcase
-end
-endtask
+end endfunction
 
-// 预处理 IP 帧，此时帧应该对齐 buffer 末尾
-task preprocess_ip; begin
-    if (buffer[304`IP_TTL] != 0 && (
-        (buffer[304`ETH_DST_MAC] == `ROUTER_MAC_1 &&
-         buffer[304`ETH_VLAN_ID] == 1) ||
-        (buffer[304`ETH_DST_MAC] == `ROUTER_MAC_2 &&
-         buffer[304`ETH_VLAN_ID] == 2) ||
-        (buffer[304`ETH_DST_MAC] == `ROUTER_MAC_3 &&
-         buffer[304`ETH_VLAN_ID] == 3) ||
-        (buffer[304`ETH_DST_MAC] == `ROUTER_MAC_4 &&
-         buffer[304`ETH_VLAN_ID] == 4)
-    )) begin
-        buffer[304`IP_TTL] = buffer[304`IP_TTL] - 1;
-        if (buffer[304`IP_CHECKSUM] >= 16'hfeff) begin
-            buffer[304`IP_CHECKSUM] = buffer[304`IP_CHECKSUM] + 16'h101;
-        end else begin
-            buffer[304`IP_CHECKSUM] = buffer[304`IP_CHECKSUM] + 16'h100;
-        end
-    end else begin
-        process_bad <= 1;
-    end
-end
-endtask
+always_ff @(posedge clk_125M) begin
+    // 默认值
+    process_reset <= 0;
+    add_arp <= 0;
+    add_routing <= 0;
+    process_arp <= 0;
+    process_ip <= 0;
 
-// 用处理结果修改帧（IP 包）
-task apply_ip_process; begin
-    buffer[(8 * current_pos)`ETH_DST_MAC] = target_mac;
-    buffer[(8 * current_pos)`ETH_VLAN_ID] = target_vlan;
-end
-endtask
+    tx_start <= 0;
+    tx_dst_mac <= '0;
+    tx_vlan_id <= '0;
 
-assign rx_ready = tx_ready;
+    fifo_din <= 'x;
+    fifo_wr_en <= 0;
 
-task get_idle; begin
-    current_pos <= 0;
-    last_pos <= 0;
-    tx_pos <= 0;
-    reset_process <= 1;
-    start_process <= 0;
-    process_bad <= 0;
-    rx_countdown <= '1;
-    state <= Idle;
-end
-endtask
+    rip_sending <= 0;
+    rip_send_pending <= '0;
 
-always_ff @(posedge clk_fifo) begin
+    ip_packet_process_status <= IPPacketDone;
+    rip_response_process_status <= RIPResponseDone;
+
     if (!rst_n) begin
-        // reset
-        get_idle();
-        tx_valid <= 0;
-        tx_last <= 0;
+        // 复位
+        read_cnt <= 0;
     end else begin
-        unique casez ({state,
-            rx_valid, rx_last, tx_ready,
-            last_byte, process_complete, process_bad,
-            tx_available
-        })
-            /******************************
-             * Idle
-             * 空闲，遇到包转 LUP
-             *****************************/
-            {Idle, 7'b00?_???_?}: begin
-                tx_none();
-            end
-            {Idle, 7'b10?_???_?}: begin
-                tx_none();
-                rx_default();
-                state <= Load_Unprocessed_Packet;
-            end
-            /******************************
-             * Load Unprocessed Packet
-             * 加载包，到一定长度开始处理
-             * rx 一定不会 last 或 complete
-             *****************************/
-            {Load_Unprocessed_Packet, 7'b00?_???_0}: begin
-                tx_none();
-            end
-            {Load_Unprocessed_Packet, 7'b10?_???_0}: begin
-                case (current_pos)
-                    // 22: 确定了包的大小
-                    22: begin
-                        tx_none();
-                        buffer <= {buffer[0 +: 504], rx_data};
-                        current_pos <= current_pos + 1;
-                        last_pos <= last_pos + 1;
-                        case (buffer[32 +: 16])
-                            16'h0806: begin
-                                packet_type <= ARP;
-                                rx_countdown <= 37;
+        // 处理 rx 输入
+        if (rx_valid) begin
+            // 前 18 个字节进行存储，并用来确定包的类型
+            if (read_cnt < 18) begin
+                case (read_cnt)
+                    0 : dst_mac[40 +: 8] <= rx_data;
+                    1 : dst_mac[32 +: 8] <= rx_data;
+                    2 : dst_mac[24 +: 8] <= rx_data;
+                    3 : dst_mac[16 +: 8] <= rx_data;
+                    4 : dst_mac[ 8 +: 8] <= rx_data;
+                    5 : dst_mac[ 0 +: 8] <= rx_data;
+                    6 : src_mac[40 +: 8] <= rx_data;
+                    7 : src_mac[32 +: 8] <= rx_data;
+                    8 : src_mac[24 +: 8] <= rx_data;
+                    9 : src_mac[16 +: 8] <= rx_data;
+                    10: src_mac[ 8 +: 8] <= rx_data;
+                    11: src_mac[ 0 +: 8] <= rx_data;
+                    15: vlan_id <= rx_data[2:0];
+                    // 0x0806 ARP or 0x0800 IPv4
+                    16: packet_type <= rx_data == 8'h08 ? PacketIP : PacketBad;
+                    17: begin
+                        if (packet_type == PacketIP) case (rx_data) 
+                            // IPv4 标签，可能是 RIP
+                            // todo 可能有目标为本机的 RIP Responnse？
+                            8'h00: packet_type <= dst_mac == Address::McastMAC ? PacketRIPDefault : PacketIP;
+                            // ARP 标签
+                            8'h06: packet_type <= PacketARPRequest;
+                            default: packet_type <= PacketBad;
+                        endcase
+                    end
+                endcase
+                // 12-18 字节传入 fifo
+                if (read_cnt >= 12) begin
+                    fifo_din <= {rx_last, rx_data};
+                    fifo_wr_en <= 1;
+                end
+            end else begin
+            // 对于 18 字节之后，有各种处理流程
+                // 处理 fifo 操作
+                case (packet_type)
+                    // ARP 请求，18 字节后，除目标 MAC IP 以外都入 fifo
+                    PacketARPRequest: begin
+                        if (read_cnt < 36 || read_cnt >= 46) begin
+                            // 将 ARP Request 改为 ARP Reply
+                            if (read_cnt == 25) begin
+                                fifo_din <= {rx_last, 8'h02};
+                            end else begin
+                                fifo_din <= {rx_last, rx_data};
                             end
-                            16'h0800: begin
-                                packet_type <= IP;
-                                if (buffer[0 +: 16] > 42) begin
-                                    rx_countdown <= buffer[0 +: 16] - 5;
-                                end else begin
-                                    rx_countdown <= 37;
-                                end
+                            fifo_wr_en <= 1;
+                        end
+                    end
+                    // IP 包
+                    PacketIP: begin
+                        case (read_cnt)
+                            // TTL
+                            26: begin
+                                fifo_din[8] <= rx_last;
+                                fifo_din[7:0] <= rx_data - 1;
+                                fifo_wr_en <= 1;
                             end
+                            // checksum 高 8 位
+                            28: begin
+                                fifo_din[8] <= rx_last;
+                                fifo_din[7:0] <= rx_data + 1;
+                                fifo_wr_en <= 1;
+                            end
+                            // 其他情况，18 字节后全部进 fifo，其中 TTL 和 checksum 需要处理
                             default: begin
-                                packet_type <= Other;
-                                rx_countdown <= 37;
+                                fifo_din <= {rx_last, rx_data};
+                                fifo_wr_en <= 1;
                             end
                         endcase
                     end
-                    // 开始处理 IP 包
-                    38: begin
-                        if (packet_type == IP) begin
-                            preprocess_ip();
-                            // todo process
-                            start_process <= 1;
-                            reset_process <= 0;
-                            state <= Load_Processing_Packet;
-                        end
-                        tx_none();
-                        rx_default();
-                    end
-                    // 处理 ARP 包
-                    46: begin
-                        tx_valid <= 0;
-                        tx_last <= 0;
-                        tx_pos <= tx_pos + 1;
-                        if (packet_type == ARP) begin
-                            process_arp();
-                            rx_keep_pos();
-                            current_pos = 0;
-                            last_pos = 0;
-                            state <= Send_Load_Packet;
-                        end else begin
-                            // 不是 ARP 就是无法处理的包，丢弃
-                            state <= Discard_Packet;
-                        end
-                    end
-                    default: begin
-                        tx_none();
-                        rx_default();
+                    // Bad, RIP 包，不直接回复，不用 fifo
+                    PacketRIPDefault, PacketRIPRequest, PacketRIPResponse, PacketBad: begin
+                        // last 时 flush fifo
+                        fifo_din[8] <= rx_last;
+                        fifo_wr_en <= rx_last;
                     end
                 endcase
-            end
-            /******************************
-             * Load Processing Packet
-             * 加载包，且在处理
-             * rx 一定不会 last 或 complete
-             *****************************/
-            {Load_Processing_Packet, 7'b00?_000_0}: begin
-                start_process <= 0;
-                tx_none();
-            end
-            {Load_Processing_Packet, 7'b?0?_0?1_0}: begin
-                // 坏包
-                start_process <= 0;
-                tx_none();
-                state <= Discard_Packet;
-            end
-            {Load_Processing_Packet, 7'b?0?_010_0}: begin
-                // 处理完成
-                start_process <= 0;
-                reset_process <= 1;
-                apply_ip_process();
-                current_pos = 0;
-                last_pos = 0;
-                tx_none();
-                state <= Send_Load_Packet;
-                if (rx_valid)
-                    rx_keep_pos();
-            end
-            {Load_Processing_Packet, 7'b10?_000_0}: begin
-                // 继续加载，继续处理
-                start_process <= 0;
-                tx_none();
-                rx_default();
-            end
-            /******************************
-             * Discard Packet
-             * 丢包，忽略一切，直到 rx_last
-             *****************************/
-            {Discard_Packet, 7'b?0?_????}: begin
-                tx_none();
-            end
-            {Discard_Packet, 7'b11?_????}: begin
-                get_idle();
-            end
-            /******************************
-             * Send Load Packet
-             * 发送包且该包未接收完
-             * 接收完转 SDP
-             *****************************/
-            {Send_Load_Packet, 7'b001_???0},
-            {Send_Load_Packet, 7'b000_????}: begin
-                // 无可发送数据 或 tx_ready = 0
-                tx_none();
-            end
-            {Send_Load_Packet, 7'b001_???1}: begin
-                // 从缓冲区里面发送已处理的数据，同时等待更多输入
-                tx_data <= buffer[8 * tx_pos_minus_one +: 8];
-                tx_valid <= 1;
-                tx_last <= 0;
-                tx_pos <= tx_pos - 1;
-            end
-            {Send_Load_Packet, 7'b10?_???1}: begin
-                // 从缓冲区里面发送已处理的数据，同时有新数据进入
-                rx_keep_pos();
-                tx_no_last();
-                if (last_byte) begin
-                    state <= Send_Detrailer_Packet;
-                end
-            end
-            {Send_Load_Packet, 7'b10?_???0}: begin
-                // 缓冲区已空，接一个发一个
-                tx_data <= rx_data;
-                tx_valid <= 1;
-                tx_last <= last_byte;
-                if (last_byte) begin
-                    // 没有该发的了，丢弃 trailer
-                    state <= Discard_Packet;
-                end
-            end
-            /******************************
-             * Send Detrailer Packet
-             * 从缓冲区发送
-             * 同时丢弃输入直到 rx_last
-             *****************************/
-            {Send_Detrailer_Packet, 7'b000_????}: begin
-                // tx_ready = 0
-                tx_none();
-            end
-            {Send_Detrailer_Packet, 7'b??1_????}: begin
-                tx_default();
-                if (tx_one_left) begin
-                    if (rx_valid && rx_last) begin
-                        // 发完同时 last
-                        get_idle();
-                    end else begin
-                        // 发完，剩余 Trailer
-                        state <= Discard_Packet;
+                // 其他的处理流程
+                case (packet_type)
+                    PacketARPRequest: begin
+                        // 46 字节后开始发送
+                        tx_dst_mac <= src_mac;
+                        tx_vlan_id <= vlan_id;
+                        tx_start <= read_cnt == 46;
+                        // 过程中检验
+                        case (read_cnt)
+                            18: assert_rx(8'h00);
+                            19: assert_rx(8'h01);
+                            20: assert_rx(8'h08);
+                            21: assert_rx(8'h00);
+                            22: assert_rx(8'h06);
+                            23: assert_rx(8'h04);
+                            24: assert_rx(8'h00);
+                            // Request or Response
+                            25: begin
+                                case (rx_data)
+                                    // Request
+                                    8'h01: begin end
+                                    // Response
+                                    8'h02: packet_type <= PacketARPResponse;
+                                    // bad
+                                    default: packet_type <= PacketBad;
+                                endcase
+                            end
+                            // 记录来源 IP，准备添加 ARP 条目
+                            32: ip_input[24 +: 8] <= rx_data;
+                            33: ip_input[16 +: 8] <= rx_data;
+                            34: ip_input[ 8 +: 8] <= rx_data;
+                            35: ip_input[ 0 +: 8] <= rx_data;
+                            // 检查目标 IP 是否为路由器自己 IP
+                            42: assert_rx(router_ip[24 +: 8]);
+                            43: assert_rx(router_ip[16 +: 8]);
+                            44: assert_rx(router_ip[ 8 +: 8]);
+                            45: assert_rx(router_ip[ 0 +: 8]);
+                        endcase
+                        // 需要在 ARP 表中记录一下包的来源
+                        add_arp <= read_cnt == 36;
                     end
-                end else if (rx_valid && rx_last) begin
-                    // last 但未发完
-                    rx_countdown <= '1;
-                    current_pos <= 0;
-                    last_pos <= 0;
-                    state <= Send_Packet;
-                end
-            end
-            /******************************
-             * Send Packet
-             * 从缓冲区发送
-             * 同时等待新的包进入
-             *****************************/
-            {Send_Packet, 7'b000_???_?}: begin
-                tx_none();
-            end
-            {Send_Packet, 7'b001_???_?}: begin
-                tx_default();
-                if (tx_one_left) begin
-                    // 发完了
-                    get_idle();
-                end
-            end
-            {Send_Packet, 7'b101_???_?}: begin
-                tx_default();
-                rx_default();
-                if (tx_one_left) begin
-                    // 发完了
-                    state <= Load_Unprocessed_Packet;
-                end else begin
-                    state <= Send_Load_Another_Unprocessed;
-                end
-            end
-            /******************************
-             * Send Load Another Unprocessed
-             * 从缓冲区发送前一个包
-             * 同时收取后一个未处理包
-             *****************************/
-            {Send_Load_Another_Unprocessed, 7'b000_000_1}: begin
-                tx_none();
-            end
-            {Send_Load_Another_Unprocessed, 7'b001_000_1}: begin
-                tx_default();
-                if (tx_one_left) begin
-                    // 前一个包发送完毕
-                    state <= Load_Unprocessed_Packet;
-                end
-            end
-            {Send_Load_Another_Unprocessed, 7'b101_000_1}: begin
-                tx_default();
-                case (current_pos)
-                    // 22: 确定了包的大小
-                    22: begin
-                        buffer <= {buffer[0 +: 504], rx_data};
-                        current_pos <= current_pos + 1;
-                        last_pos <= last_pos + 1;
-                        case (buffer[32 +: 16])
-                            16'h0806: begin
-                                packet_type <= ARP;
-                                rx_countdown <= 37;
+                    PacketARPResponse: begin
+                        // 过程中检验
+                        case (read_cnt)
+                            // 记录来源 IP，准备添加 ARP 条目
+                            32: ip_input[24 +: 8] <= rx_data;
+                            33: ip_input[16 +: 8] <= rx_data;
+                            34: ip_input[ 8 +: 8] <= rx_data;
+                            35: ip_input[ 0 +: 8] <= rx_data;
+                            // 检查目标 IP 是否为路由器自己 IP
+                            42: assert_rx(router_ip[24 +: 8]);
+                            43: assert_rx(router_ip[16 +: 8]);
+                            44: assert_rx(router_ip[ 8 +: 8]);
+                            45: assert_rx(router_ip[ 0 +: 8]);
+                        endcase
+                        // 需要在 ARP 表中记录一下包的来源
+                        add_arp <= read_cnt == 36;
+                    end
+                    // IP
+                    PacketIP: begin
+                        tx_dst_mac <= mac_result;
+                        tx_vlan_id <= vlan_result;
+                        case (read_cnt)
+                            // TTL > 0
+                            26: begin
+                                if (rx_data == '0)
+                                    packet_type <= PacketBad;
                             end
-                            16'h0800: begin
-                                packet_type <= IP;
-                                if (buffer[0 +: 16] > 42) begin
-                                    rx_countdown <= buffer[0 +: 16] - 5;
-                                end else begin
-                                    rx_countdown <= 37;
-                                end
+                            // checksum_overflow <= checksum >= 0xfeff
+                            28: begin
+                                ip_checksum_fe <= rx_data == 8'hfe;
+                                ip_checksum_overflow <= rx_data == '1;
                             end
-                            default: begin
-                                packet_type <= Other;
-                                rx_countdown <= 37;
+                            29: begin
+                                if (ip_checksum_fe && rx_data == '1)
+                                    ip_checksum_overflow <= 1;
+                            end
+                            // 记录目标 IP，准备查表
+                            34: ip_input[24 +: 8] <= rx_data;
+                            35: ip_input[16 +: 8] <= rx_data;
+                            36: ip_input[ 8 +: 8] <= rx_data;
+                            37: ip_input[ 0 +: 8] <= rx_data;
+                        endcase
+                        // 发送取决于 packet_processor 返回结果
+                        if (read_cnt > 38 && process_done) begin
+                            ip_packet_process_status <= IPPacketDone;
+                            if (process_bad) begin
+                                // flush tx
+                                tx_start <= read_cnt >= 46;
+                                packet_type <= PacketBad;
+                                process_reset <= 0;
+                            end else begin
+                                // tx_start 置一拍后，packet_processor 重置，process_done = 0
+                                tx_start <= 1;
+                                process_reset <= 1;
+                            end
+                        end else begin
+                            tx_start <= 0;
+                            process_reset <= 0;
+                        end
+                        // 调用 packet_processor
+                        process_ip <= read_cnt == 38;
+                        // 38 时置 PROCESSING
+                        if (read_cnt == 38) begin
+                            ip_packet_process_status <= IPPacketProcessing;
+                        end
+                        // 58 还未处理完则置 STILL_PROCESSING，暂停 rx
+                        if (read_cnt == 58 && !process_done && ip_packet_process_status == IPPacketProcessing) begin
+                            ip_packet_process_status <= IPPacketStillProcessing;
+                        end
+                    end
+                    // 在第 47 字节确定是 RIP Request 还是 Response
+                    PacketRIPDefault: begin
+                        rip_read_cycle <= 0;
+                        case (read_cnt)
+                            // UDP
+                            27: assert_rx(8'h11);
+                            // 记录源 IP 作为可能添加的条目的下一条
+                            30: nexthop_input[24 +: 8] <= rx_data;
+                            31: nexthop_input[16 +: 8] <= rx_data;
+                            32: nexthop_input[ 8 +: 8] <= rx_data;
+                            33: nexthop_input[ 0 +: 8] <= rx_data;
+                            // 检查目标 IP
+                            34: assert_rx(Address::McastIP[24 +: 8]);
+                            35: assert_rx(Address::McastIP[16 +: 8]);
+                            36: assert_rx(Address::McastIP[ 8 +: 8]);
+                            37: assert_rx(Address::McastIP[ 0 +: 8]);
+                            // 检查 UDP 头
+                            38: assert_rx(8'h02);
+                            39: assert_rx(8'h08);
+                            40: assert_rx(8'h02);
+                            41: assert_rx(8'h08);
+                            // RIP Command
+                            46: begin
+                                case (rx_data)
+                                    1: packet_type <= PacketRIPRequest;
+                                    2: packet_type <= PacketRIPResponse;
+                                    default: packet_type <= PacketBad;
+                                endcase
+                                // 丢掉 fifo 中的数据
+                                tx_start <= 1;
                             end
                         endcase
-                        if (tx_one_left) begin
-                            state <= Load_Unprocessed_Packet;
-                        end
                     end
-                    // 开始处理 IP 包
-                    38: begin
-                        if (packet_type == IP) begin
-                            preprocess_ip();
-                            // todo process
-                            start_process <= 1;
-                            reset_process <= 0;
-                            if (tx_one_left) begin
-                                state <= Load_Processing_Packet;
-                            end else begin
-                                state <= Send_Load_Another_Processing;
+                    PacketRIPResponse: begin
+                        case (read_cnt)
+                            // RIPv2
+                            47: assert_rx(8'h02);
+                            48: assert_rx(8'h00);
+                            49: assert_rx(8'h00);
+                            default: begin
+                                case (rip_read_cycle)
+                                    // 检验标签：family=2, route=0
+                                    0 : rip_entry_valid <= (rx_data == 8'h00);
+                                    1 : rip_entry_valid <= rip_entry_valid && (rx_data == 8'h02);
+                                    2 : rip_entry_valid <= rip_entry_valid && (rx_data == 8'h00);
+                                    3 : rip_entry_valid <= rip_entry_valid && (rx_data == 8'h00);
+                                    // 记录 prefix 地址
+                                    4 : ip_input[24 +: 8] <= rx_data;
+                                    5 : ip_input[16 +: 8] <= rx_data;
+                                    6 : ip_input[ 8 +: 8] <= rx_data;
+                                    7 : ip_input[ 0 +: 8] <= rx_data;
+                                    // 记录 mask
+                                    8 : mask_input <= count_left_ones(rx_data);
+                                    9 : mask_input <= mask_input == 8 ? (mask_input + count_left_ones(rx_data)) : mask_input;
+                                    10: mask_input <= mask_input == 16 ? (mask_input + count_left_ones(rx_data)) : mask_input;
+                                    11: mask_input <= mask_input == 24 ? (mask_input + count_left_ones(rx_data)) : mask_input;
+                                    // todo 检验 nexthop 不能是本机
+                                    // 12: nexthop_input[24 +: 8] <= rx_data;
+                                    // 13: nexthop_input[16 +: 8] <= rx_data;
+                                    // 14: nexthop_input[ 8 +: 8] <= rx_data;
+                                    // 15: nexthop_input[ 0 +: 8] <= rx_data;
+                                    // 记录 metric，metric_input[4] 为 metric >= 16
+                                    16: metric_input[4] <= (rx_data != 0);
+                                    17: metric_input[4] <= (metric_input[4] || rx_data != 0);
+                                    18: metric_input[4] <= (metric_input[4] || rx_data != 0);
+                                    19: metric_input <= {(metric_input[4] || rx_data[7:4] != 0), rx_data[3:0]};
+                                endcase
+                                if (rip_read_cycle == 19) begin
+                                    rip_read_cycle <= 0;
+                                    add_routing <= rip_entry_valid;
+                                end else begin
+                                    rip_read_cycle <= rip_read_cycle + 1;
+                                end
                             end
-                        end else begin
-                            if (tx_one_left) begin
-                                state <= Load_Unprocessed_Packet;
-                            end
-                        end
-                        rx_default();
+                        endcase
                     end
-                    // 处理 ARP 包
-                    46: begin
-                        if (packet_type == ARP) begin
-                            process_arp();
-                            rx_keep_pos();
-                            current_pos <= 0;
-                            last_pos <= last_pos + 1;
-                            if (tx_one_left) begin
-                                state <= Send_Load_Packet;
-                            end else begin
-                                state <= Send_Load_Another_Processed;
-                            end
-                        end else begin
-                            // 不是 ARP 就是无法处理的包，丢弃
-                            if (tx_one_left) begin
-                                state <= Discard_Packet;
-                            end else begin
-                                state <= Send_Discard_Another;
-                            end
-                        end
+                    // todo 回复 RIP 请求
+                    PacketRIPRequest: begin
+                        packet_type <= PacketBad;
                     end
-                    default: begin
-                        rx_default();
-                        if (tx_one_left) begin
-                            state <= Load_Unprocessed_Packet;
-                        end
+                    // Bad
+                    PacketBad: begin
+                        // 这里用 46 因为 bad 最晚在 45 被设置
+                        tx_start <= read_cnt == 46;
                     end
                 endcase
             end
-            /******************************
-             * Send Load Another Processing
-             * 从缓冲区发送前一个包
-             * 同时收取后一个处理中的包
-             * rx 一定不会 last 或 complete
-             *****************************/
-            {Send_Load_Another_Processing, 7'b000_0??_1}: begin
-                // tx_ready = 0
-                start_process <= 0;
-                tx_none();
-                if (process_bad) begin
-                    state <= Send_Discard_Another;
-                end
+            
+
+            if (rx_last) begin
+                read_cnt <= 0;
+            end else if (read_cnt == '1) begin
+                read_cnt <= '1;
+            end else begin
+                read_cnt <= read_cnt + 1;
             end
-            {Send_Load_Another_Processing, 7'b?01_000_1}: begin
-                // 处理中
-                start_process <= 0;
-                tx_default();
-                if (rx_valid) begin
-                    rx_default();
-                end
-                if (tx_one_left) begin
-                    // 发送完
-                    state <= Load_Processing_Packet;
-                end
-            end
-            {Send_Load_Another_Processing, 7'b?01_0?1_1}: begin
-                // bad
-                start_process <= 0;
-                tx_default();
-                if (tx_one_left) begin
-                    // 发送完
-                    state <= Discard_Packet;
-                end else begin
-                    state <= Send_Discard_Another;
-                end
-            end
-            {Send_Load_Another_Processing, 7'b?01_010_1}: begin
-                // 处理完毕
-                start_process <= 0;
-                reset_process <= 1;
-                apply_ip_process();
-                tx_default();
-                if (tx_one_left) begin
-                    // 发送完
-                    current_pos = 0;
-                    last_pos = 0;
-                    state <= Send_Load_Packet;
-                    if (rx_valid)
-                        rx_keep_pos();
-                end else begin
-                    current_pos <= 0;
-                    state <= Send_Load_Another_Processed;
-                    if (rx_valid) begin
-                        rx_keep_pos();
-                        last_pos <= last_pos + 1;
-                    end
-                end
-            end
-            /******************************
-             * Send Load Another Processed
-             * 前一个包还未发完，当前包处理完
-             *****************************/
-            {Send_Load_Another_Processed, 7'b000_???_1}: begin
-                // tx_ready = 0
-                tx_none();
-            end
-            {Send_Load_Another_Processed, 7'b001_???_1}: begin
-                // 从缓冲区里面发送已处理的数据，同时等待更多输入
-                tx_default();
-                if (tx_one_left) begin
-                    state <= Send_Load_Packet;
-                end
-            end
-            {Send_Load_Another_Processed, 7'b10?_0??_1}: begin
-                // 从缓冲区里面发送已处理的数据，同时有新数据进入
-                rx_keep_pos();
-                tx_default();
-                if (tx_one_left) begin
-                    state <= Send_Load_Packet;
-                    last_pos <= 0;
-                end else begin
-                    last_pos <= last_pos + 1;
-                end
-            end
-            /******************************
-             * Send Discard Another
-             * 前一个包还未发完，当前包要丢掉
-             *****************************/
-            {Send_Discard_Another, 7'b000_???_?}: begin
-                tx_none();
-            end
-            {Send_Discard_Another, 7'b?01_???_?}: begin
-                tx_default();
-                if (tx_one_left) begin
-                    state <= Discard_Packet;
-                end
-            end
-            default: begin
-                $display("!!!%x %d%d%d%d%d%d%d", state,
-            rx_valid, rx_last, tx_ready,
-            last_byte, process_complete, process_bad,
-            tx_available);
-            end
-        endcase
+        end else begin
+            // !rx_valid
+            fifo_din <= 'x;
+            fifo_wr_en <= 0;
+        end
     end
 end
 
+// always_ff @(negedge clk_125M) begin
+//     if (tx_start) $display("START at read_cnt=%0d", read_cnt);
+// end
 
-assign debug_state = state;
-assign debug_countdown = rx_countdown;
-assign debug_current = current_pos;
-assign debug_tx = tx_pos;
-assign debug_last = last_pos;
-assign debug_case = {
-    rx_valid, rx_last, tx_ready,
-    last_byte, process_complete, process_bad,
-    tx_available
-};
+// 正常发包显示在高位数码管
+digit_loop debug_send (
+    .rst_n(rst_n),
+    .clk(tx_start),
+    .digit_out(digit1_out)
+);
+
+// 丢包显示在低位数码管
+digit_loop debug_discard (
+    .rst_n(rst_n),
+    .clk(packet_type == PacketBad),
+    .digit_out(digit0_out)
+);
+
+always_comb begin
+    // led_out[0] = packet_type == PacketBad;
+    // led_out[1] = packet_type == PacketIP;
+    // led_out[2] = packet_type == PacketARPRequest;
+    // led_out[3] = packet_type == PacketARPResponse;
+    // led_out[4] = packet_type == PacketRIPDefault;
+    // led_out[5] = packet_type == PacketRIPRequest;
+    // led_out[6] = packet_type == PacketRIPResponse;
+    // led_out[15] = rx_ready;
+    // led_out[14] = ip_packet_process_status == IPPacketProcessing;
+    // led_out[14] = ip_packet_process_status == IPPacketStillProcessing;
+end
 
 endmodule
