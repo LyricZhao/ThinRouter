@@ -91,6 +91,7 @@ logic locked, clk_100M, clk_125M, clk_200M;
 pll clock_gen 
 (
     // Clock out ports
+    .clk_40M,
     .clk_100M,
     .clk_125M,
     .clk_200M,
