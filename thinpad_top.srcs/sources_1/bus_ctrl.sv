@@ -62,20 +62,7 @@ module bus_ctrl(
     input  logic                    ch376t_int_n,
     input  logic                    ch376t_sdo,
 
-    // 网络交换机信号，参考 KSZ8795 芯片手册及 RGMII 规范
-    input  logic[3:0]               eth_rgmii_rd,
-    input  logic                    eth_rgmii_rx_ctl,
-    input  logic                    eth_rgmii_rxc,
-    output logic[3:0]               eth_rgmii_td,
-    output logic                    eth_rgmii_tx_ctl,
-    output logic                    eth_rgmii_txc,
-    output logic                    eth_rst_n,
-    input  logic                    eth_int_n,
-
-    input  logic                    eth_spi_miso,
-    output logic                    eth_spi_mosi,
-    output logic                    eth_spi_sck,
-    output logic                    eth_spi_ss_n,
+    // TODO: Router连接
 
     // 图像输出信号
     output logic[2:0]               video_red,          // 红色像素，3位

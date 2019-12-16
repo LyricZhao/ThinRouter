@@ -18,6 +18,6 @@ except:
 def int_to_byte_string(val):
     return struct.pack('<I', val)
 
-with open('../../cpu_sv_test.mem', 'wb') as f:
+with open('../cpu_sv_test.mem', 'wb') as f:
     f.write(b'G')
     f.write(int_to_byte_string(addr))

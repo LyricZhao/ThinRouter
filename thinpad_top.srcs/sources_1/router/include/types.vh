@@ -1,5 +1,5 @@
-`ifndef TYPES_MACRO
-`define TYPES_MACRO
+`ifndef _TYPES_VH_
+`define _TYPES_VH_
 
 typedef logic [31:0] ip_t;
 typedef logic [47:0] mac_t;

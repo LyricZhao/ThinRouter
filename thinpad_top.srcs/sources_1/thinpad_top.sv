@@ -1,5 +1,7 @@
 `timescale 1ns / 1ps
 
+`include "cpu_defs.vh"
+
 module thinpad_top(
     input logic                     clk_50M,             // 50MHz 时钟输入
     input logic                     clk_11M0592,         // 11.0592MHz 时钟输入
@@ -83,6 +85,7 @@ module thinpad_top(
     output logic                    video_de            // 行数据有效信号，用于区分消隐区
 );
 
+
 // PLL分频
 logic locked, clk_100M, clk_125M, clk_200M;
 pll clock_gen(
@@ -94,6 +97,7 @@ pll clock_gen(
     .locked(locked),                  // 锁定输出，"1"表示时钟稳定，可作为后级电路复位
     .clk_in1(clk_50M)                 // 外部时钟输入
 );
+
 
 // 计时器
 // 毫秒（0-999）
@@ -112,6 +116,7 @@ timer #(
     .second
 );
 
+
 // 这里应该是KSZ8795芯片的一些设置，初始化用
 eth_conf conf(
     .clk(clk_50M),
@@ -124,6 +129,7 @@ eth_conf conf(
 
     .done()
 );
+
 
 // 路由
 rgmii_manager rgmii_manager_inst (
@@ -144,6 +150,38 @@ rgmii_manager rgmii_manager_inst (
     .eth_rgmii_td(eth_rgmii_td),
     .eth_rgmii_tx_ctl(eth_rgmii_tx_ctl),
     .eth_rgmii_txc(eth_rgmii_txc)
+);
+
+
+// CPU
+addr_t cpu_ram_addr;
+word_t cpu_ram_data_r, cpu_ram_data_w;
+logic cpu_ram_we, cpu_ram_ce;
+sel_t cpu_ram_sel;
+int_t cpu_int;
+
+cpu_top cpu_top_inst(
+    .clk(clk_40M),
+    .rst(~locked),
+
+    .ram_addr(cpu_ram_addr),
+    .ram_data_r(cpu_ram_data_r),
+    .ram_data_w(cpu_ram_data_w),
+    .ram_we(cpu_ram_we),
+    .ram_sel(cpu_ram_sel),
+    .ram_ce(cpu_ram_ce),
+
+    .int_i(cpu_int)
+);
+
+
+// 总线控制器
+bus_ctrl bus_ctrl_inst(
+    .clk(clk_40M),
+    .clk_50M(clk_50M),
+    .rst_n(locked),
+    
+    .*
 );
 
 endmodule
