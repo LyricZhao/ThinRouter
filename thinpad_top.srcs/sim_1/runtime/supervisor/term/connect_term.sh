@@ -1,0 +1,1 @@
+GCCPREFIX=mipsel-linux-musl- python3 term.py -t 166.111.227.235:$1

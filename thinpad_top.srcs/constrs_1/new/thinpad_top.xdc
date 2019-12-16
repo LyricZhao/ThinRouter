@@ -334,4 +334,4 @@ set_false_path -from [get_pins rgmii_manager_inst/io_manager_inst/packet_process
 connect_debug_port u_ila_0/probe0 [get_nets [list {rgmii_manager_inst/io_manager_inst/packet_processor_inst/routing_table_inst/memory_addr[0]} {rgmii_manager_inst/io_manager_inst/packet_processor_inst/routing_table_inst/memory_addr[1]} {rgmii_manager_inst/io_manager_inst/packet_processor_inst/routing_table_inst/memory_addr[2]} {rgmii_manager_inst/io_manager_inst/packet_processor_inst/routing_table_inst/memory_addr[3]} {rgmii_manager_inst/io_manager_inst/packet_processor_inst/routing_table_inst/memory_addr[4]} {rgmii_manager_inst/io_manager_inst/packet_processor_inst/routing_table_inst/memory_addr[15]}]]
 connect_debug_port dbg_hub/clk [get_nets clk_125M]
 
-set_false_path -from [list [get_pins -hierarchical *line_roll*] [get_pins -hierarchical *line_length*]]
+set_false_path -from [list [get_cells -hierarchical *line_length*] [get_pins -hierarchical *line_roll*]] -through [get_nets -hierarchical *char_read*]

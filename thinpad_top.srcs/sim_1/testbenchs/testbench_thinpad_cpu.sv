@@ -1,5 +1,8 @@
 `timescale 1ns / 1ps
-module testbench_thinpad();
+
+`include "cpu_defs.vh"
+
+module testbench_thinpad_cpu();
 
 wire clk_50M, clk_11M0592, clk_125M, clk_125M_90deg;
 
@@ -45,14 +48,6 @@ wire uart_dataready;        // 串口数据准备好
 wire uart_tbre;             // 发送数据标志
 wire uart_tsre;             // 数据发送完毕标志
 
-wire [3:0] eth_rgmii_rd;    // RGMII RX 数据
-wire eth_rgmii_rx_ctl;      // RGMII RX 控制
-wire eth_rgmii_rxc;         // RGMII RX 时钟
-
-wire [3:0] eth_rgmii_td;
-wire eth_rgmii_tx_ctl;
-wire eth_rgmii_txc;
-
 thinpad_top dut(
     .clk_50M(clk_50M),
     .clk_11M0592(clk_11M0592),
@@ -89,13 +84,22 @@ thinpad_top dut(
     .flash_oe_n(flash_oe_n),
     .flash_ce_n(flash_ce_n),
     .flash_byte_n(flash_byte_n),
-    .flash_we_n(flash_we_n),
-    .eth_rgmii_rd(eth_rgmii_rd),
-    .eth_rgmii_rx_ctl(eth_rgmii_rx_ctl),
-    .eth_rgmii_rxc(eth_rgmii_rxc),
-    .eth_rgmii_td(eth_rgmii_td),
-    .eth_rgmii_tx_ctl(eth_rgmii_tx_ctl),
-    .eth_rgmii_txc(eth_rgmii_txc)
+    .flash_we_n(flash_we_n)
+);
+
+// 需要把这个放到Simulation Source里面
+parameter base_ram_init_file = "kernel.bin";
+parameter term_file = "cpu_sv_test.mem";
+
+// CPLD 串口仿真模型
+cpld_model cpld(
+    .clk_uart(clk_11M0592),
+    .uart_rdn(uart_rdn),
+    .uart_wrn(uart_wrn),
+    .uart_dataready(uart_dataready),
+    .uart_tbre(uart_tbre),
+    .uart_tsre(uart_tsre),
+    .data(base_ram_data[7:0])
 );
 
 // 时钟源
@@ -143,14 +147,53 @@ sram_model ext2(
             .LB_n(ext_ram_be_n[2]),
             .UB_n(ext_ram_be_n[3]));
 
-// RGMII 仿真模型 这里从testbench_eth_frame的rgmmi上接过去
-rgmii_model rgmii(
-    .clk_125M(clk_125M),
-    .clk_125M_90deg(clk_125M_90deg),
+// 初始按一下 reset
+initial begin
+    reset_btn = 1;
+    #4000;
+    reset_btn = 0;
+end
 
-    .rgmii_rd(eth_rgmii_rd),
-    .rgmii_rxc(eth_rgmii_rxc),
-    .rgmii_rx_ctl(eth_rgmii_rx_ctl)
-);
+// 从文件加载 BaseRAM
+initial begin
+    word_t tmp_array[0:1048575];
+    integer file_id, file_size;
+    file_id = $fopen(base_ram_init_file, "rb");
+    if (!file_id) begin 
+        file_size = 0;
+        $display("Failed to open BaseRAM init file");
+    end else begin
+        file_size = $fread(tmp_array, file_id);
+        file_size /= 4;
+        $fclose(file_id);
+    end
+    $display("BaseRAM Init Size(words): %d", file_size);
+    for (integer i = 0; i < file_size; i ++) begin
+        base1.mem_array0[i] = tmp_array[i][24+:8];
+        base1.mem_array1[i] = tmp_array[i][16+:8];
+        base2.mem_array0[i] = tmp_array[i][8+:8];
+        base2.mem_array1[i] = tmp_array[i][0+:8];
+    end
+end
+
+initial begin
+    byte term_array[0:1048575];
+    integer file_id, file_size;
+    // 开始加载监控程序命令
+    file_id = $fopen(term_file, "rb");
+    if (!file_id) begin
+        file_size = 0;
+        $display("Failed to open term file");
+    end else begin
+        file_size = $fread(term_array, file_id);
+        $fclose(file_id);
+    end
+    $display("term size(bytes): %d", file_size);
+    wait(cpld.inited == 1);
+    for (integer i = 0; i < file_size; i ++) begin
+        #10000;
+        cpld.pc_send_byte(term_array[i]);
+    end
+end
 
 endmodule
