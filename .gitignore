@@ -12,5 +12,6 @@ refs
 vivado*
 thinpad_top.srcs/sim_1/imports
 thinpad_top.srcs/sim_1/runtime/*
-!thinpad_top.srcs/sim_1/runtime/scripts*
+!thinpad_top.srcs/sim_1/runtime/scripts_cpu
+!thinpad_top.srcs/sim_1/runtime/scripts_router
 !thinpad_top.srcs/sim_1/runtime/supervisor
