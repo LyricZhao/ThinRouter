@@ -1,7 +1,5 @@
 `timescale 1ns / 1ps
 
-`include "cpu_defs.vh"
-
 module thinpad_top(
     input logic                     clk_50M,             // 50MHz 时钟输入
     input logic                     clk_11M0592,         // 11.0592MHz 时钟输入
@@ -86,11 +84,8 @@ module thinpad_top(
 );
 
 // PLL分频
-
 logic locked, clk_100M, clk_125M, clk_200M;
-pll clock_gen 
-(
-    // Clock out ports
+pll clock_gen(
     .clk_40M,
     .clk_100M,
     .clk_125M,
@@ -118,7 +113,6 @@ timer #(
 );
 
 // 这里应该是KSZ8795芯片的一些设置，初始化用
-
 eth_conf conf(
     .clk(clk_50M),
     .rst_in_n(locked),
@@ -131,10 +125,7 @@ eth_conf conf(
     .done()
 );
 
-/**********************
- *      路由模块      *
- *********************/
-
+// 路由
 rgmii_manager rgmii_manager_inst (
     .clk_100M,
     .clk_125M,
