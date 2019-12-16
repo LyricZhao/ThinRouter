@@ -2,26 +2,25 @@
 修改自杰哥的代码
 */
 `timescale 1ns / 1ps
-`include "constants.vh"
+
+`include "types.vh"
 
 module testbench_arp_table();
 
     logic clk;
     logic rst;
-    logic [`IPV4_WIDTH-1:0] lookup_ip;
-    logic [`MAC_WIDTH-1:0] lookup_mac;
+    ip_t lookup_ip;
+    mac_t lookup_mac;
     logic [1:0] lookup_port;
     logic lookup_ip_valid;
     logic lookup_mac_found;
     logic lookup_mac_not_found;
 
-    logic [`IPV4_WIDTH-1:0] insert_ip;
-    logic [`MAC_WIDTH-1:0] insert_mac;
-    logic [`PORT_WIDTH-1:0] insert_port;
+    ip_t insert_ip;
+    mac_t insert_mac;
+    logic [1:0] insert_port;
     logic insert_valid;
     logic insert_ready = 1;
-    //logic [`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH-1:0] data_douta_debug;
-    //logic [`IPV4_WIDTH+`MAC_WIDTH+`PORT_WIDTH-1:0] data_doutb_debug;
     
     simple_arp_table arp_table_inst(
         .clk(clk),

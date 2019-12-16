@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-module unittest_tx_manager();
+module testbench_tx_manager();
 
 bit clk_125M = 0;
 bit rst_n = 0;
