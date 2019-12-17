@@ -1,6 +1,7 @@
 `timescale 1ns / 1ps
 
-`include "cpu_defs.vh"
+// `define COMPILE_CPU
+`define COMPILE_ROUTER
 
 module thinpad_top(
     input logic                     clk_50M,             // 50MHz 时钟输入
@@ -87,7 +88,7 @@ module thinpad_top(
 
 
 // PLL分频
-logic locked, clk_100M, clk_125M, clk_200M;
+logic locked, clk_40M, clk_100M, clk_125M, clk_200M;
 pll clock_gen(
     .clk_40M,
     .clk_100M,
@@ -99,6 +100,7 @@ pll clock_gen(
 );
 
 
+`ifdef COMPILE_ROUTER
 // 计时器
 // 毫秒（0-999）
 logic [9:0] millisecond;
@@ -115,7 +117,6 @@ timer #(
     .millisecond,
     .second
 );
-
 
 // 这里应该是KSZ8795芯片的一些设置，初始化用
 eth_conf conf(
@@ -151,7 +152,12 @@ rgmii_manager rgmii_manager_inst (
     .eth_rgmii_tx_ctl(eth_rgmii_tx_ctl),
     .eth_rgmii_txc(eth_rgmii_txc)
 );
+`endif
 
+
+`ifdef COMPILE_CPU
+
+`include "cpu_defs.vh"
 
 // CPU
 addr_t cpu_ram_addr;
@@ -183,5 +189,6 @@ bus_ctrl bus_ctrl_inst(
     
     .*
 );
+`endif
 
 endmodule
