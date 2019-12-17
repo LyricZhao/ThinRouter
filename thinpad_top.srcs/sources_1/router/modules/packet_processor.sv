@@ -65,10 +65,21 @@ xpm_fifo_sync #(
     .wr_en(fifo_write_valid)
 );
 
+time_t second;
+timer #(
+    .FREQ(25_000_000)
+) timer_inst (
+    .clk,
+    .rst_n,
+    .second
+);
+
 ////// 用一个 fifo 来处理遍历路由表
+rip_task_t timed_task_in;
 rip_task_t task_out;
 logic task_empty;
 logic task_read_valid;
+logic timed_rip;
 xpm_fifo_sync #(
     .FIFO_MEMORY_TYPE("distributed"),
     .FIFO_READ_LATENCY(0),
@@ -78,7 +89,7 @@ xpm_fifo_sync #(
     .USE_ADV_FEATURES("0000"),
     .WRITE_DATA_WIDTH($bits(rip_task_t))
 ) enum_task_fifo (
-    .din({rip_dst_mac, rip_dst_ip, rip_port}),
+    .din(send_rip ? {rip_dst_mac, rip_dst_ip, rip_port} : timed_task_in),
     .dout(task_out),
     .empty(task_empty),
     .full(_task_full),
@@ -88,7 +99,7 @@ xpm_fifo_sync #(
     .rst(0),
     .sleep(0),
     .wr_clk(clk),
-    .wr_en(send_rip)
+    .wr_en(send_rip | timed_rip)
 );
 
 enum reg [2:0] {
@@ -116,7 +127,7 @@ logic enum_last;
 routing_table routing_table_inst (
     .clk_125M(clk),
     .rst_n,
-    .second('0),
+    .second,
 
     // .debug,
     
@@ -154,8 +165,10 @@ rip_packer rip_packer_inst (
     .last(enum_last),
     .prefix(enum_prefix),
     .mask(enum_mask),
+    .port({enum_port == '0, enum_port}),
     .src_ip(Address::ip({enum_port == '0, enum_port})),
     .dst_ip(enum_dst_ip),
+    .dst_mac(enum_dst_mac),
     .nexthop(enum_nexthop),
     .metric(enum_metric),
     .outer_fifo_read_valid(rip_tx_read_valid),
@@ -197,6 +210,8 @@ begin
 end
 endtask
 
+time_t second_latch;
+
 always_ff @ (negedge clk) begin
     // 将模块输入连接到 fifo 的输入，由后面的逻辑控制 wr_en 即可
     fifo_in.prefix <= ip_input;
@@ -204,6 +219,11 @@ always_ff @ (negedge clk) begin
     fifo_in.mask <= mask_input;
     fifo_in.metric <= metric_input;
     fifo_in.from_vlan <= vlan_input;
+
+    second_latch <= second;
+    // 每一整数秒对一个口发 RIP
+    timed_rip <= second_latch != second;
+    timed_task_in <= {Address::McastMAC, Address::McastIP, second[1:0]};
 
     if (~rst_n) begin
         reset_module();

@@ -13,8 +13,10 @@ module rip_packer (
     input   logic    last,
     input   logic    [31:0] prefix,
     input   logic    [5:0]  mask,
+    input   logic    [2:0]  port,
     input   logic    [31:0] src_ip,
     input   logic    [31:0] dst_ip,
+    input   logic    [47:0] dst_mac,
     input   logic    [31:0] nexthop,
     input   logic    [3:0]  metric,
 
@@ -23,6 +25,9 @@ module rip_packer (
     output  logic    outer_fifo_empty,
     output  logic    [8:0]  outer_fifo_out
 );
+
+logic [47:0] src_mac;
+always_comb src_mac = Address::mac(port);
 
 enum logic [3:0] {
     Receive, // 不断接受rip表项
@@ -258,38 +263,56 @@ always_ff @ (posedge clk) begin
             AssembleHeader: begin
                 outer_fifo_write_valid <= 1;
                 case (header_pointer)
-                    6'b000000: begin outer_fifo_in <= {1'b0, ip_udp_header[0] }; end
-                    6'b000001: begin outer_fifo_in <= {1'b0, ip_udp_header[1] }; end
-                    6'b000010: begin outer_fifo_in <= {1'b0, ip_udp_header[2] }; end
-                    6'b000011: begin outer_fifo_in <= {1'b0, ip_udp_header[3] }; end
-                    6'b000100: begin outer_fifo_in <= {1'b0, ip_udp_header[4] }; end
-                    6'b000101: begin outer_fifo_in <= {1'b0, ip_udp_header[5] }; end
-                    6'b000110: begin outer_fifo_in <= {1'b0, ip_udp_header[6] }; end
-                    6'b000111: begin outer_fifo_in <= {1'b0, ip_udp_header[7] }; end
-                    6'b001000: begin outer_fifo_in <= {1'b0, ip_udp_header[8] }; end
-                    6'b001001: begin outer_fifo_in <= {1'b0, ip_udp_header[9] }; end
-                    6'b001010: begin outer_fifo_in <= {1'b0, ip_udp_header[10]}; end
-                    6'b001011: begin outer_fifo_in <= {1'b0, ip_udp_header[11]}; end
-                    6'b001100: begin outer_fifo_in <= {1'b0, ip_udp_header[12]}; end
-                    6'b001101: begin outer_fifo_in <= {1'b0, ip_udp_header[13]}; end
-                    6'b001110: begin outer_fifo_in <= {1'b0, ip_udp_header[14]}; end
-                    6'b001111: begin outer_fifo_in <= {1'b0, ip_udp_header[15]}; end
-                    6'b010000: begin outer_fifo_in <= {1'b0, ip_udp_header[16]}; end
-                    6'b010001: begin outer_fifo_in <= {1'b0, ip_udp_header[17]}; end
-                    6'b010010: begin outer_fifo_in <= {1'b0, ip_udp_header[18]}; end
-                    6'b010011: begin outer_fifo_in <= {1'b0, ip_udp_header[19]}; end
-                    6'b010100: begin outer_fifo_in <= {1'b0, ip_udp_header[20]}; end
-                    6'b010101: begin outer_fifo_in <= {1'b0, ip_udp_header[21]}; end
-                    6'b010110: begin outer_fifo_in <= {1'b0, ip_udp_header[22]}; end
-                    6'b010111: begin outer_fifo_in <= {1'b0, ip_udp_header[23]}; end
-                    6'b011000: begin outer_fifo_in <= {1'b0, ip_udp_header[24]}; end
-                    6'b011001: begin outer_fifo_in <= {1'b0, ip_udp_header[25]}; end
-                    6'b011010: begin outer_fifo_in <= {1'b0, ip_udp_header[26]}; end
-                    6'b011011: begin outer_fifo_in <= {1'b0, ip_udp_header[27]}; end
-                    6'b011100: begin outer_fifo_in <= 9'h002; end // rip头
-                    6'b011101: begin outer_fifo_in <= 9'h002; end
-                    6'b011110: begin outer_fifo_in <= 9'h000; end
-                    6'b011111: begin outer_fifo_in <= 9'h000; state <= AssembleBody; end
+                     0: outer_fifo_in <= {1'b0, dst_mac[40 +: 8 ]};
+                     1: outer_fifo_in <= {1'b0, dst_mac[32 +: 8 ]};
+                     2: outer_fifo_in <= {1'b0, dst_mac[24 +: 8 ]};
+                     3: outer_fifo_in <= {1'b0, dst_mac[16 +: 8 ]};
+                     4: outer_fifo_in <= {1'b0, dst_mac[ 8 +: 8 ]};
+                     5: outer_fifo_in <= {1'b0, dst_mac[ 0 +: 8 ]};
+                     6: outer_fifo_in <= {1'b0, src_mac[40 +: 8 ]};
+                     7: outer_fifo_in <= {1'b0, src_mac[32 +: 8 ]};
+                     8: outer_fifo_in <= {1'b0, src_mac[24 +: 8 ]};
+                     9: outer_fifo_in <= {1'b0, src_mac[16 +: 8 ]};
+                    10: outer_fifo_in <= {1'b0, src_mac[ 8 +: 8 ]};
+                    11: outer_fifo_in <= {1'b0, src_mac[ 0 +: 8 ]};
+                    12: outer_fifo_in <= 9'h081;
+                    13: outer_fifo_in <= 9'h000;
+                    14: outer_fifo_in <= 9'h000;
+                    15: outer_fifo_in <= {6'h00, port};
+                    16: outer_fifo_in <= 9'h008;
+                    17: outer_fifo_in <= 9'h000;
+                    18: outer_fifo_in <= {1'b0, ip_udp_header[0] };
+                    19: outer_fifo_in <= {1'b0, ip_udp_header[1] };
+                    20: outer_fifo_in <= {1'b0, ip_udp_header[2] };
+                    21: outer_fifo_in <= {1'b0, ip_udp_header[3] };
+                    22: outer_fifo_in <= {1'b0, ip_udp_header[4] };
+                    23: outer_fifo_in <= {1'b0, ip_udp_header[5] };
+                    24: outer_fifo_in <= {1'b0, ip_udp_header[6] };
+                    25: outer_fifo_in <= {1'b0, ip_udp_header[7] };
+                    26: outer_fifo_in <= {1'b0, ip_udp_header[8] };
+                    27: outer_fifo_in <= {1'b0, ip_udp_header[9] };
+                    28: outer_fifo_in <= {1'b0, ip_udp_header[10]};
+                    29: outer_fifo_in <= {1'b0, ip_udp_header[11]};
+                    30: outer_fifo_in <= {1'b0, ip_udp_header[12]};
+                    31: outer_fifo_in <= {1'b0, ip_udp_header[13]};
+                    32: outer_fifo_in <= {1'b0, ip_udp_header[14]};
+                    33: outer_fifo_in <= {1'b0, ip_udp_header[15]};
+                    34: outer_fifo_in <= {1'b0, ip_udp_header[16]};
+                    35: outer_fifo_in <= {1'b0, ip_udp_header[17]};
+                    36: outer_fifo_in <= {1'b0, ip_udp_header[18]};
+                    37: outer_fifo_in <= {1'b0, ip_udp_header[19]};
+                    38: outer_fifo_in <= {1'b0, ip_udp_header[20]};
+                    39: outer_fifo_in <= {1'b0, ip_udp_header[21]};
+                    40: outer_fifo_in <= {1'b0, ip_udp_header[22]};
+                    41: outer_fifo_in <= {1'b0, ip_udp_header[23]};
+                    42: outer_fifo_in <= {1'b0, ip_udp_header[24]};
+                    43: outer_fifo_in <= {1'b0, ip_udp_header[25]};
+                    44: outer_fifo_in <= {1'b0, ip_udp_header[26]};
+                    45: outer_fifo_in <= {1'b0, ip_udp_header[27]};
+                    46: outer_fifo_in <= 9'h002; // rip头
+                    47: outer_fifo_in <= 9'h002;
+                    48: outer_fifo_in <= 9'h000;
+                    49: begin outer_fifo_in <= 9'h000; state <= AssembleBody; end
                 endcase
                 header_pointer <= header_pointer + 1;
             end
