@@ -168,7 +168,7 @@ enum logic [1:0] {
 } query_state;
 
 // 插入过程的状态，组合逻辑
-enum logic [4:0] {
+enum logic [3:0] {
     // 定位到 entry_to_insert.prefix 的位置，转其他状态
     Insert,
     InsertSituationPre1,
@@ -188,6 +188,11 @@ enum logic [4:0] {
     InsertReplaceNext0
 } insert_state;
 
+enum logic [2:0] {
+    EnumNexthop,
+    EnumParent
+} enum_state;
+
 logic [1:0] work_cooldown;
 
 // 具体逻辑可能会用到
@@ -196,7 +201,9 @@ pointer_t insert_pointer_buffer;
 // 锁存的 port
 logic [1:0] enum_latched_port;
 // 已经完成了多少
-logic [13:0] enum_completed;
+pointer_t enum_completed;
+// 本次完成了多少，到 25 需要停止
+logic [4:0] enum_got;
 
 // 利用 trie 树中查找这个 IP 地址
 // 用同步逻辑控制，空闲时置 0，否则置 IP 地址，组合逻辑开始查找
@@ -204,100 +211,16 @@ ip_t ip_target;
 // 目前找到的最长匹配叶子节点地址，当查询结束时，如果此地址为 0，说明无匹配
 pointer_t best_match;
 
-// 根据前缀长度生成 mask
-function ip_t get_mask;
-    input logic [5:0] len;
-begin
-    case (len)
-        0 : get_mask = 32'h00000000;
-        1 : get_mask = 32'h80000000;
-        2 : get_mask = 32'hC0000000;
-        3 : get_mask = 32'hE0000000;
-        4 : get_mask = 32'hF0000000;
-        5 : get_mask = 32'hF8000000;
-        6 : get_mask = 32'hFC000000;
-        7 : get_mask = 32'hFE000000;
-        8 : get_mask = 32'hFF000000;
-        9 : get_mask = 32'hFF800000;
-        10: get_mask = 32'hFFC00000;
-        11: get_mask = 32'hFFE00000;
-        12: get_mask = 32'hFFF00000;
-        13: get_mask = 32'hFFF80000;
-        14: get_mask = 32'hFFFC0000;
-        15: get_mask = 32'hFFFE0000;
-        16: get_mask = 32'hFFFF0000;
-        17: get_mask = 32'hFFFF8000;
-        18: get_mask = 32'hFFFFC000;
-        19: get_mask = 32'hFFFFE000;
-        20: get_mask = 32'hFFFFF000;
-        21: get_mask = 32'hFFFFF800;
-        22: get_mask = 32'hFFFFFC00;
-        23: get_mask = 32'hFFFFFE00;
-        24: get_mask = 32'hFFFFFF00;
-        25: get_mask = 32'hFFFFFF80;
-        26: get_mask = 32'hFFFFFFC0;
-        27: get_mask = 32'hFFFFFFE0;
-        28: get_mask = 32'hFFFFFFF0;
-        29: get_mask = 32'hFFFFFFF8;
-        30: get_mask = 32'hFFFFFFFC;
-        31: get_mask = 32'hFFFFFFFE;
-        32: get_mask = 32'hFFFFFFFF;
-        default: begin
-            $fatal("invalid mask length");
-            get_mask = '0;
-        end
-    endcase
-end
-endfunction
-
-
 // Insert 过程中，entry_to_insert.prefix 和 memory_out.branch.prefix 之间的公共 mask 长度
 // 不会超过 entry_to_insert.mask
 logic [5:0] _tmp, insert_shared_mask;
 always_comb begin
+    _tmp = Common::leading0(entry_to_insert.prefix ^ memory_out.branch.prefix);
     insert_shared_mask = _tmp > entry_to_insert.mask ? entry_to_insert.mask : _tmp;
 end
 
-// 根据匹配生成 mask 长度
-always_comb
-    casez (entry_to_insert.prefix ^ memory_out.branch.prefix)
-        32'b1???????_????????_????????_????????: _tmp = 0;
-        32'b01??????_????????_????????_????????: _tmp = 1;
-        32'b001?????_????????_????????_????????: _tmp = 2;
-        32'b0001????_????????_????????_????????: _tmp = 3;
-        32'b00001???_????????_????????_????????: _tmp = 4;
-        32'b000001??_????????_????????_????????: _tmp = 5;
-        32'b0000001?_????????_????????_????????: _tmp = 6;
-        32'b00000001_????????_????????_????????: _tmp = 7;
-        32'b00000000_1???????_????????_????????: _tmp = 8;
-        32'b00000000_01??????_????????_????????: _tmp = 9;
-        32'b00000000_001?????_????????_????????: _tmp = 10;
-        32'b00000000_0001????_????????_????????: _tmp = 11;
-        32'b00000000_00001???_????????_????????: _tmp = 12;
-        32'b00000000_000001??_????????_????????: _tmp = 13;
-        32'b00000000_0000001?_????????_????????: _tmp = 14;
-        32'b00000000_00000001_????????_????????: _tmp = 15;
-        32'b00000000_00000000_1???????_????????: _tmp = 16;
-        32'b00000000_00000000_01??????_????????: _tmp = 17;
-        32'b00000000_00000000_001?????_????????: _tmp = 18;
-        32'b00000000_00000000_0001????_????????: _tmp = 19;
-        32'b00000000_00000000_00001???_????????: _tmp = 20;
-        32'b00000000_00000000_000001??_????????: _tmp = 21;
-        32'b00000000_00000000_0000001?_????????: _tmp = 22;
-        32'b00000000_00000000_00000001_????????: _tmp = 23;
-        32'b00000000_00000000_00000000_1???????: _tmp = 24;
-        32'b00000000_00000000_00000000_01??????: _tmp = 25;
-        32'b00000000_00000000_00000000_001?????: _tmp = 26;
-        32'b00000000_00000000_00000000_0001????: _tmp = 27;
-        32'b00000000_00000000_00000000_00001???: _tmp = 28;
-        32'b00000000_00000000_00000000_000001??: _tmp = 29;
-        32'b00000000_00000000_00000000_0000001?: _tmp = 30;
-        32'b00000000_00000000_00000000_00000001: _tmp = 31;
-        32'b00000000_00000000_00000000_00000000: _tmp = 32;
-    endcase
-
 // 匹配 IP 地址和一个前缀，返回是否匹配
-`define Match(addr, prefix, mask) ((((addr) ^ (prefix)) & get_mask(mask)) == 0)
+`define Match(addr, prefix, mask) ((((addr) ^ (prefix)) & Common::get_mask(mask)) == 0)
 
 // 结束匹配，如果存在最佳匹配，则查找其地址，同时转 QueryResultFetching；否则直接转 ModeIdle
 `define Query_Complete                      \
@@ -367,6 +290,8 @@ always_ff @ (posedge clk_125M) begin
 
     insert_fifo_read_valid <= 0;
     enum_task_read_valid <= 0;
+    enum_valid <= 0;
+    enum_last <= 0;
 
     if (!rst_n) begin
         branch_write_addr <= 1;
@@ -400,7 +325,7 @@ always_ff @ (posedge clk_125M) begin
                     query_ready <= 0;
                     work_cooldown <= 2;
                 end else if (!enum_task_empty) begin
-                    if (enum_completed >= nexthop_write_addr[13:0]) begin
+                    if (enum_completed >= nexthop_write_addr) begin
                         // 这个遍历任务已经完成
                         enum_task_read_valid <= 1;
                         work_mode <= ModeIdle;
@@ -410,6 +335,9 @@ always_ff @ (posedge clk_125M) begin
                         work_mode <= ModeEnumerate;
                         query_ready <= 0;
                         work_cooldown <= 2;
+                        enum_dst_mac <= enum_task_in.dst_router_mac;
+                        enum_dst_ip <= enum_task_in.dst_router_ip;
+
                     end
                 end else begin
                     work_mode <= ModeIdle;
