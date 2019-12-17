@@ -4,8 +4,8 @@ module testbench_packer ();
 bit      clk_125M = 0;
 logic    rst;
 
-logic    valid;
-logic    last;
+logic    valid = 0;
+logic    last = 0;
 logic    [31:0] prefix;
 logic    [5:0]  mask;
 logic    [31:0] src_ip;
@@ -13,12 +13,13 @@ logic    [31:0] dst_ip;
 logic    [31:0] nexthop;
 logic    [3:0]  metric;
 
-logic    outer_fifo_read_valid;
+logic    outer_fifo_read_valid = 0;
 
 logic    outer_fifo_empty;
 logic    [7:0]  outer_fifo_out;
 logic    [7:0]  outer_fifo_in;
 logic    finished; // 打包完成
+
 rip_packer dut (
     .clk(clk_125M),
     .rst(rst),
@@ -39,8 +40,23 @@ rip_packer dut (
 
 always #4 clk_125M = ~clk_125M;
 
+task read_packed;
+begin
+    wait(finished == 1);
+    outer_fifo_read_valid = 1;
+    $write("Packed: \n\t");
+    while (1) begin
+        #8
+        if (outer_fifo_empty) break;
+        else $write("%02x ", outer_fifo_out);
+    end
+    $write("\n");
+end
+endtask
+
 initial begin
-    src_ip = 32'hc0a80101; // protocal_input1.pcap
+    // protocol_input1.pcap
+    src_ip = 32'hc0a80101; 
     dst_ip = 32'he0000009;
     rst = 1;
     rst = #100 0;
@@ -49,20 +65,17 @@ initial begin
     mask = 6'b011000;
     nexthop = 0;
     metric = 4'b0001;
-    # 120
     valid = 1;
-    # 8
-    valid = 0;
-    # 100
     last = 1;
-    # 20
+    # 8
     valid = 0;
     last = 0;
 
-    # 1000
-    outer_fifo_read_valid = 1;
-    # 1000
-    src_ip = 32'hc0a80101; // protocal_input3.pcap
+    read_packed();
+
+    // protocol_input3.pcap
+    outer_fifo_read_valid = 0;
+    src_ip = 32'hc0a80101;
     dst_ip = 32'he0000009;
 
     prefix = 32'hc0a80500;
@@ -71,25 +84,23 @@ initial begin
     metric = 4'b0001;
     valid = 1;
     # 8
-    //valid = 0;
-    //# 8
     prefix = 32'hc0a80600;
     mask = 6'b011000;
     nexthop = 0;
     metric = 4'b0001;
     valid = 1;
-   // # 8
-    //valid = 0;
     # 8
     prefix = 32'hc0a80700;
     mask = 6'b011000;
     nexthop = 0;
     metric = 4'b0001;
-    //valid = 1;
     last = 1;
+    valid = 1;
     # 8
     valid = 0;
     last = 0;
+
+    read_packed();
 end
 
 endmodule
