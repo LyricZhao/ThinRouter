@@ -23,4 +23,10 @@ typedef struct packed {
     logic [2:0] from_vlan;
 } routing_entry_t;
 
+typedef struct packed {
+    mac_t dst_router_mac;
+    ip_t  dst_router_ip;
+    logic [1:0] port; // port 暗示源 IP 地址
+} rip_task_t;
+
 `endif

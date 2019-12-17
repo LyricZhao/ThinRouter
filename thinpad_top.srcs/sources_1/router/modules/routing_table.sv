@@ -33,7 +33,22 @@ module routing_table #(
     // 从 fifo 中读取一条
     output logic insert_fifo_read_valid,
 
-    // 路由表满，此后只可以查询和修改
+    // 遍历任务也从 fifo 进来
+    input  rip_task_t enum_task_in,
+    input  logic enum_task_empty,
+    output logic enum_task_read_valid,
+
+    output mac_t enum_dst_mac,
+    output ip_t  enum_dst_ip,
+    output ip_t  enum_prefix,
+    output ip_t  enum_nexthop,
+    output logic [5:0] enum_mask,
+    output logic [4:0] enum_metric,
+    output logic [3:0] enum_send_to_port,
+    output logic enum_valid,
+    output logic enum_last,
+
+    // todo 路由表满，此后只可以查询和修改
     output logic overflow
 );
 
@@ -168,6 +183,11 @@ enum logic [2:0] {
 
 // 具体逻辑可能会用到
 pointer_t insert_pointer_buffer;
+
+// 锁存的 port
+logic [1:0] enum_latched_port;
+// 已经完成了多少
+logic [13:0] enum_completed;
 
 // 利用 trie 树中查找这个 IP 地址
 // 用同步逻辑控制，空闲时置 0，否则置 IP 地址，组合逻辑开始查找
@@ -337,12 +357,14 @@ always_ff @ (posedge clk_125M) begin
     memory_write_en <= 0;
 
     insert_fifo_read_valid <= 0;
+    enum_task_read_valid <= 0;
 
     if (!rst_n) begin
         branch_write_addr <= 1;
         nexthop_write_addr <= 16'h8000;
         work_mode <= ModeIdle;
         ip_target <= '0;
+        enum_completed <= '0;
     end else begin
         // 查询结束则置 ModeIdle
         if (work_mode == ModeQuery && query_ready) begin
@@ -365,6 +387,17 @@ always_ff @ (posedge clk_125M) begin
                     entry_to_insert <= insert_fifo_data;
                     insert_fifo_read_valid <= 1;
                     query_ready <= 0;
+                end else if (!enum_task_empty) begin
+                    if (enum_completed >= nexthop_write_addr[13:0]) begin
+                        // 这个遍历任务已经完成
+                        enum_task_read_valid <= 1;
+                        work_mode <= ModeIdle;
+                        query_ready <= 1;
+                    end else begin
+                        // 执行遍历任务
+                        work_mode <= ModeEnumerate;
+                        query_ready <= 0;
+                    end
                 end else begin
                     work_mode <= ModeIdle;
                     ip_target <= '0;
@@ -723,6 +756,8 @@ always_ff @ (posedge clk_125M) begin
                         end
                     end
                 endcase
+            end
+            ModeEnumerate: begin
             end
         endcase
     end
