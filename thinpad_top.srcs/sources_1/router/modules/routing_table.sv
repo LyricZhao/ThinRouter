@@ -145,9 +145,10 @@ xpm_memory_spram #(
 );
 
 // 正在进行什么模式，通过同步逻辑控制
-enum logic [1:0] {
+enum logic [2:0] {
     // 空闲
     ModeIdle,
+    ModeCoolDown,
     // 查询
     ModeQuery,
     // 插入
@@ -167,19 +168,27 @@ enum logic [1:0] {
 } query_state;
 
 // 插入过程的状态，组合逻辑
-enum logic [2:0] {
+enum logic [4:0] {
     // 定位到 entry_to_insert.prefix 的位置，转其他状态
     Insert,
+    InsertSituationPre1,
     InsertSituation1,
     InsertSituation2,
+    InsertSituationPre3,
     InsertSituation3,
     // 在 nexthop_write_addr 上插入 entry_to_insert，确保检查过 metric<16
     InsertNewNexthop,
     // 给定了 nexthop 节点的地址，对其进行更新。如果删除了节点，后面还要回来从父节点上删去
     InsertEditNexthop,
     // 删除 parent prefix 节点的 next0
-    InsertRemoveLeaf
+    InsertRemoveLeafFromParent,
+    // 删除 parent prefix 节点的 next0，然后转到
+    InsertRemoveLeafFromParent2,
+    InsertReplaceNexthop,
+    InsertReplaceNext0
 } insert_state;
+
+logic [1:0] work_cooldown;
 
 // 具体逻辑可能会用到
 pointer_t insert_pointer_buffer;
@@ -379,6 +388,8 @@ always_ff @ (posedge clk_125M) begin
                     work_mode <= ModeQuery;
                     ip_target <= ip_query;
                     query_ready <= 0;
+                end else if (work_cooldown > 0) begin
+                    work_cooldown <= work_cooldown - 1;
                 end else if (!insert_fifo_empty) begin
                     // 没有查询任务时，从 fifo 中取出需要插入的条目
                     $write("Insert: ");
@@ -387,6 +398,7 @@ always_ff @ (posedge clk_125M) begin
                     entry_to_insert <= insert_fifo_data;
                     insert_fifo_read_valid <= 1;
                     query_ready <= 0;
+                    work_cooldown <= 2;
                 end else if (!enum_task_empty) begin
                     if (enum_completed >= nexthop_write_addr[13:0]) begin
                         // 这个遍历任务已经完成
@@ -397,6 +409,7 @@ always_ff @ (posedge clk_125M) begin
                         // 执行遍历任务
                         work_mode <= ModeEnumerate;
                         query_ready <= 0;
+                        work_cooldown <= 2;
                     end
                 end else begin
                     work_mode <= ModeIdle;
@@ -414,6 +427,7 @@ always_ff @ (posedge clk_125M) begin
         best_match <= '0;
         memory_addr <= '0;
     end else begin
+        $display("%d", insert_state);
         `Display_Node(memory_out, memory_addr);
         case (work_mode)
             ModeQuery: begin
@@ -510,16 +524,30 @@ always_ff @ (posedge clk_125M) begin
                                     work_mode <= ModeIdle;
                                 end else if (insert_shared_mask == entry_to_insert.mask) begin
                                 // 插入的 mask 更短，但是当前节点完全匹配
-                                    // 当前节点直接写到下一个空位里面
-                                    `Move_Node;
-                                    // 在下一拍再将此节点变为一个 prefix
-                                    insert_state <= InsertSituation1;
+                                    if (memory_out.branch.next0[15] == 0) begin
+                                    // 当前节点并没有 next0，则可以直接修改 mask 并添加 next0
+                                        memory_in <= memory_out;
+                                        memory_in.branch.mask = entry_to_insert.mask;
+                                        memory_in.branch.next0 <= nexthop_write_addr;
+                                        memory_write_en <= 1;
+                                        insert_pointer_buffer <= memory_addr;
+                                        insert_state <= InsertNewNexthop;
+                                    end else begin
+                                        // 当前节点直接写到下一个空位里面
+                                        `Move_Node;
+                                        // 在下一拍再将此节点变为一个 prefix
+                                        insert_state <= InsertSituationPre1;
+                                    end
                                 end else begin
                                 // 需要当前节点分割成两部分，一部分是插入节点的 prefix，另一部分是原节点
                                     // todo 当前节点如果存在空分支可以修剪
                                     // 当前节点直接写到下一个空位里面
                                     `Move_Node;
-                                    insert_state <= InsertSituation3;
+                                    if (memory_out.branch.next0[15] == 0) begin
+                                        insert_state <= InsertSituation3;
+                                    end else begin
+                                        insert_state <= InsertSituationPre3;
+                                    end
                                 end
                             end else if (insert_shared_mask == memory_out.branch.mask && insert_shared_mask == entry_to_insert.mask) begin
                             // 和当前节点一样，则替换叶子节点
@@ -631,18 +659,31 @@ always_ff @ (posedge clk_125M) begin
                             end
                         end
                     end
+                    InsertSituationPre1: begin
+                        // 前往原本的 nexthop
+                        if (!memory_out.nexthop.is_nexthop) begin
+                            memory_addr <= memory_out.branch.next0;
+                        end else begin
+                            memory_in <= memory_out;
+                            memory_in.nexthop.parent <= branch_write_addr;
+                            memory_write_en <= 1;
+                            insert_state <= InsertSituation1;
+                        end
+                    end
                     InsertSituation1: begin
                         // 回来更新当前节点的 mask, next0 （指向即将添加的块）和 next1（指向被挤走的块）
-                        memory_addr <= insert_pointer_buffer;
-                        memory_write_en <= 1;
+                        if (!memory_out.branch.is_nexthop) begin
+                            memory_addr <= insert_pointer_buffer;
+                            memory_write_en <= 1;
 
-                        memory_in <= memory_out;
-                        memory_in.branch.mask <= insert_shared_mask;
-                        memory_in.branch.next0 <= nexthop_write_addr;
-                        memory_in.branch.next1 <= branch_write_addr;
+                            memory_in <= memory_out;
+                            memory_in.branch.mask <= insert_shared_mask;
+                            memory_in.branch.next0 <= nexthop_write_addr;
+                            memory_in.branch.next1 <= branch_write_addr;
 
-                        branch_write_addr <= branch_write_addr + 1;
-                        insert_state <= InsertNewNexthop;
+                            branch_write_addr <= branch_write_addr + 1;
+                            insert_state <= InsertNewNexthop;
+                        end
                     end
                     InsertSituation2: begin
                         // 为 entry_to_insert 在最后添加一个 prefix 和一个 nexthop
@@ -662,38 +703,53 @@ always_ff @ (posedge clk_125M) begin
                         insert_pointer_buffer <= branch_write_addr;
                         insert_state <= InsertNewNexthop;
                     end
-                    InsertSituation3: begin
-                        assert (entry_to_insert.prefix[31 - insert_shared_mask] != memory_out.branch.prefix[31 - insert_shared_mask])
-                            else $fatal(1, "%m: split error");
-                        $display("split node at mask len %0d", insert_shared_mask);
-                        // 当前节点根据 insert_shared_mask 进行分开
-                        if (entry_to_insert.prefix[31 - insert_shared_mask] == 1) begin
-                        // 原本节点放到 next0
-                            memory_in.branch <= '{
-                                is_nexthop: 1'b0,
-                                is_prefix: 1'b0,
-                                mask: insert_shared_mask,
-                                prefix: entry_to_insert.prefix,
-                                next0: branch_write_addr,
-                                next1: branch_write_addr + 1
-                            };
+                    InsertSituationPre3: begin
+                        // 前往原本的 nexthop
+                        if (!memory_out.nexthop.is_nexthop) begin
+                            memory_addr <= memory_out.branch.next0;
                         end else begin
-                        // 原本节点放到 next1
-                            memory_in.branch <= '{
-                                is_nexthop: 1'b0,
-                                is_prefix: 1'b0,
-                                mask: insert_shared_mask,
-                                prefix: entry_to_insert.prefix,
-                                next0: branch_write_addr + 1,
-                                next1: branch_write_addr
-                            };
+                            memory_in <= memory_out;
+                            memory_in.nexthop.parent <= branch_write_addr;
+                            memory_write_en <= 1;
+                            insert_state <= InsertSituation3;
                         end
-                        // 写入当前节点
-                        memory_addr <= insert_pointer_buffer;
-                        memory_write_en <= 1;
-                        // 然后再添加 insert 条目
-                        branch_write_addr <= branch_write_addr + 1;
-                        insert_state <= InsertSituation2;
+                    end
+                    InsertSituation3: begin
+                        if (memory_out.branch.is_nexthop) begin
+                            memory_addr <= branch_write_addr;
+                        end else begin
+                            assert (entry_to_insert.prefix[31 - insert_shared_mask] != memory_out.branch.prefix[31 - insert_shared_mask])
+                                else $fatal(1, "%m: split error");
+                            $display("split node at mask len %0d", insert_shared_mask);
+                            // 当前节点根据 insert_shared_mask 进行分开
+                            if (entry_to_insert.prefix[31 - insert_shared_mask] == 1) begin
+                            // 原本节点放到 next0
+                                memory_in.branch <= '{
+                                    is_nexthop: 1'b0,
+                                    is_prefix: 1'b0,
+                                    mask: insert_shared_mask,
+                                    prefix: entry_to_insert.prefix,
+                                    next0: branch_write_addr,
+                                    next1: branch_write_addr + 1
+                                };
+                            end else begin
+                            // 原本节点放到 next1
+                                memory_in.branch <= '{
+                                    is_nexthop: 1'b0,
+                                    is_prefix: 1'b0,
+                                    mask: insert_shared_mask,
+                                    prefix: entry_to_insert.prefix,
+                                    next0: branch_write_addr + 1,
+                                    next1: branch_write_addr
+                                };
+                            end
+                            // 写入当前节点
+                            memory_addr <= insert_pointer_buffer;
+                            memory_write_en <= 1;
+                            // 然后再添加 insert 条目
+                            branch_write_addr <= branch_write_addr + 1;
+                            insert_state <= InsertSituation2;
+                        end
                     end
                     InsertNewNexthop: begin
                         // 插入一个新的 nexthop，然后工作结束
@@ -719,10 +775,18 @@ always_ff @ (posedge clk_125M) begin
                                 // 删除路由？
                                 if (memory_out.nexthop.port == entry_to_insert.from_vlan[1:0]) begin
                                 // 如果消息来源就是之前提供路由的端口，则真的删除
-                                // todo 整理内存
                                     $display("removing nexthop node");
-                                    insert_state <= InsertRemoveLeaf;
+                                    nexthop_write_addr <= memory_addr;
+                                    insert_pointer_buffer <= memory_addr;
                                     memory_addr <= memory_out.nexthop.parent;
+                                    if (memory_addr + 1 == nexthop_write_addr) begin
+                                    // 如果当前已经是最后一个 nexthop 节点，则将其删除
+                                        insert_state <= InsertRemoveLeafFromParent;
+                                    end else begin
+                                    // 此处需要用最后一个 nexthop 节点来代替此节点
+                                        insert_state <= InsertRemoveLeafFromParent2;
+                                    end
+                                    nexthop_write_addr <= nexthop_write_addr - 1;
                                 end else begin
                                 // 如果消息来源不是路由 nexthop 的端口，说明这是一个 poison reverse，忽略
                                     work_mode <= ModeIdle;
@@ -745,12 +809,43 @@ always_ff @ (posedge clk_125M) begin
                             end
                         end
                     end
-                    InsertRemoveLeaf: begin
+                    InsertRemoveLeafFromParent: begin
                         // 等待读取到 prefix 节点
                         if (!memory_out.branch.is_nexthop) begin
                             $display("delete next0 from prefix node at %x", memory_addr);
                             memory_in <= memory_out;
                             memory_in.branch.next0[15] <= 0;
+                            memory_write_en <= 1;
+                            work_mode <= ModeIdle;
+                        end
+                    end
+                    InsertRemoveLeafFromParent2: begin
+                        // 等待读取到 prefix 节点
+                        if (!memory_out.branch.is_nexthop) begin
+                            $display("delete next0 from prefix node at %x", memory_addr);
+                            memory_in <= memory_out;
+                            memory_in.branch.next0[15] <= 0;
+                            memory_write_en <= 1;
+                            insert_state <= InsertReplaceNexthop;
+                        end
+                    end
+                    InsertReplaceNexthop: begin
+                        memory_addr <= nexthop_write_addr;
+                        if (memory_out.nexthop.is_nexthop) begin
+                            memory_in <= memory_out;
+                            memory_addr <= insert_pointer_buffer;
+                            memory_write_en <= 1;
+                            insert_state <= InsertReplaceNext0;
+                        end
+                    end
+                    InsertReplaceNext0: begin
+                        if (memory_out.nexthop.is_nexthop) begin
+                        // 还没有加载出来 parent
+                            memory_addr <= memory_out.nexthop.parent;
+                        end else begin
+                        // 替换 next0
+                            memory_in <= memory_out;
+                            memory_in.branch.next0 <= insert_pointer_buffer;
                             memory_write_en <= 1;
                             work_mode <= ModeIdle;
                         end
