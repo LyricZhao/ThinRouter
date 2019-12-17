@@ -8,10 +8,14 @@ module packet_processor (
     input  logic add_routing,           // 添加路由项
     input  logic process_arp,           // 查询 ARP
     input  logic process_ip,            // 处理 IP 包
+    input  logic send_rip,              // 发送 RIP 包
     input  logic reset,                 // 手动清除 done bad 标志
 
     output logic [15:0] debug,
 
+    input  logic [1:0] rip_port,        // 在哪个端口发送 RIP 包
+    input  ip_t  rip_dst_ip,            // RIP 目标
+    input  mac_t rip_dst_mac,
     input  ip_t  ip_input,              // 输入 IP
     input  logic [5:0] mask_input,      // 掩码长度（用于插入路由）
     input  ip_t  nexthop_input,         // 输入 nexthop
@@ -21,7 +25,11 @@ module packet_processor (
     output logic done,                  // 处理完成
     output logic bad,                   // 查不到
     output logic [47:0] mac_output,     // 目标 MAC
-    output logic [2:0]  vlan_output     // 目标 VLAN
+    output logic [2:0]  vlan_output,    // 目标 VLAN
+
+    input  logic rip_tx_read_valid,
+    output logic rip_tx_empty,
+    output logic [8:0] rip_tx_data
 );
 
 ////// 用一个 fifo 来处理添加路由：此模块放进 fifo 并立即返回 done，路由表会在没有查询任务的时候执行一个插入
@@ -57,6 +65,32 @@ xpm_fifo_sync #(
     .wr_en(fifo_write_valid)
 );
 
+////// 用一个 fifo 来处理遍历路由表
+rip_task_t task_out;
+logic task_empty;
+logic task_read_valid;
+xpm_fifo_sync #(
+    .FIFO_MEMORY_TYPE("distributed"),
+    .FIFO_READ_LATENCY(0),
+    .FIFO_WRITE_DEPTH(64),
+    .READ_DATA_WIDTH($bits(rip_task_t)),
+    .READ_MODE("fwft"),
+    .USE_ADV_FEATURES("0000"),
+    .WRITE_DATA_WIDTH($bits(rip_task_t))
+) enum_task_fifo (
+    .din({rip_dst_mac, rip_dst_ip, rip_port}),
+    .dout(task_out),
+    .empty(task_empty),
+    .full(_task_full),
+    .injectdbiterr(0),
+    .injectsbiterr(0),
+    .rd_en(task_read_valid),
+    .rst(0),
+    .sleep(0),
+    .wr_clk(clk),
+    .wr_en(send_rip)
+);
+
 enum reg [2:0] {
     Idle,               // 空闲
     AddArp,             // 添加 ARP 项
@@ -70,6 +104,15 @@ reg  ip_lookup;
 wire ip_complete;
 wire [31:0] ip_nexthop;
 wire ip_found = ip_nexthop != '0;
+mac_t enum_dst_mac;
+ip_t  enum_dst_ip;
+logic [1:0] enum_port;
+ip_t  enum_prefix;
+ip_t  enum_nexthop;
+logic [5:0] enum_mask;
+logic [4:0] enum_metric;
+logic enum_valid;
+logic enum_last;
 routing_table routing_table_inst (
     .clk_125M(clk),
     .rst_n,
@@ -86,7 +129,38 @@ routing_table routing_table_inst (
     .insert_fifo_empty(fifo_empty),
     .insert_fifo_read_valid(fifo_read_valid),
 
+    .enum_task_in(task_out),
+    .enum_task_empty(task_empty),
+    .enum_task_read_valid(task_read_valid),
+
+    .enum_dst_mac,
+    .enum_dst_ip,
+    .enum_port,
+    .enum_prefix,
+    .enum_nexthop,
+    .enum_mask,
+    .enum_metric,
+    .enum_valid,
+    .enum_last,
+
     .overflow()
+);
+
+rip_packer rip_packer_inst (
+    .clk(clk),
+    .rst(~rst_n),
+
+    .valid(enum_valid),
+    .last(enum_last),
+    .prefix(enum_prefix),
+    .mask(enum_mask),
+    .src_ip(Address::ip({enum_port == '0, enum_port})),
+    .dst_ip(enum_dst_ip),
+    .nexthop(enum_nexthop),
+    .metric(enum_metric),
+    .outer_fifo_read_valid(rip_tx_read_valid),
+    .outer_fifo_empty(rip_tx_empty),
+    .outer_fifo_out(rip_tx_data)
 );
 
 // ARP 表，目前用简陋版

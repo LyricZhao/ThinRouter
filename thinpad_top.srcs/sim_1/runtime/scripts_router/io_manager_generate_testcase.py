@@ -650,6 +650,8 @@ if __name__ == '__main__':
         while frame is None:
             if chance(0.1):
                 frame = EthFrame.get_rip_response()
+            elif chance(0.1):
+                frame = EthFrame.get_rip_request()
             else:
                 frame = EthFrame.get_ip()
         output += 'info:      %s\neth_frame: %sFFF\n' % (frame, frame.hex)

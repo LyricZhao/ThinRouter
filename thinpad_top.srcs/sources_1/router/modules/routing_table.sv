@@ -40,7 +40,7 @@ module routing_table #(
 
     output mac_t enum_dst_mac,
     output ip_t  enum_dst_ip,
-    output logic [3:0] enum_send_to_port,
+    output logic [1:0] enum_port,
 
     output ip_t  enum_prefix,
     output ip_t  enum_nexthop,
@@ -310,6 +310,7 @@ always_ff @ (posedge clk_125M) begin
             ModeIdle: begin
                 if (query_valid) begin
                     // 开始查询
+                    $display("--------------------------------------------------------------------------------");
                     $write("Query: ");
                     `DISPLAY_IP(ip_query);
                     work_mode <= ModeQuery;
@@ -319,6 +320,7 @@ always_ff @ (posedge clk_125M) begin
                     work_cooldown <= work_cooldown - 1;
                 end else if (!insert_fifo_empty) begin
                     // 没有查询任务时，从 fifo 中取出需要插入的条目
+                    $display("--------------------------------------------------------------------------------");
                     $write("Insert: ");
                     `DISPLAY_IP(insert_fifo_data.prefix);
                     work_mode <= ModeInsert;
@@ -328,12 +330,14 @@ always_ff @ (posedge clk_125M) begin
                     work_cooldown <= 2;
                 end else if (!enum_task_empty) begin
                     // 执行遍历任务
+                    $display("--------------------------------------------------------------------------------");
+                    $write("Enum");
                     work_mode <= ModeEnumerate;
                     query_ready <= 0;
                     work_cooldown <= 2;
                     enum_dst_mac <= enum_task_in.dst_router_mac;
                     enum_dst_ip <= enum_task_in.dst_router_ip;
-                    enum_send_to_port <= Common::one_hot4(enum_task_in.port);
+                    enum_port <= enum_task_in.port;
                     enum_got <= 0;
                 end else begin
                     work_mode <= ModeIdle;
@@ -348,6 +352,7 @@ always_ff @ (posedge clk_125M) begin
         // 复位
         query_state <= Query;
         insert_state <= Insert;
+        enum_state <= EnumNexthop;
         best_match <= '0;
         memory_addr <= '0;
     end else begin

@@ -62,6 +62,8 @@ xpm_fifo_sync #(
     .dout(fifo_dout),
     .empty(fifo_empty),
     .full(fifo_full),
+    .injectdbiterr(0),
+    .injectsbiterr(0),
     .rd_en(fifo_rd_en),
     .rd_rst_busy(fifo_rd_busy),
     .rst(fifo_rst),
@@ -70,7 +72,6 @@ xpm_fifo_sync #(
     .wr_en(fifo_wr_en),
     .wr_rst_busy(fifo_wr_busy)
 );
-
 
 // 已经读了多少字节
 logic [5:0] read_cnt;
@@ -144,6 +145,9 @@ mac_t tx_dst_mac;
 logic [2:0]  tx_vlan_id;
 
 logic tx_bad;
+logic [7:0] tx_man_data;
+logic tx_man_valid;
+logic tx_man_last;
 always_comb case (packet_type)
     PacketBad, PacketRIPDefault, PacketRIPRequest, PacketRIPResponse: tx_bad = 1;
     default: tx_bad = 0;
@@ -160,9 +164,9 @@ tx_manager tx_manager_inst (
     .fifo_data(fifo_dout),
     .fifo_empty,
     .fifo_rd_en,
-    .tx_data,
-    .tx_valid,
-    .tx_last
+    .tx_data(tx_man_data),
+    .tx_valid(tx_man_valid),
+    .tx_last(tx_man_last)
     // tx_ready
     // abort
 );
@@ -173,16 +177,25 @@ logic [5:0] mask_input;
 logic [4:0] metric_input;
 ip_t  nexthop_input;
 mac_t mac_result;
-logic [2:0]  vlan_result;
+logic [2:0] vlan_result;
+logic [1:0] rip_port;
+ip_t  rip_dst_ip;
+mac_t rip_dst_mac;
 
 // 处理信号
-reg  process_reset;
-reg  add_arp;
-reg  add_routing;
-reg  process_arp;
-reg  process_ip;
-wire process_done;
-wire process_bad;
+logic process_reset;
+logic add_arp;
+logic add_routing;
+logic process_arp;
+logic process_ip;
+logic send_rip;
+logic process_done;
+logic process_bad;
+
+// 输出信号
+logic rip_tx_read_valid;
+logic rip_tx_empty;
+logic [8:0] rip_tx_data;
 
 packet_processor packet_processor_inst (
     .clk(clk_125M),
@@ -193,6 +206,11 @@ packet_processor packet_processor_inst (
     .add_routing,
     .process_arp,
     .process_ip,
+    .send_rip,
+    .rip_port,
+    .rip_dst_ip,
+    .rip_dst_mac,
+
     .ip_input,
     .metric_input,
     .mask_input,
@@ -202,7 +220,26 @@ packet_processor packet_processor_inst (
     .done(process_done),
     .bad(process_bad),
     .mac_output(mac_result),
-    .vlan_output(vlan_result)
+    .vlan_output(vlan_result),
+
+    .rip_tx_read_valid,
+    .rip_tx_empty,
+    .rip_tx_data
+);
+
+tx_dual tx_dual_inst (
+    .clk(clk_125M),
+    .rst_n,
+    .tx_data(tx_man_data),
+    .tx_valid(tx_man_valid),
+    .tx_last(tx_man_last),
+    .rip_data(rip_tx_data),
+    .rip_empty(rip_tx_empty),
+    .rip_read_valid(rip_tx_read_valid),
+    .out_data(tx_data),
+    .out_valid(tx_valid),
+    .out_last(tx_last),
+    .out_ready(tx_ready)
 );
 
 // 断言 rx_data 的数据，如果不一样则置 bad 为 1
@@ -255,6 +292,7 @@ always_ff @(posedge clk_125M) begin
     add_routing <= 0;
     process_arp <= 0;
     process_ip <= 0;
+    send_rip <= 0;
 
     tx_start <= 0;
     tx_dst_mac <= '0;
@@ -543,6 +581,10 @@ always_ff @(posedge clk_125M) begin
                     end
                     // todo 回复 RIP 请求
                     PacketRIPRequest: begin
+                        rip_dst_mac <= src_mac;
+                        rip_dst_ip <= nexthop_input;
+                        rip_port <= vlan_id[1:0];
+                        send_rip <= 1;
                         packet_type <= PacketBad;
                     end
                     // Bad
