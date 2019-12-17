@@ -55,6 +55,11 @@ enum logic [1:0] {
     None, TX, RIP
 } sending_from;
 
+always_comb begin
+    tx_fifo_read_valid = sending_from == TX && !tx_fifo_empty;
+    rip_read_valid = sending_from == RIP && !rip_empty;
+end
+
 always_ff @(posedge clk) begin
     if (!rst_n) begin
         sending_from <= None;
@@ -63,8 +68,6 @@ always_ff @(posedge clk) begin
         out_data <= 0;
         out_valid <= 0;
         out_last <= 0;
-        tx_fifo_read_valid <= 0;
-        rip_read_valid <= 0;
 
         if (out_ready) begin
             case (sending_from)
@@ -79,7 +82,6 @@ always_ff @(posedge clk) begin
                     if (!tx_fifo_empty) begin
                         {out_last, out_data} <= tx_fifo_out;
                         out_valid <= 1;
-                        tx_fifo_read_valid <= 1;
                         // last
                         if (tx_fifo_out[8]) begin
                             sending_from <= None;
@@ -90,7 +92,6 @@ always_ff @(posedge clk) begin
                     if (!rip_empty) begin
                         {out_last, out_data} <= rip_data;
                         out_valid <= 1;
-                        rip_read_valid <= 1;
                         // last
                         if (rip_data[8]) begin
                             sending_from <= None;
