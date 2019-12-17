@@ -11,14 +11,14 @@ module testbench_arp_table();
     logic rst;
     ip_t lookup_ip;
     mac_t lookup_mac;
-    logic [1:0] lookup_port;
+    logic [2:0] lookup_port;
     logic lookup_ip_valid;
     logic lookup_mac_found;
     logic lookup_mac_not_found;
 
     ip_t insert_ip;
     mac_t insert_mac;
-    logic [1:0] insert_port;
+    logic [2:0] insert_port;
     logic insert_valid;
     logic insert_ready = 1;
     
@@ -62,7 +62,7 @@ module testbench_arp_table();
     task insert;
         input bit[31:0] addr;   // ip 地址
         input bit[47:0] mac;    // mac 地址
-        input bit[1:0] port;    // 物理接口
+        input bit[2:0] port;    // 物理接口
     begin
         $display("insert %0d.%0d.%0d.%0d -> %2x:%2x:%2x:%2x:%2x:%2x@%d",
             addr[31:24], addr[23:16], addr[15:8], addr[7:0],
@@ -82,7 +82,7 @@ module testbench_arp_table();
     task query;
         input bit[31:0] addr;       // ip 地址
         input bit[47:0] expect_mac; // 预期 mac 地址
-        input bit[1:0] expect_port; // 预期物理接口
+        input bit[2:0] expect_port; // 预期物理接口
     begin
         $display("query  %0d.%0d.%0d.%0d",
             addr[31:24], addr[23:16], addr[15:8], addr[7:0]);
@@ -136,8 +136,8 @@ module testbench_arp_table();
                     $fscanf(file_descriptor, "%d.%d.%d.%d -> %2x:%2x:%2x:%2x:%2x:%2x@%d",
                         buffer[31:24], buffer[23:16], buffer[15:8], buffer[7:0], 
                         buffer[79:72], buffer[71:64], buffer[63:56], buffer[55:48], buffer[47:40], buffer[39:32], 
-                        buffer[81:80]);
-                    insert(buffer[31:0], buffer[79:32], buffer[81:80]);
+                        buffer[82:80]);
+                    insert(buffer[31:0], buffer[79:32], buffer[82:80]);
                 end
                 {8'h??, "query"}: begin
                     // query
@@ -146,8 +146,8 @@ module testbench_arp_table();
                     $fscanf(file_descriptor, "%d.%d.%d.%d -> %2x:%2x:%2x:%2x:%2x:%2x@%d",
                         buffer[31:24], buffer[23:16], buffer[15:8], buffer[7:0], 
                         buffer[79:72], buffer[71:64], buffer[63:56], buffer[55:48], buffer[47:40], buffer[39:32], 
-                        buffer[81:80]);
-                    query(buffer[31:0], buffer[79:32], buffer[81:80]);
+                        buffer[82:80]);
+                    query(buffer[31:0], buffer[79:32], buffer[82:80]);
                 end
                 {24'h??????, "end"}: begin
                     finished = 1;

@@ -22,7 +22,7 @@ import json
 
 
 class Config:
-    insertion_count = 32    # how many insertions operation to make
+    insertion_count = 4     # how many insertions operation to make
     query_count = 256       # how many queries operation to make
     miss_rate = 0.5         # the ratio of queries that would miss
     order = False           # whether all queries will be after insertions
@@ -31,7 +31,7 @@ class Config:
 
 
 def MAC():
-    return '%02x:%02x:%02x:%02x:%02x:%02x@%d' % (*list(os.urandom(6)), random.randint(0, 3))
+    return '%02x:%02x:%02x:%02x:%02x:%02x@%d' % (*list(os.urandom(6)), random.randint(1, 4))
 
 
 class IPAddress:
