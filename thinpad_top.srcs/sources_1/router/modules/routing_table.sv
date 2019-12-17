@@ -40,11 +40,12 @@ module routing_table #(
 
     output mac_t enum_dst_mac,
     output ip_t  enum_dst_ip,
+    output logic [3:0] enum_send_to_port,
+
     output ip_t  enum_prefix,
     output ip_t  enum_nexthop,
     output logic [5:0] enum_mask,
     output logic [4:0] enum_metric,
-    output logic [3:0] enum_send_to_port,
     output logic enum_valid,
     output logic enum_last,
 
@@ -190,7 +191,8 @@ enum logic [3:0] {
 
 enum logic [2:0] {
     EnumNexthop,
-    EnumParent
+    EnumParent,
+    EnumSkipParent
 } enum_state;
 
 logic [1:0] work_cooldown;
@@ -298,7 +300,7 @@ always_ff @ (posedge clk_125M) begin
         nexthop_write_addr <= 16'h8000;
         work_mode <= ModeIdle;
         ip_target <= '0;
-        enum_completed <= '0;
+        enum_completed <= 16'h8000;
     end else begin
         // 查询结束则置 ModeIdle
         if (work_mode == ModeQuery && query_ready) begin
@@ -325,20 +327,14 @@ always_ff @ (posedge clk_125M) begin
                     query_ready <= 0;
                     work_cooldown <= 2;
                 end else if (!enum_task_empty) begin
-                    if (enum_completed >= nexthop_write_addr) begin
-                        // 这个遍历任务已经完成
-                        enum_task_read_valid <= 1;
-                        work_mode <= ModeIdle;
-                        query_ready <= 1;
-                    end else begin
-                        // 执行遍历任务
-                        work_mode <= ModeEnumerate;
-                        query_ready <= 0;
-                        work_cooldown <= 2;
-                        enum_dst_mac <= enum_task_in.dst_router_mac;
-                        enum_dst_ip <= enum_task_in.dst_router_ip;
-
-                    end
+                    // 执行遍历任务
+                    work_mode <= ModeEnumerate;
+                    query_ready <= 0;
+                    work_cooldown <= 2;
+                    enum_dst_mac <= enum_task_in.dst_router_mac;
+                    enum_dst_ip <= enum_task_in.dst_router_ip;
+                    enum_send_to_port <= Common::one_hot4(enum_task_in.port);
+                    enum_got <= 0;
                 end else begin
                     work_mode <= ModeIdle;
                     ip_target <= '0;
@@ -781,6 +777,59 @@ always_ff @ (posedge clk_125M) begin
                 endcase
             end
             ModeEnumerate: begin
+                case (enum_state)
+                    EnumNexthop: begin
+                        if (enum_completed >= nexthop_write_addr) begin
+                        // 已经全部读完
+                            // 清除当前任务
+                            enum_task_read_valid <= 1;
+                            work_mode <= ModeIdle;
+                            // 如果没有读到任何一条，就不发送了
+                            if (enum_got > 0) begin
+                                enum_last <= 1;
+                            end
+                        end else if (enum_got == 25) begin
+                        // 读够了 25 条，发送，然后休息
+                            work_mode <= ModeIdle;
+                            enum_last <= 1;
+                        end else begin
+                            if (!memory_out.nexthop.is_nexthop) begin
+                                memory_addr <= enum_completed;
+                            end else begin
+                                enum_completed <= enum_completed + 1;
+                                memory_addr <= memory_out.nexthop.parent;
+                                enum_nexthop <= memory_out.nexthop.nexthop;
+                                enum_metric <= memory_out.nexthop.metric;
+                                if (memory_out.nexthop.port == enum_latched_port) begin
+                                // 当前处理的端口与写入的是一个端口，跳过
+                                    enum_state <= EnumSkipParent;
+                                end else begin
+                                    enum_state <= EnumParent;
+                                    enum_got <= enum_got + 1;
+                                end
+                            end
+                        end
+                    end
+                    EnumParent: begin
+                        if (!memory_out.nexthop.is_nexthop) begin
+                            assert (memory_out.branch.is_prefix)
+                                else $fatal(1, "Parent is not prefix");
+                            enum_prefix <= memory_out.branch.prefix;
+                            enum_mask <= memory_out.branch.mask;
+                            enum_valid <= 1;
+                            memory_addr <= enum_completed;
+                            enum_state <= EnumNexthop;
+                        end
+                    end
+                    EnumSkipParent: begin
+                        if (!memory_out.nexthop.is_nexthop) begin
+                            assert (memory_out.branch.is_prefix)
+                                else $fatal(1, "Parent is not prefix");
+                            memory_addr <= enum_completed;
+                            enum_state <= EnumNexthop;
+                        end
+                    end
+                endcase
             end
         endcase
     end
