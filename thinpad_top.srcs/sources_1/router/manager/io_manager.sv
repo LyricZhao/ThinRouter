@@ -112,25 +112,7 @@ enum logic [1:0] {
     IPPacketDone
 } ip_packet_process_status;
 
-// 正在处理接收到的 RIP 数据
-enum logic {
-    // 开始处理时
-    RIPResponseProcessing,
-    // 处理完成或者未在处理
-    RIPResponseDone
-} rip_response_process_status;
-
-// 是否需要发送 RIP Response
-// maybe todo 支持发送 >25 条
-// 每个端口是否应该发送 RIP Response 了。会在接收到 RIP 请求时，或时间到时置 1
-logic [1:0] rip_send_pending;
-// 正在发送，则暂停 rx
-logic rip_sending;
-
-assign rx_ready = 
-    (ip_packet_process_status != IPPacketStillProcessing) &&
-    (rip_response_process_status == RIPResponseDone) &&
-    !rip_sending;
+assign rx_ready = (ip_packet_process_status != IPPacketStillProcessing);
 
 ////// RIP 处理
 // 20 字节循环
@@ -302,11 +284,7 @@ always_ff @(posedge clk_125M) begin
     fifo_din <= 'x;
     fifo_wr_en <= 0;
 
-    rip_sending <= 0;
-    rip_send_pending <= '0;
-
     ip_packet_process_status <= IPPacketDone;
-    rip_response_process_status <= RIPResponseDone;
 
     if (!rst_n) begin
         // 复位
@@ -511,12 +489,12 @@ always_ff @(posedge clk_125M) begin
                             // UDP
                             27: assert_rx(8'h11);
                             // 记录源 IP 作为可能添加的条目的下一条
-                            30: nexthop_input[24 +: 8] <= rx_data;
-                            31: nexthop_input[16 +: 8] <= rx_data;
-                            32: nexthop_input[ 8 +: 8] <= rx_data;
-                            33: nexthop_input[ 0 +: 8] <= rx_data;
+                            30: begin nexthop_input[24 +: 8] <= rx_data; ip_input[24 +: 8] <= rx_data; end
+                            31: begin nexthop_input[16 +: 8] <= rx_data; ip_input[16 +: 8] <= rx_data; end
+                            32: begin nexthop_input[ 8 +: 8] <= rx_data; ip_input[ 8 +: 8] <= rx_data; end
+                            33: begin nexthop_input[ 0 +: 8] <= rx_data; ip_input[ 0 +: 8] <= rx_data; end
                             // 检查目标 IP
-                            34: assert_rx(Address::McastIP[24 +: 8]);
+                            34: begin assert_rx(Address::McastIP[24 +: 8]); add_arp <= 1; end
                             35: assert_rx(Address::McastIP[16 +: 8]);
                             36: assert_rx(Address::McastIP[ 8 +: 8]);
                             37: assert_rx(Address::McastIP[ 0 +: 8]);

@@ -293,8 +293,8 @@ always_ff @ (posedge clk_125M) begin
     enum_last <= 0;
 
     if (!rst_n) begin
-        branch_write_addr <= 1;
-        nexthop_write_addr <= 16'h8000;
+        branch_write_addr <= 16'h0007;
+        nexthop_write_addr <= 16'h8004;
         work_mode <= ModeIdle;
         ip_target <= '0;
         enum_completed <= 16'h8000;
@@ -307,7 +307,7 @@ always_ff @ (posedge clk_125M) begin
             ModeIdle: begin
                 if (query_valid) begin
                     // 开始查询
-                    $display("--------------------------------------------------------------------------------");
+                    // $display("--------------------------------------------------------------------------------");
                     $write("Query: ");
                     `DISPLAY_IP(ip_query);
                     work_mode <= ModeQuery;
@@ -317,7 +317,7 @@ always_ff @ (posedge clk_125M) begin
                     work_cooldown <= work_cooldown - 1;
                 end else if (!insert_fifo_empty) begin
                     // 没有查询任务时，从 fifo 中取出需要插入的条目
-                    $display("--------------------------------------------------------------------------------");
+                    // $display("--------------------------------------------------------------------------------");
                     $write("Insert: ");
                     `DISPLAY_IP(insert_fifo_data.prefix);
                     insert_fifo_read_valid <= 1;
@@ -333,8 +333,8 @@ always_ff @ (posedge clk_125M) begin
                     end
                 end else if (!enum_task_empty) begin
                     // 执行遍历任务
-                    $display("--------------------------------------------------------------------------------");
-                    $write("Enum");
+                    // $display("--------------------------------------------------------------------------------");
+                    $display("Enum for port %d", enum_task_in.port);
                     work_mode <= ModeEnumerate;
                     query_ready <= 0;
                     work_cooldown <= 2;
@@ -811,10 +811,10 @@ always_ff @ (posedge clk_125M) begin
                                 enum_metric <= memory_out.nexthop.metric;
                                 if (memory_out.nexthop.port == enum_port) begin
                                 // 当前处理的端口与写入的是一个端口，跳过
-                                    $display("skip!");
+                                    // $display("skip!");
                                     enum_state <= EnumSkipParent;
                                 end else begin
-                                    $display("%d %d", memory_out.nexthop.port, enum_port);
+                                    // $display("%d %d", memory_out.nexthop.port, enum_port);
                                     enum_state <= EnumParent;
                                     enum_got <= enum_got + 1;
                                 end

@@ -68,7 +68,7 @@ xpm_fifo_sync #(
 
 time_t second;
 timer #(
-    .FREQ(125_000_000)
+    .FREQ(1000)
 ) timer_inst (
     .clk,
     .rst_n,
@@ -220,10 +220,10 @@ always_ff @ (negedge clk) begin
     fifo_in.metric <= metric_input;
     fifo_in.from_vlan <= vlan_input;
 
-    second_latch <= second[1];
+    second_latch <= second[0];
     // 每一整数秒对一个口发 RIP
-    timed_rip <= second_latch != second[1];
-    timed_task_in <= {Address::McastMAC, Address::McastIP, second[2:1]};
+    timed_rip <= second_latch != second[0];
+    timed_task_in <= {Address::McastMAC, Address::McastIP, second[1:0]};
 
     if (~rst_n) begin
         reset_module();
