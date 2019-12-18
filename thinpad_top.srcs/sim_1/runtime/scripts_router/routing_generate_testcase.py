@@ -201,9 +201,9 @@ class Entry:
         match = Entry._match(addr)
         Entry.counter += 1
         if match is not None:
-            return 'query   %s -> %s (%d, %d)\n' % (addr, match.nexthop, match.metric, match.from_vlan)
+            return 'query   %s -> %s\n' % (addr, match.nexthop)
         else:
-            return 'query   %s -> 0.0.0.0 (0, 0)\n' % addr
+            return 'query   %s -> 0.0.0.0\n' % addr
 
 
 def wrong_usage_exit():
