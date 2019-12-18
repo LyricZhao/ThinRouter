@@ -2,10 +2,10 @@
 生成 routing table 的测试用例
 
 输出会存储到 ../routing_test.mem
-插入:   地址 -> nexthop
-    insert  128.0.0.0/12 -> 34.54.12.32
+插入:   地址 -> nexthop (metric, from_vlan)
+    insert  128.0.0.0/12 -> 34.54.12.32 (1, 1)
 查询:   地址 -> nexthop （nexthop = 0.0.0.0 表示无法匹配任一表项）
-    query   128.4.123.32 -> 34.54.12.32
+    query   128.4.123.32 -> 34.54.12.32 (1, 1)
 结束:   end
     end
 
@@ -33,6 +33,8 @@ class Config:
 class IPAddress:
     value: int  # uint32 value of IP address
     mask: int   # mask length, [12, 28]
+    metric: int # metric of RIP, [1, 15]
+    from_vlan: int # [1, 4]
     nexthop: IPAddress
     # if '-p', random generated IP addresses will be near this center
     center: int = random.randint(0, 0xffffffff)
@@ -52,7 +54,9 @@ class IPAddress:
                 value = random.randint(0, 0xffffffff)
             mask = random.randint(12, 28)
             value &= 0xffffffff << (32 - mask)
-        return IPAddress(value, mask)
+            metric = random.randint(1, 15)
+            from_vlan = random.randint(1, 4)
+        return IPAddress(value, mask, metric, from_vlan)
 
     @staticmethod
     def get_query_match(target: IPAddress) -> IPAddress:
@@ -63,19 +67,21 @@ class IPAddress:
         while value == 0:
             value = target.value ^ (
                 random.randint(0, 0xffffffff) & (0xffffffff >> target.mask))
-        return IPAddress(value, 32)
+        return IPAddress(value, 32, target.metric, target.from_vlan)
 
     @staticmethod
     def get_random_addr() -> IPAddress:
         """
         随机生成一个地址
         """
-        return IPAddress(random.randint(1, 0xffffffff), 32)
+        return IPAddress(random.randint(1, 0xffffffff), 32, 0, 0)
 
-    def __init__(self, value: int, mask: int):
+    def __init__(self, value: int, mask: int, metric: int, from_vlan: int):
         self.value = value
         self.mask = mask
         self.nexthop = None
+        self.metric = metric
+        self.from_vlan = from_vlan
 
     @property
     def raw(self) -> bytearray:
@@ -183,7 +189,7 @@ class Entry:
         new_addr.nexthop = nexthop
         Entry._save(new_addr)
         Entry.counter += 1
-        return 'insert  %s -> %s\n' % (new_addr, nexthop)
+        return 'insert  %s -> %s (%d, %d)\n' % (new_addr, nexthop, new_addr.metric, new_addr.from_vlan)
 
     @staticmethod
     def query() -> str:
