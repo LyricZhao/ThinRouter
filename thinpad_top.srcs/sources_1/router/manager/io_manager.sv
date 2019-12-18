@@ -201,6 +201,7 @@ packet_processor packet_processor_inst (
     .clk(clk_125M),
     .rst_n,
     .debug,
+    .debug2(led_out),
     .reset(process_reset),
     .add_arp,
     .add_routing,

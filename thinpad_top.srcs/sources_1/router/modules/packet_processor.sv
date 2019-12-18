@@ -12,6 +12,7 @@ module packet_processor (
     input  logic reset,                 // 手动清除 done bad 标志
 
     output logic [15:0] debug,
+    output logic [15:0] debug2,
 
     input  logic [1:0] rip_port,        // 在哪个端口发送 RIP 包
     input  ip_t  rip_dst_ip,            // RIP 目标
@@ -209,7 +210,7 @@ begin
 end
 endtask
 
-time_t second_latch;
+logic second_latch;
 
 always_ff @ (negedge clk) begin
     // 将模块输入连接到 fifo 的输入，由后面的逻辑控制 wr_en 即可
@@ -219,9 +220,9 @@ always_ff @ (negedge clk) begin
     fifo_in.metric <= metric_input;
     fifo_in.from_vlan <= vlan_input;
 
-    second_latch <= second;
+    second_latch <= second[0];
     // 每一整数秒对一个口发 RIP
-    timed_rip <= second_latch != second;
+    timed_rip <= second_latch != second[0];
     timed_task_in <= {Address::McastMAC, Address::McastIP, second[1:0]};
 
     if (~rst_n) begin
@@ -373,5 +374,10 @@ always_ff @ (negedge clk) begin
         endcase
     end
 end
+
+led_loop led_inst (
+    .clk(timed_rip),
+    .led(debug2)
+);
 
 endmodule

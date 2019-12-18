@@ -786,6 +786,7 @@ always_ff @ (posedge clk_125M) begin
                         if (enum_completed >= nexthop_write_addr) begin
                         // 已经全部读完
                             // 清除当前任务
+                            enum_completed <= 16'h8000;
                             enum_task_read_valid <= 1;
                             work_mode <= ModeIdle;
                             // 如果没有读到任何一条，就不发送了

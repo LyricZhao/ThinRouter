@@ -412,10 +412,10 @@ class RipResponse(IpRequest):
             self.entries = entries
         udp_length = 12 + 20 * len(self.entries)
         udp_checksum = (
-            1057 + udp_length + 
+            1057 + udp_length +
             (self.src_ip.value >> 16) + (self.src_ip.value & 0xffff) +
             (self.dst_ip.value >> 16) + (self.dst_ip.value & 0xffff)
-        ) 
+        )
         for index, h in enumerate(''.join(e.hex for e in self.entries).split()):
             val = int(h, 16)
             if index & 1:
@@ -426,7 +426,7 @@ class RipResponse(IpRequest):
         if udp_checksum > 0:
             udp_checksum ^= 0xffff
         self.data = [
-            0x02, 0x08, 0x02, 0x08, 
+            0x02, 0x08, 0x02, 0x08,
             udp_length >> 8, udp_length & 0xff, udp_checksum >> 8, udp_checksum & 0xff,
             0x02, 0x02, 0x00, 0x00
         ] + list(itertools.chain(*[list(e.raw) for e in self.entries]))
@@ -495,7 +495,7 @@ class EthFrame:
         if len(EthFrame.subnets[port]) == 1:
             return None
         # 要有能够到达的地址
-        if len(EthFrame.reachable) == 0: 
+        if len(EthFrame.reachable) == 0:
             return None
         src_mac, src_ip = random.choice(EthFrame.subnets[port][1:])
         # 随机选择一个可达地址
@@ -545,7 +545,8 @@ class EthFrame:
         for _ in range(random.randrange(1, 25)):
             if len(EthFrame.reachable) > 0 and chance(0.6):
                 # 删除路由
-                to_delete, prev_port = random.choice(list(EthFrame.reachable.items()))
+                to_delete, prev_port = random.choice(
+                    list(EthFrame.reachable.items()))
                 entries.append(RipEntry(*to_delete, 16))
                 # 仅当 port 一样时能够真正删除
                 if port == prev_port:
@@ -646,14 +647,14 @@ if __name__ == '__main__':
     for i in range(Config.count):
         frame = None
         while frame is None:
-            if chance(0.1):
+            if chance(0.3):
                 frame = EthFrame.get_rip_response()
-            elif chance(0.1):
-                frame = EthFrame.get_rip_request()
-            elif chance(0.3):
-                frame = EthFrame.get_arp()
             else:
-                frame = EthFrame.get_ip()
+                frame = EthFrame.get_rip_request()
+            # elif chance(0.3):
+            #     frame = EthFrame.get_arp()
+            # else:
+            #     frame = EthFrame.get_ip()
         output += 'info:      %s\neth_frame: %sFFF\n' % (frame, frame.hex)
 
     print('已生成 %d 条测试样例' %

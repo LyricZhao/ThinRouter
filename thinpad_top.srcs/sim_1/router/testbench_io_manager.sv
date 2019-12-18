@@ -18,7 +18,7 @@ localparam READ_LABEL = 10;
 localparam READ_DATA = 11;
 int state = 0;
 
-int fd = 0;                 // file descriptor
+int fd = $fopen("io_manager_test.mem", "r");                 // file descriptor
 string buffer;
 bit [15:0] data;
 
@@ -92,7 +92,7 @@ always_ff @ (negedge clk_125M) begin
             state = state + 1;
     endcase
     else
-        fd = #100 $fopen("io_manager_test.mem", "r");
+        fd = #1000000 $fopen("io_manager_test.mem", "r");
 end
 
 logic clk_btn;
