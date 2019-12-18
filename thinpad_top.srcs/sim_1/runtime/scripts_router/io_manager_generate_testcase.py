@@ -543,7 +543,7 @@ class EthFrame:
 
         entries = []
         for _ in range(random.randrange(1, 25)):
-            if len(EthFrame.reachable) > 0 and chance(0.6):
+            if len(EthFrame.reachable) > 0 and chance(0):
                 # 删除路由
                 to_delete, prev_port = random.choice(
                     list(EthFrame.reachable.items()))
@@ -647,7 +647,7 @@ if __name__ == '__main__':
     for i in range(Config.count):
         frame = None
         while frame is None:
-            if chance(0.3):
+            if chance(1):
                 frame = EthFrame.get_rip_response()
             else:
                 frame = EthFrame.get_rip_request()

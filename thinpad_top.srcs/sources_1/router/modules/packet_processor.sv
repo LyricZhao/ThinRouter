@@ -68,7 +68,7 @@ xpm_fifo_sync #(
 
 time_t second;
 timer #(
-    .FREQ(1000)
+    .FREQ(125_000_000)
 ) timer_inst (
     .clk,
     .rst_n,
