@@ -200,8 +200,6 @@ logic [1:0] work_cooldown;
 // 具体逻辑可能会用到
 pointer_t insert_pointer_buffer;
 
-// 锁存的 port
-logic [1:0] enum_latched_port;
 // 已经完成了多少
 pointer_t enum_completed;
 // 本次完成了多少，到 25 需要停止
@@ -322,11 +320,17 @@ always_ff @ (posedge clk_125M) begin
                     $display("--------------------------------------------------------------------------------");
                     $write("Insert: ");
                     `DISPLAY_IP(insert_fifo_data.prefix);
-                    work_mode <= ModeInsert;
-                    entry_to_insert <= insert_fifo_data;
                     insert_fifo_read_valid <= 1;
-                    query_ready <= 0;
-                    work_cooldown <= 2;
+                    if (insert_fifo_data.mask == 0) begin
+                        $display("IGNORED: mask = 0");
+                    end else if (insert_fifo_data.metric == 0) begin
+                        $display("IGNORED: metric = 0");
+                    end else begin
+                        work_mode <= ModeInsert;
+                        entry_to_insert <= insert_fifo_data;
+                        query_ready <= 0;
+                        work_cooldown <= 2;
+                    end
                 end else if (!enum_task_empty) begin
                     // 执行遍历任务
                     $display("--------------------------------------------------------------------------------");
@@ -805,10 +809,12 @@ always_ff @ (posedge clk_125M) begin
                                 memory_addr <= memory_out.nexthop.parent;
                                 enum_nexthop <= memory_out.nexthop.nexthop;
                                 enum_metric <= memory_out.nexthop.metric;
-                                if (memory_out.nexthop.port == enum_latched_port) begin
+                                if (memory_out.nexthop.port == enum_port) begin
                                 // 当前处理的端口与写入的是一个端口，跳过
+                                    $display("skip!");
                                     enum_state <= EnumSkipParent;
                                 end else begin
+                                    $display("%d %d", memory_out.nexthop.port, enum_port);
                                     enum_state <= EnumParent;
                                     enum_got <= enum_got + 1;
                                 end
