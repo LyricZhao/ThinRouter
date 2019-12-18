@@ -129,7 +129,7 @@ routing_table routing_table_inst (
     .rst_n,
     .second,
 
-    // .debug,
+    .debug,
     
     .ip_query(ip_input),
     .query_valid(ip_lookup),
@@ -179,7 +179,7 @@ rip_packer rip_packer_inst (
 // ARP 表，目前用简陋版
 reg  arp_add_entry;
 reg  arp_query;
-reg  arp_query_nexthop; // 正在查询的是 nexthop，用路由表的输出
+ip_t arp_ip_query;
 wire arp_done;
 wire arp_found;
 simple_arp_table arp_table_inst (
@@ -188,7 +188,7 @@ simple_arp_table arp_table_inst (
     .write(arp_add_entry),
     .query(arp_query),
     .ip_insert(ip_input),
-    .ip_query(arp_query_nexthop ? ip_nexthop : ip_input),
+    .ip_query(arp_ip_query),
     .mac_input,
     .vlan_input,
     .mac_output(mac_output),
@@ -201,7 +201,6 @@ task reset_module;
 begin
     arp_add_entry <= 0;
     arp_query <= 0;
-    arp_query_nexthop <= 0;
     ip_lookup <= 0;
     fifo_write_valid <= 0;
     done <= 0;
@@ -240,7 +239,6 @@ always_ff @ (negedge clk) begin
                         arp_query <= 0;
                         ip_lookup <= 0;
                         fifo_write_valid <= 0;
-                        arp_query_nexthop <= 0;
                         state <= Idle;
                     end
                     4'b1000: begin
@@ -251,7 +249,6 @@ always_ff @ (negedge clk) begin
                         fifo_write_valid <= 0;
                         done <= 0;
                         bad <= 0;
-                        arp_query_nexthop <= 0;
                         state <= AddArp;
                     end
                     4'b0100: begin
@@ -262,7 +259,6 @@ always_ff @ (negedge clk) begin
                         fifo_write_valid <= 1;
                         done <= 0;
                         bad <= 0;
-                        arp_query_nexthop <= 0;
                         state <= AddRouting;
                     end
                     4'b0010: begin
@@ -270,10 +266,10 @@ always_ff @ (negedge clk) begin
                         arp_add_entry <= 0;
                         arp_query <= 1;
                         ip_lookup <= 0;
+                        arp_ip_query <= ip_input;
                         fifo_write_valid <= 0;
                         done <= 0;
                         bad <= 0;
-                        arp_query_nexthop <= 0;
                         state <= ProcessArp;
                     end
                     4'b0001: begin
@@ -286,15 +282,14 @@ always_ff @ (negedge clk) begin
                             arp_query <= 0;
                             ip_lookup <= 1;
                             fifo_write_valid <= 0;
-                            arp_query_nexthop <= 1;
                             state <= ProcessRouting;
                         end else begin
                             // 直连，直接查 ARP
                             arp_add_entry <= 0;
                             arp_query <= 1;
                             ip_lookup <= 0;
+                            arp_ip_query <= ip_input;
                             fifo_write_valid <= 0;
-                            arp_query_nexthop <= 0;
                             state <= ProcessArp;
                         end
                     end
@@ -303,7 +298,6 @@ always_ff @ (negedge clk) begin
                         arp_query <= 0;
                         ip_lookup <= 0;
                         fifo_write_valid <= 0;
-                        arp_query_nexthop <= 0;
                         state <= Idle;
                         $display("ERROR!");
                     end
@@ -341,8 +335,8 @@ always_ff @ (negedge clk) begin
                 done <= arp_done;
                 bad <= arp_done && !arp_found;
                 if (arp_done) begin
-                    // $display("ARP complete\n");
-                    arp_query_nexthop <= 0;
+                    `DISPLAY_MAC(mac_output);
+                    $display("ARP complete\n");
                     state <= Idle;
                 end else begin
                     state <= ProcessArp;
@@ -358,7 +352,9 @@ always_ff @ (negedge clk) begin
                     if (ip_found) begin
                         // 找到 nexthop
                         arp_query <= 1;
-                        $display("Nexthop found, searching ARP table\n");
+                        $write("Nexthop found:");
+                        `DISPLAY_IP(ip_nexthop);
+                        arp_ip_query <= ip_nexthop;
                         state <= ProcessArp;
                     end else begin
                         // 没有找到

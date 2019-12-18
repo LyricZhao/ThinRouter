@@ -103,7 +103,7 @@ def little_hex(v: int, size: int) -> str:
 class Config:
     count = 128             # 生成多少测例
     discard_rate = 0.5      # 错误测例的比例
-    max_data_length = 556   # IP 包数据段最大长度
+    max_data_length = 0     # IP 包数据段最大长度
     path = ''               # (maybe) relative path to runtime_path directory
 
 
@@ -478,12 +478,10 @@ class EthFrame:
         dst_mac = MAC.get_broadcast()
         dst_ip = EthFrame.subnets[port][0][1]
         # 来源是子网内某个 IP MAC
-        src_ip = IP.get_random(router=dst_ip, mask=24)
-        for mac, ip in EthFrame.subnets[port]:
-            if ip == src_ip:
-                src_mac = mac
-                break
+        if len(EthFrame.subnets[port]) > 1:
+            src_mac, src_ip = random.choice(EthFrame.subnets[port][1:])
         else:
+            src_ip = IP.get_from(router=dst_ip)
             src_mac = MAC.get_random()
             EthFrame.subnets[port].append((src_mac, src_ip,))
 
@@ -515,7 +513,7 @@ class EthFrame:
         dst_mac = MAC('01:00:5e:00:00:09')
         dst_ip = EthFrame.subnets[port][0][1]
         # 来源是子网内某个 IP MAC
-        src_ip = IP.get_random(router=dst_ip, mask=24)
+        src_ip = IP.get_from(router=dst_ip)
         for mac, ip in EthFrame.subnets[port]:
             if ip == src_ip:
                 src_mac = mac
@@ -652,6 +650,8 @@ if __name__ == '__main__':
                 frame = EthFrame.get_rip_response()
             elif chance(0.1):
                 frame = EthFrame.get_rip_request()
+            elif chance(0.3):
+                frame = EthFrame.get_arp()
             else:
                 frame = EthFrame.get_ip()
         output += 'info:      %s\neth_frame: %sFFF\n' % (frame, frame.hex)

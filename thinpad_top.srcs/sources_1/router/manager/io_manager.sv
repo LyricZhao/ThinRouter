@@ -611,35 +611,28 @@ always_ff @(posedge clk_125M) begin
     end
 end
 
-// always_ff @(negedge clk_125M) begin
-//     if (tx_start) $display("START at read_cnt=%0d", read_cnt);
-// end
-
-// 正常发包显示在高位数码管
-digit_loop debug_send (
-    .rst_n(rst_n),
-    .clk(tx_start),
-    .digit_out(digit1_out)
+digit_hex low_led (
+    .value(debug[3:0]),
+    .digit(digit0_out)
 );
 
-// 丢包显示在低位数码管
-digit_loop debug_discard (
-    .rst_n(rst_n),
-    .clk(packet_type == PacketBad),
-    .digit_out(digit0_out)
+digit_hex high_led (
+    .value(debug[7:4]),
+    .digit(digit1_out)
 );
 
-always_comb begin
-    // led_out[0] = packet_type == PacketBad;
-    // led_out[1] = packet_type == PacketIP;
-    // led_out[2] = packet_type == PacketARPRequest;
-    // led_out[3] = packet_type == PacketARPResponse;
-    // led_out[4] = packet_type == PacketRIPDefault;
-    // led_out[5] = packet_type == PacketRIPRequest;
-    // led_out[6] = packet_type == PacketRIPResponse;
-    // led_out[15] = rx_ready;
-    // led_out[14] = ip_packet_process_status == IPPacketProcessing;
-    // led_out[14] = ip_packet_process_status == IPPacketStillProcessing;
-end
+// // 正常发包显示在高位数码管
+// digit_loop debug_send (
+//     .rst_n(rst_n),
+//     .clk(tx_start),
+//     .digit_out(digit1_out)
+// );
+// 
+// // 丢包显示在低位数码管
+// digit_loop debug_discard (
+//     .rst_n(rst_n),
+//     .clk(packet_type == PacketBad),
+//     .digit_out(digit0_out)
+// );
 
 endmodule
