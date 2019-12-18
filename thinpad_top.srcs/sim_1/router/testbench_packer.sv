@@ -16,9 +16,9 @@ logic    [3:0]  metric;
 logic    outer_fifo_read_valid = 0;
 
 logic    outer_fifo_empty;
-logic    [7:0]  outer_fifo_out;
-logic    [7:0]  outer_fifo_in;
-logic    finished; // 打包完成
+logic    [8:0]  outer_fifo_out;
+//logic    [7:0]  outer_fifo_in;
+//logic    finished; // 打包完成
 
 rip_packer dut (
     .clk(clk_125M),
@@ -33,22 +33,22 @@ rip_packer dut (
     .metric(metric),
     .outer_fifo_read_valid(outer_fifo_read_valid),
     .outer_fifo_empty(outer_fifo_empty),
-    .outer_fifo_out(outer_fifo_out),
-    .outer_fifo_in_debug(outer_fifo_in),
-    .finished(finished)
+    .outer_fifo_out(outer_fifo_out)
+    //.outer_fifo_in_debug(outer_fifo_in),
+    //.finished(finished)
 );
 
 always #4 clk_125M = ~clk_125M;
 
 task read_packed;
 begin
-    wait(finished == 1);
+    wait(!outer_fifo_empty);
     outer_fifo_read_valid = 1;
     $write("Packed: \n\t");
     while (1) begin
         #8
-        if (outer_fifo_empty) break;
-        else $write("%02x ", outer_fifo_out);
+        if (!outer_fifo_empty) $write("%02x ", outer_fifo_out);
+        if (outer_fifo_out[8]) #8 break;
     end
     $write("\n");
 end

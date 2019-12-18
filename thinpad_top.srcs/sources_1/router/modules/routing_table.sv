@@ -33,7 +33,23 @@ module routing_table #(
     // 从 fifo 中读取一条
     output logic insert_fifo_read_valid,
 
-    // 路由表满，此后只可以查询和修改
+    // 遍历任务也从 fifo 进来
+    input  rip_task_t enum_task_in,
+    input  logic enum_task_empty,
+    output logic enum_task_read_valid,
+
+    output mac_t enum_dst_mac,
+    output ip_t  enum_dst_ip,
+    output logic [1:0] enum_port,
+
+    output ip_t  enum_prefix,
+    output ip_t  enum_nexthop,
+    output logic [5:0] enum_mask,
+    output logic [4:0] enum_metric,
+    output logic enum_valid,
+    output logic enum_last,
+
+    // todo 路由表满，此后只可以查询和修改
     output logic overflow
 );
 
@@ -130,9 +146,10 @@ xpm_memory_spram #(
 );
 
 // 正在进行什么模式，通过同步逻辑控制
-enum logic [1:0] {
+enum logic [2:0] {
     // 空闲
     ModeIdle,
+    ModeCoolDown,
     // 查询
     ModeQuery,
     // 插入
@@ -152,22 +169,43 @@ enum logic [1:0] {
 } query_state;
 
 // 插入过程的状态，组合逻辑
-enum logic [2:0] {
+enum logic [3:0] {
     // 定位到 entry_to_insert.prefix 的位置，转其他状态
     Insert,
+    InsertSituationPre1,
     InsertSituation1,
     InsertSituation2,
+    InsertSituationPre3,
     InsertSituation3,
     // 在 nexthop_write_addr 上插入 entry_to_insert，确保检查过 metric<16
     InsertNewNexthop,
     // 给定了 nexthop 节点的地址，对其进行更新。如果删除了节点，后面还要回来从父节点上删去
     InsertEditNexthop,
     // 删除 parent prefix 节点的 next0
-    InsertRemoveLeaf
+    InsertRemoveLeafFromParent,
+    // 删除 parent prefix 节点的 next0，然后转到
+    InsertRemoveLeafFromParent2,
+    InsertReplaceNexthop,
+    InsertReplaceNext0
 } insert_state;
+
+enum logic [2:0] {
+    EnumNexthop,
+    EnumParent,
+    EnumSkipParent
+} enum_state;
+
+logic [1:0] work_cooldown;
 
 // 具体逻辑可能会用到
 pointer_t insert_pointer_buffer;
+
+// 锁存的 port
+logic [1:0] enum_latched_port;
+// 已经完成了多少
+pointer_t enum_completed;
+// 本次完成了多少，到 25 需要停止
+logic [4:0] enum_got;
 
 // 利用 trie 树中查找这个 IP 地址
 // 用同步逻辑控制，空闲时置 0，否则置 IP 地址，组合逻辑开始查找
@@ -175,100 +213,16 @@ ip_t ip_target;
 // 目前找到的最长匹配叶子节点地址，当查询结束时，如果此地址为 0，说明无匹配
 pointer_t best_match;
 
-// 根据前缀长度生成 mask
-function ip_t get_mask;
-    input logic [5:0] len;
-begin
-    case (len)
-        0 : get_mask = 32'h00000000;
-        1 : get_mask = 32'h80000000;
-        2 : get_mask = 32'hC0000000;
-        3 : get_mask = 32'hE0000000;
-        4 : get_mask = 32'hF0000000;
-        5 : get_mask = 32'hF8000000;
-        6 : get_mask = 32'hFC000000;
-        7 : get_mask = 32'hFE000000;
-        8 : get_mask = 32'hFF000000;
-        9 : get_mask = 32'hFF800000;
-        10: get_mask = 32'hFFC00000;
-        11: get_mask = 32'hFFE00000;
-        12: get_mask = 32'hFFF00000;
-        13: get_mask = 32'hFFF80000;
-        14: get_mask = 32'hFFFC0000;
-        15: get_mask = 32'hFFFE0000;
-        16: get_mask = 32'hFFFF0000;
-        17: get_mask = 32'hFFFF8000;
-        18: get_mask = 32'hFFFFC000;
-        19: get_mask = 32'hFFFFE000;
-        20: get_mask = 32'hFFFFF000;
-        21: get_mask = 32'hFFFFF800;
-        22: get_mask = 32'hFFFFFC00;
-        23: get_mask = 32'hFFFFFE00;
-        24: get_mask = 32'hFFFFFF00;
-        25: get_mask = 32'hFFFFFF80;
-        26: get_mask = 32'hFFFFFFC0;
-        27: get_mask = 32'hFFFFFFE0;
-        28: get_mask = 32'hFFFFFFF0;
-        29: get_mask = 32'hFFFFFFF8;
-        30: get_mask = 32'hFFFFFFFC;
-        31: get_mask = 32'hFFFFFFFE;
-        32: get_mask = 32'hFFFFFFFF;
-        default: begin
-            $fatal("invalid mask length");
-            get_mask = '0;
-        end
-    endcase
-end
-endfunction
-
-
 // Insert 过程中，entry_to_insert.prefix 和 memory_out.branch.prefix 之间的公共 mask 长度
 // 不会超过 entry_to_insert.mask
 logic [5:0] _tmp, insert_shared_mask;
 always_comb begin
+    _tmp = Common::leading0(entry_to_insert.prefix ^ memory_out.branch.prefix);
     insert_shared_mask = _tmp > entry_to_insert.mask ? entry_to_insert.mask : _tmp;
 end
 
-// 根据匹配生成 mask 长度
-always_comb
-    casez (entry_to_insert.prefix ^ memory_out.branch.prefix)
-        32'b1???????_????????_????????_????????: _tmp = 0;
-        32'b01??????_????????_????????_????????: _tmp = 1;
-        32'b001?????_????????_????????_????????: _tmp = 2;
-        32'b0001????_????????_????????_????????: _tmp = 3;
-        32'b00001???_????????_????????_????????: _tmp = 4;
-        32'b000001??_????????_????????_????????: _tmp = 5;
-        32'b0000001?_????????_????????_????????: _tmp = 6;
-        32'b00000001_????????_????????_????????: _tmp = 7;
-        32'b00000000_1???????_????????_????????: _tmp = 8;
-        32'b00000000_01??????_????????_????????: _tmp = 9;
-        32'b00000000_001?????_????????_????????: _tmp = 10;
-        32'b00000000_0001????_????????_????????: _tmp = 11;
-        32'b00000000_00001???_????????_????????: _tmp = 12;
-        32'b00000000_000001??_????????_????????: _tmp = 13;
-        32'b00000000_0000001?_????????_????????: _tmp = 14;
-        32'b00000000_00000001_????????_????????: _tmp = 15;
-        32'b00000000_00000000_1???????_????????: _tmp = 16;
-        32'b00000000_00000000_01??????_????????: _tmp = 17;
-        32'b00000000_00000000_001?????_????????: _tmp = 18;
-        32'b00000000_00000000_0001????_????????: _tmp = 19;
-        32'b00000000_00000000_00001???_????????: _tmp = 20;
-        32'b00000000_00000000_000001??_????????: _tmp = 21;
-        32'b00000000_00000000_0000001?_????????: _tmp = 22;
-        32'b00000000_00000000_00000001_????????: _tmp = 23;
-        32'b00000000_00000000_00000000_1???????: _tmp = 24;
-        32'b00000000_00000000_00000000_01??????: _tmp = 25;
-        32'b00000000_00000000_00000000_001?????: _tmp = 26;
-        32'b00000000_00000000_00000000_0001????: _tmp = 27;
-        32'b00000000_00000000_00000000_00001???: _tmp = 28;
-        32'b00000000_00000000_00000000_000001??: _tmp = 29;
-        32'b00000000_00000000_00000000_0000001?: _tmp = 30;
-        32'b00000000_00000000_00000000_00000001: _tmp = 31;
-        32'b00000000_00000000_00000000_00000000: _tmp = 32;
-    endcase
-
 // 匹配 IP 地址和一个前缀，返回是否匹配
-`define Match(addr, prefix, mask) ((((addr) ^ (prefix)) & get_mask(mask)) == 0)
+`define Match(addr, prefix, mask) ((((addr) ^ (prefix)) & Common::get_mask(mask)) == 0)
 
 // 结束匹配，如果存在最佳匹配，则查找其地址，同时转 QueryResultFetching；否则直接转 ModeIdle
 `define Query_Complete                      \
@@ -337,12 +291,16 @@ always_ff @ (posedge clk_125M) begin
     memory_write_en <= 0;
 
     insert_fifo_read_valid <= 0;
+    enum_task_read_valid <= 0;
+    enum_valid <= 0;
+    enum_last <= 0;
 
     if (!rst_n) begin
         branch_write_addr <= 1;
         nexthop_write_addr <= 16'h8000;
         work_mode <= ModeIdle;
         ip_target <= '0;
+        enum_completed <= 16'h8000;
     end else begin
         // 查询结束则置 ModeIdle
         if (work_mode == ModeQuery && query_ready) begin
@@ -352,19 +310,35 @@ always_ff @ (posedge clk_125M) begin
             ModeIdle: begin
                 if (query_valid) begin
                     // 开始查询
+                    $display("--------------------------------------------------------------------------------");
                     $write("Query: ");
                     `DISPLAY_IP(ip_query);
                     work_mode <= ModeQuery;
                     ip_target <= ip_query;
                     query_ready <= 0;
+                end else if (work_cooldown > 0) begin
+                    work_cooldown <= work_cooldown - 1;
                 end else if (!insert_fifo_empty) begin
                     // 没有查询任务时，从 fifo 中取出需要插入的条目
+                    $display("--------------------------------------------------------------------------------");
                     $write("Insert: ");
                     `DISPLAY_IP(insert_fifo_data.prefix);
                     work_mode <= ModeInsert;
                     entry_to_insert <= insert_fifo_data;
                     insert_fifo_read_valid <= 1;
                     query_ready <= 0;
+                    work_cooldown <= 2;
+                end else if (!enum_task_empty) begin
+                    // 执行遍历任务
+                    $display("--------------------------------------------------------------------------------");
+                    $write("Enum");
+                    work_mode <= ModeEnumerate;
+                    query_ready <= 0;
+                    work_cooldown <= 2;
+                    enum_dst_mac <= enum_task_in.dst_router_mac;
+                    enum_dst_ip <= enum_task_in.dst_router_ip;
+                    enum_port <= enum_task_in.port;
+                    enum_got <= 0;
                 end else begin
                     work_mode <= ModeIdle;
                     ip_target <= '0;
@@ -378,9 +352,11 @@ always_ff @ (posedge clk_125M) begin
         // 复位
         query_state <= Query;
         insert_state <= Insert;
+        enum_state <= EnumNexthop;
         best_match <= '0;
         memory_addr <= '0;
     end else begin
+        $display("%d", insert_state);
         `Display_Node(memory_out, memory_addr);
         case (work_mode)
             ModeQuery: begin
@@ -477,16 +453,30 @@ always_ff @ (posedge clk_125M) begin
                                     work_mode <= ModeIdle;
                                 end else if (insert_shared_mask == entry_to_insert.mask) begin
                                 // 插入的 mask 更短，但是当前节点完全匹配
-                                    // 当前节点直接写到下一个空位里面
-                                    `Move_Node;
-                                    // 在下一拍再将此节点变为一个 prefix
-                                    insert_state <= InsertSituation1;
+                                    if (memory_out.branch.next0[15] == 0) begin
+                                    // 当前节点并没有 next0，则可以直接修改 mask 并添加 next0
+                                        memory_in <= memory_out;
+                                        memory_in.branch.mask = entry_to_insert.mask;
+                                        memory_in.branch.next0 <= nexthop_write_addr;
+                                        memory_write_en <= 1;
+                                        insert_pointer_buffer <= memory_addr;
+                                        insert_state <= InsertNewNexthop;
+                                    end else begin
+                                        // 当前节点直接写到下一个空位里面
+                                        `Move_Node;
+                                        // 在下一拍再将此节点变为一个 prefix
+                                        insert_state <= InsertSituationPre1;
+                                    end
                                 end else begin
                                 // 需要当前节点分割成两部分，一部分是插入节点的 prefix，另一部分是原节点
                                     // todo 当前节点如果存在空分支可以修剪
                                     // 当前节点直接写到下一个空位里面
                                     `Move_Node;
-                                    insert_state <= InsertSituation3;
+                                    if (memory_out.branch.next0[15] == 0) begin
+                                        insert_state <= InsertSituation3;
+                                    end else begin
+                                        insert_state <= InsertSituationPre3;
+                                    end
                                 end
                             end else if (insert_shared_mask == memory_out.branch.mask && insert_shared_mask == entry_to_insert.mask) begin
                             // 和当前节点一样，则替换叶子节点
@@ -598,18 +588,31 @@ always_ff @ (posedge clk_125M) begin
                             end
                         end
                     end
+                    InsertSituationPre1: begin
+                        // 前往原本的 nexthop
+                        if (!memory_out.nexthop.is_nexthop) begin
+                            memory_addr <= memory_out.branch.next0;
+                        end else begin
+                            memory_in <= memory_out;
+                            memory_in.nexthop.parent <= branch_write_addr;
+                            memory_write_en <= 1;
+                            insert_state <= InsertSituation1;
+                        end
+                    end
                     InsertSituation1: begin
                         // 回来更新当前节点的 mask, next0 （指向即将添加的块）和 next1（指向被挤走的块）
-                        memory_addr <= insert_pointer_buffer;
-                        memory_write_en <= 1;
+                        if (!memory_out.branch.is_nexthop) begin
+                            memory_addr <= insert_pointer_buffer;
+                            memory_write_en <= 1;
 
-                        memory_in <= memory_out;
-                        memory_in.branch.mask <= insert_shared_mask;
-                        memory_in.branch.next0 <= nexthop_write_addr;
-                        memory_in.branch.next1 <= branch_write_addr;
+                            memory_in <= memory_out;
+                            memory_in.branch.mask <= insert_shared_mask;
+                            memory_in.branch.next0 <= nexthop_write_addr;
+                            memory_in.branch.next1 <= branch_write_addr;
 
-                        branch_write_addr <= branch_write_addr + 1;
-                        insert_state <= InsertNewNexthop;
+                            branch_write_addr <= branch_write_addr + 1;
+                            insert_state <= InsertNewNexthop;
+                        end
                     end
                     InsertSituation2: begin
                         // 为 entry_to_insert 在最后添加一个 prefix 和一个 nexthop
@@ -629,38 +632,53 @@ always_ff @ (posedge clk_125M) begin
                         insert_pointer_buffer <= branch_write_addr;
                         insert_state <= InsertNewNexthop;
                     end
-                    InsertSituation3: begin
-                        assert (entry_to_insert.prefix[31 - insert_shared_mask] != memory_out.branch.prefix[31 - insert_shared_mask])
-                            else $fatal(1, "%m: split error");
-                        $display("split node at mask len %0d", insert_shared_mask);
-                        // 当前节点根据 insert_shared_mask 进行分开
-                        if (entry_to_insert.prefix[31 - insert_shared_mask] == 1) begin
-                        // 原本节点放到 next0
-                            memory_in.branch <= '{
-                                is_nexthop: 1'b0,
-                                is_prefix: 1'b0,
-                                mask: insert_shared_mask,
-                                prefix: entry_to_insert.prefix,
-                                next0: branch_write_addr,
-                                next1: branch_write_addr + 1
-                            };
+                    InsertSituationPre3: begin
+                        // 前往原本的 nexthop
+                        if (!memory_out.nexthop.is_nexthop) begin
+                            memory_addr <= memory_out.branch.next0;
                         end else begin
-                        // 原本节点放到 next1
-                            memory_in.branch <= '{
-                                is_nexthop: 1'b0,
-                                is_prefix: 1'b0,
-                                mask: insert_shared_mask,
-                                prefix: entry_to_insert.prefix,
-                                next0: branch_write_addr + 1,
-                                next1: branch_write_addr
-                            };
+                            memory_in <= memory_out;
+                            memory_in.nexthop.parent <= branch_write_addr;
+                            memory_write_en <= 1;
+                            insert_state <= InsertSituation3;
                         end
-                        // 写入当前节点
-                        memory_addr <= insert_pointer_buffer;
-                        memory_write_en <= 1;
-                        // 然后再添加 insert 条目
-                        branch_write_addr <= branch_write_addr + 1;
-                        insert_state <= InsertSituation2;
+                    end
+                    InsertSituation3: begin
+                        if (memory_out.branch.is_nexthop) begin
+                            memory_addr <= branch_write_addr;
+                        end else begin
+                            assert (entry_to_insert.prefix[31 - insert_shared_mask] != memory_out.branch.prefix[31 - insert_shared_mask])
+                                else $fatal(1, "%m: split error");
+                            $display("split node at mask len %0d", insert_shared_mask);
+                            // 当前节点根据 insert_shared_mask 进行分开
+                            if (entry_to_insert.prefix[31 - insert_shared_mask] == 1) begin
+                            // 原本节点放到 next0
+                                memory_in.branch <= '{
+                                    is_nexthop: 1'b0,
+                                    is_prefix: 1'b0,
+                                    mask: insert_shared_mask,
+                                    prefix: entry_to_insert.prefix,
+                                    next0: branch_write_addr,
+                                    next1: branch_write_addr + 1
+                                };
+                            end else begin
+                            // 原本节点放到 next1
+                                memory_in.branch <= '{
+                                    is_nexthop: 1'b0,
+                                    is_prefix: 1'b0,
+                                    mask: insert_shared_mask,
+                                    prefix: entry_to_insert.prefix,
+                                    next0: branch_write_addr + 1,
+                                    next1: branch_write_addr
+                                };
+                            end
+                            // 写入当前节点
+                            memory_addr <= insert_pointer_buffer;
+                            memory_write_en <= 1;
+                            // 然后再添加 insert 条目
+                            branch_write_addr <= branch_write_addr + 1;
+                            insert_state <= InsertSituation2;
+                        end
                     end
                     InsertNewNexthop: begin
                         // 插入一个新的 nexthop，然后工作结束
@@ -686,10 +704,18 @@ always_ff @ (posedge clk_125M) begin
                                 // 删除路由？
                                 if (memory_out.nexthop.port == entry_to_insert.from_vlan[1:0]) begin
                                 // 如果消息来源就是之前提供路由的端口，则真的删除
-                                // todo 整理内存
                                     $display("removing nexthop node");
-                                    insert_state <= InsertRemoveLeaf;
+                                    nexthop_write_addr <= memory_addr;
+                                    insert_pointer_buffer <= memory_addr;
                                     memory_addr <= memory_out.nexthop.parent;
+                                    if (memory_addr + 1 == nexthop_write_addr) begin
+                                    // 如果当前已经是最后一个 nexthop 节点，则将其删除
+                                        insert_state <= InsertRemoveLeafFromParent;
+                                    end else begin
+                                    // 此处需要用最后一个 nexthop 节点来代替此节点
+                                        insert_state <= InsertRemoveLeafFromParent2;
+                                    end
+                                    nexthop_write_addr <= nexthop_write_addr - 1;
                                 end else begin
                                 // 如果消息来源不是路由 nexthop 的端口，说明这是一个 poison reverse，忽略
                                     work_mode <= ModeIdle;
@@ -712,7 +738,7 @@ always_ff @ (posedge clk_125M) begin
                             end
                         end
                     end
-                    InsertRemoveLeaf: begin
+                    InsertRemoveLeafFromParent: begin
                         // 等待读取到 prefix 节点
                         if (!memory_out.branch.is_nexthop) begin
                             $display("delete next0 from prefix node at %x", memory_addr);
@@ -720,6 +746,92 @@ always_ff @ (posedge clk_125M) begin
                             memory_in.branch.next0[15] <= 0;
                             memory_write_en <= 1;
                             work_mode <= ModeIdle;
+                        end
+                    end
+                    InsertRemoveLeafFromParent2: begin
+                        // 等待读取到 prefix 节点
+                        if (!memory_out.branch.is_nexthop) begin
+                            $display("delete next0 from prefix node at %x", memory_addr);
+                            memory_in <= memory_out;
+                            memory_in.branch.next0[15] <= 0;
+                            memory_write_en <= 1;
+                            insert_state <= InsertReplaceNexthop;
+                        end
+                    end
+                    InsertReplaceNexthop: begin
+                        memory_addr <= nexthop_write_addr;
+                        if (memory_out.nexthop.is_nexthop) begin
+                            memory_in <= memory_out;
+                            memory_addr <= insert_pointer_buffer;
+                            memory_write_en <= 1;
+                            insert_state <= InsertReplaceNext0;
+                        end
+                    end
+                    InsertReplaceNext0: begin
+                        if (memory_out.nexthop.is_nexthop) begin
+                        // 还没有加载出来 parent
+                            memory_addr <= memory_out.nexthop.parent;
+                        end else begin
+                        // 替换 next0
+                            memory_in <= memory_out;
+                            memory_in.branch.next0 <= insert_pointer_buffer;
+                            memory_write_en <= 1;
+                            work_mode <= ModeIdle;
+                        end
+                    end
+                endcase
+            end
+            ModeEnumerate: begin
+                case (enum_state)
+                    EnumNexthop: begin
+                        if (enum_completed >= nexthop_write_addr) begin
+                        // 已经全部读完
+                            // 清除当前任务
+                            enum_task_read_valid <= 1;
+                            work_mode <= ModeIdle;
+                            // 如果没有读到任何一条，就不发送了
+                            if (enum_got > 0) begin
+                                enum_last <= 1;
+                            end
+                        end else if (enum_got == 25) begin
+                        // 读够了 25 条，发送，然后休息
+                            work_mode <= ModeIdle;
+                            enum_last <= 1;
+                        end else begin
+                            if (!memory_out.nexthop.is_nexthop) begin
+                                memory_addr <= enum_completed;
+                            end else begin
+                                enum_completed <= enum_completed + 1;
+                                memory_addr <= memory_out.nexthop.parent;
+                                enum_nexthop <= memory_out.nexthop.nexthop;
+                                enum_metric <= memory_out.nexthop.metric;
+                                if (memory_out.nexthop.port == enum_latched_port) begin
+                                // 当前处理的端口与写入的是一个端口，跳过
+                                    enum_state <= EnumSkipParent;
+                                end else begin
+                                    enum_state <= EnumParent;
+                                    enum_got <= enum_got + 1;
+                                end
+                            end
+                        end
+                    end
+                    EnumParent: begin
+                        if (!memory_out.nexthop.is_nexthop) begin
+                            assert (memory_out.branch.is_prefix)
+                                else $fatal(1, "Parent is not prefix");
+                            enum_prefix <= memory_out.branch.prefix;
+                            enum_mask <= memory_out.branch.mask;
+                            enum_valid <= 1;
+                            memory_addr <= enum_completed;
+                            enum_state <= EnumNexthop;
+                        end
+                    end
+                    EnumSkipParent: begin
+                        if (!memory_out.nexthop.is_nexthop) begin
+                            assert (memory_out.branch.is_prefix)
+                                else $fatal(1, "Parent is not prefix");
+                            memory_addr <= enum_completed;
+                            enum_state <= EnumNexthop;
                         end
                     end
                 endcase

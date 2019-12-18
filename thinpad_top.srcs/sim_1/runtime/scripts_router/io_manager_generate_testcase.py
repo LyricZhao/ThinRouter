@@ -183,8 +183,16 @@ class IP:
         addr = router.value
         while addr == router.value:
             addr &= 0xffffffff << (32 - mask)
-            # addr += random.randrange(16 ** 8) & (0xffffffff >> mask)
-            addr += 123 & (0xffffffff >> mask)
+            addr += random.randrange(16 ** 8) & (0xffffffff >> mask)
+            # addr += 123 & (0xffffffff >> mask)
+        return IP(addr)
+
+    @staticmethod
+    def get_from(router: IP) -> IP:
+        """
+        返回关于路由器的 IP 地址，当前返回一个固定值
+        """
+        addr = (router.value & 0xffffff00) + 0x80
         return IP(addr)
 
     def __init__(self, value: Union[str, int]):
@@ -224,14 +232,20 @@ class IP:
 
 
 class RipEntry:
-    def __init__(self, router: IP = None):
-        self.prefix = IP.get_random()
-        self.mask = random.randrange(1, 33)
-        if router is None:
-            self.nexthop = IP.get_random()
+    def __init__(self, prefix: IP = None, mask: int = None, metric: int = None):
+        if prefix is None:
+            self.prefix = IP.get_random()
         else:
-            self.nexthop = IP.get_random(router, 24)
-        self.metric = random.randrange(1, 17)
+            self.prefix = prefix
+        if mask is None:
+            self.mask = random.randrange(1, 33)
+        else:
+            self.mask = mask
+        self.nexthop = IP.get_random()
+        if metric is None:
+            self.metric = random.randrange(1, 17)
+        else:
+            self.metric = metric
 
     def __str__(self):
         return '%s/%d -%d> %s' % (self.prefix, self.mask, self.metric, self.nexthop)
@@ -386,13 +400,16 @@ class RipRequest(IpRequest):
 
 
 class RipResponse(IpRequest):
-    def __init__(self, src_ip: IP):
+    def __init__(self, src_ip: IP, entries: List[RipEntry] = None):
         self.dst_ip = IP('224.0.0.9')
         self.src_ip = src_ip
         self.id = random.randrange(16**4)
         self.ttl = 1
         self.ip_protocol = 17
-        self.entries = [RipEntry() for i in range(random.randrange(1, 25))]
+        if entries is None:
+            self.entries = [RipEntry() for i in range(random.randrange(1, 25))]
+        else:
+            self.entries = entries
         udp_length = 12 + 20 * len(self.entries)
         udp_checksum = (
             1057 + udp_length + 
@@ -447,6 +464,8 @@ class EthFrame:
         [(MAC('a8:88:08:38:88:88'), IP('10.4.3.1'))],
         [(MAC('a8:88:08:48:88:88'), IP('10.4.4.1'))],
     ]
+    # 让路由器学会的路由
+    reachable: Dict[(IP, int), int] = {}
 
     @staticmethod
     def get_preamble():
@@ -473,16 +492,17 @@ class EthFrame:
 
     @staticmethod
     def get_ip() -> Optional[EthFrame]:
-        port, dst_port = random.sample(range(1, 5), 2)
-        # 要求发出和接收的子网内都有路由器以外的机器
-        if len(EthFrame.subnets[port]) == 1 or len(EthFrame.subnets[dst_port]) == 1:
+        port = random.randrange(1, 5)
+        # 要求发出的子网内都有路由器以外的机器
+        if len(EthFrame.subnets[port]) == 1:
+            return None
+        # 要有能够到达的地址
+        if len(EthFrame.reachable) == 0: 
             return None
         src_mac, src_ip = random.choice(EthFrame.subnets[port][1:])
-        # 有一定概率发送给随机 IP
-        if chance(.2):
-            dst_ip = IP.get_random(IP(0), 0)
-        else:
-            dst_ip = random.choice(EthFrame.subnets[dst_port][1:])[1]
+        # 随机选择一个可达地址
+        prefix, mask = random.choice(list(EthFrame.reachable))
+        dst_ip = IP.get_random(prefix, mask)
         # 发给路由器
         dst_mac = EthFrame.subnets[port][0][0]
         request = IpRequest(dst_ip, src_ip)
@@ -514,7 +534,7 @@ class EthFrame:
         dst_mac = MAC('01:00:5e:00:00:09')
         dst_ip = EthFrame.subnets[port][0][1]
         # 来源是子网内某个 IP MAC
-        src_ip = IP.get_random(router=dst_ip, mask=24)
+        src_ip = IP.get_from(dst_ip)
         for mac, ip in EthFrame.subnets[port]:
             if ip == src_ip:
                 src_mac = mac
@@ -523,7 +543,23 @@ class EthFrame:
             src_mac = MAC.get_random()
             EthFrame.subnets[port].append((src_mac, src_ip,))
 
-        request = RipResponse(src_ip)
+        entries = []
+        for _ in range(random.randrange(1, 25)):
+            if len(EthFrame.reachable) > 0 and chance(0.6):
+                # 删除路由
+                to_delete, prev_port = random.choice(list(EthFrame.reachable.items()))
+                entries.append(RipEntry(*to_delete, 16))
+                # 仅当 port 一样时能够真正删除
+                if port == prev_port:
+                    del EthFrame.reachable[to_delete]
+            else:
+                # 添加路由
+                prefix = IP(random.randrange(2**32) & 0xffffff00)
+                mask = 24
+                entries.append(RipEntry(prefix, mask, random.randrange(1, 16)))
+                EthFrame.reachable[(prefix, mask)] = port
+
+        request = RipResponse(src_ip, entries)
         return EthFrame(dst_mac, src_mac, port, request)
 
     def __init__(self, dst_mac: MAC, src_mac: MAC, port: int, ip_layer_data: Union[ArpRequest, IpRequest]):
@@ -612,12 +648,12 @@ if __name__ == '__main__':
     for i in range(Config.count):
         frame = None
         while frame is None:
-            frame = random.choice([
-                EthFrame.get_arp,
-                EthFrame.get_ip,
-                EthFrame.get_rip_request,
-                EthFrame.get_rip_response,
-            ])()
+            if chance(0.1):
+                frame = EthFrame.get_rip_response()
+            elif chance(0.1):
+                frame = EthFrame.get_rip_request()
+            else:
+                frame = EthFrame.get_ip()
         output += 'info:      %s\neth_frame: %sFFF\n' % (frame, frame.hex)
 
     print('已生成 %d 条测试样例' %
