@@ -85,23 +85,21 @@ task query;
     input ip_t expect_nexthop; // 预期匹配的 nexthop，没有匹配则为 0
 begin
     int start = $realtime;
+    wait(query_ready == 1);
     $display("%0d. query  %0d.%0d.%0d.%0d", count,
         addr[31:24], addr[23:16], addr[15:8], addr[7:0]);
-    // 拷贝的之前代码
-    wait(fifo_empty == 1);
     query_valid <= 1;
     ip_query <= addr;
     @ (posedge clk_125M);
     query_valid <= 0;
-    wait(query_ready == 0);
-    wait(query_ready == 1);
+    wait(query_ready == 0); // 开始查询
+    wait(query_ready == 1); // 结束查询
     $display(" -> %0d.%0d.%0d.%0d", 
         nexthop_result[31:24], nexthop_result[23:16], nexthop_result[15:8], nexthop_result[7:0]);
     if (nexthop_result == expect_nexthop)
         $display("\t\tcorrect in %0t", $realtime - start);
     else
-
-        $fatal("\t\tWRONG! Expecting %0d.%0d.%0d.%0d",
+        $display("\t\tWRONG! Expecting %0d.%0d.%0d.%0d",
             expect_nexthop[31:24], expect_nexthop[23:16], expect_nexthop[15:8], expect_nexthop[7:0]);
 end
 endtask
@@ -113,6 +111,7 @@ begin
     finished = 0;
     file_descriptor = $fopen("routing_test.mem", "r");
     while (!finished) begin
+        #100;
         $fscanf(file_descriptor, "%s", buffer);
         unique casez (buffer[47:0])
             "insert": begin
