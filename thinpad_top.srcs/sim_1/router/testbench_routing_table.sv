@@ -1,15 +1,13 @@
-// TODO
-
 `timescale 1ns / 1ps
 
 `include "constants.vh"
+`include "debug.vh"
+`include "types.vh"
 
 module testbench_routing_table();
 
-typedef logic [31:0] ip_t;
-
 logic clk_125M, rst_n;
-logic [15:0] second = 0;
+time_t second = 0;
 
 // 需要查询的 IP 地址
 ip_t  ip_query;
@@ -20,20 +18,35 @@ ip_t  nexthop_result;
 // 可以查询
 logic query_ready;
 
-// 需要插入的 IP 地址
-ip_t  ip_insert;
-// 插入的 mask
-logic [4:0] mask_insert;
-// 插入的 nexthop
-ip_t  nexthop_insert;
-// 插入的 metric
-logic [4:0] metric_insert;
-// 插入的 vlan port
-logic [2:0] vlan_port_insert;
-// 进行插入，同步置 1
-logic insert_valid;
-// 可以插入
-logic insert_ready;
+// 从文件里面读存到 fifo 里面
+routing_entry_t fifo_in;
+logic fifo_write_valid;
+
+// 从 fifo 给路由表
+routing_entry_t fifo_out;
+logic fifo_empty, fifo_read_valid;
+
+// 一个 fifo 输出直接给路由表模块
+xpm_fifo_sync #(
+    .FIFO_MEMORY_TYPE("distributed"),
+    .FIFO_READ_LATENCY(0),
+    .FIFO_WRITE_DEPTH(64),
+    .READ_DATA_WIDTH($bits(routing_entry_t)),
+    .READ_MODE("fwft"),
+    .USE_ADV_FEATURES("0000"),
+    .WRITE_DATA_WIDTH($bits(routing_entry_t))
+) routing_insert_fifo (
+    .din(fifo_in),
+    .dout(fifo_out),
+    .empty(fifo_empty),
+    .injectdbiterr(0),
+    .injectsbiterr(0),
+    .rd_en(fifo_read_valid),
+    .rst(0),
+    .sleep(0),
+    .wr_clk(clk_125M),
+    .wr_en(fifo_write_valid)
+);
 
 // 路由表满，此后只可以查询和修改
 logic overflow;
@@ -41,23 +54,6 @@ logic overflow;
 // 用于读取测例数据
 int file_descriptor;
 bit[127:0] buffer;
-
-// 等待 lookup_insert_ready 变回 1
-task wait_till_ready;
-begin
-    do
-        @ (posedge clk_125M);
-    while (!insert_ready);
-end
-endtask
-
-task wait_for_lookup_output;
-begin
-    do
-        @ (posedge clk_125M);
-    while (!query_ready);
-end
-endtask
 
 // 在路由表中插入一条。测例保证不会有地址、掩码一样的条目
 task insert;
@@ -76,7 +72,7 @@ begin
     mask_insert <= mask_len;
     @ (posedge clk_125M);
     insert_valid <= 0;
-    wait_till_ready();
+    wait(insert_ready == 1);
     $display("\t\tdone in %0t", $realtime - start);
 end
 endtask
@@ -94,7 +90,7 @@ begin
     ip_query <= addr;
     @ (posedge clk_125M);
     query_valid <= 0;
-    wait_for_lookup_output();
+    wait(query_ready == 1);
     $display(" -> %0d.%0d.%0d.%0d", 
         nexthop_result[31:24], nexthop_result[23:16], nexthop_result[15:8], nexthop_result[7:0]);
     if (nexthop_result == expect_nexthop)
@@ -160,7 +156,22 @@ end
 always clk_125M = #4 ~clk_125M;
 
 routing_table routing_table_inst (
-    .*
+    .clk_125M(clk_125M),
+    .rst_n(rst_n),
+    .second(second),
+
+    // ignore digit*_out and debug
+
+    .ip_query(ip_query),
+    .query_valid(query_valid),
+    .nexthop_result(nexthop_result),
+    .query_ready(query_ready),
+
+    .insert_fifo_data(fifo_out),
+    .insert_fifo_empty(fifo_empty),
+    .insert_fifo_read_valid(fifo_read_valid),
+
+    .overflow(overflow)
 );
 
 endmodule
