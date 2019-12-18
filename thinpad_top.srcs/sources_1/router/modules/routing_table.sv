@@ -49,6 +49,8 @@ module routing_table #(
     output logic enum_valid,
     output logic enum_last,
 
+    input  logic packer_ready,
+
     // todo 路由表满，此后只可以查询和修改
     output logic overflow
 );
@@ -331,7 +333,7 @@ always_ff @ (posedge clk_125M) begin
                         query_ready <= 0;
                         work_cooldown <= 2;
                     end
-                end else if (!enum_task_empty) begin
+                end else if (!enum_task_empty && packer_ready) begin
                     // 执行遍历任务
                     // $display("--------------------------------------------------------------------------------");
                     $display("Enum for port %d", enum_task_in.port);

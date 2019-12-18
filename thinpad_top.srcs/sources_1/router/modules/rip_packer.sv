@@ -23,7 +23,9 @@ module rip_packer (
     input   logic    outer_fifo_read_valid,
 
     output  logic    outer_fifo_empty,
-    output  logic    [8:0]  outer_fifo_out
+    output  logic    [8:0]  outer_fifo_out,
+
+    output  logic   ready
 );
 
 logic [47:0] src_mac;
@@ -214,6 +216,7 @@ always_ff @ (posedge clk) begin
         outer_fifo_write_valid <= 0;
         rip_items_len <= 0;
         entry_count <= 0;
+        ready <= 1;
     end else begin
         {inner_fifo_read_valid, inner_fifo_write_valid} <= 0;
         outer_fifo_write_valid <= 0;
@@ -221,6 +224,7 @@ always_ff @ (posedge clk) begin
             Receive: begin
                 inner_fifo_write_valid <= 0;
                 if (valid == 1'b1) begin
+                    ready <= 0;
                     entry_count <= entry_count + 1;
                     inner_fifo_write_valid <= 1;
                     inner_fifo_in[32*1-1:32*0] <= 32'h00020000;
@@ -359,6 +363,7 @@ always_ff @ (posedge clk) begin
                 udp_checksum <= 0;
                 entry_count <= 0;
                 state <= Receive;
+                ready <= 1;
             end
             default: begin end
         endcase

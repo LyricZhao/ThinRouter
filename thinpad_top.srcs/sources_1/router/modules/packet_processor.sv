@@ -68,7 +68,7 @@ xpm_fifo_sync #(
 
 time_t second;
 timer #(
-    .FREQ(125_000_000)
+    .FREQ(1000)
 ) timer_inst (
     .clk,
     .rst_n,
@@ -125,6 +125,7 @@ logic [5:0] enum_mask;
 logic [4:0] enum_metric;
 logic enum_valid;
 logic enum_last;
+logic packer_ready;
 routing_table routing_table_inst (
     .clk_125M(clk),
     .rst_n,
@@ -155,6 +156,8 @@ routing_table routing_table_inst (
     .enum_valid,
     .enum_last,
 
+    .packer_ready,
+
     .overflow()
 );
 
@@ -174,7 +177,8 @@ rip_packer rip_packer_inst (
     .metric(enum_metric),
     .outer_fifo_read_valid(rip_tx_read_valid),
     .outer_fifo_empty(rip_tx_empty),
-    .outer_fifo_out(rip_tx_data)
+    .outer_fifo_out(rip_tx_data),
+    .ready(packer_ready)
 );
 
 // ARP 表，目前用简陋版
