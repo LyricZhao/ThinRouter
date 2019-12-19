@@ -2,12 +2,12 @@ ENTRY(_start);
 
 MEMORY
 {
-    BASERAM  (rwx)  : ORIGIN = 0x80000000, LENGTH = 4M
-    EXTRAM   (rwx)  : ORIGIN = 0x80400000, LENGTH = 4M
+    BOOTROM  (rx)   : ORIGIN = 0x80000000, LENGTH = 2K
+    RAM      (rwx)  : ORIGIN = 0x81000000, LENGTH = 7M
 }
 
-# define TEXT_AREA BASERAM
-# define DATA_AREA EXTRAM
+# define TEXT_AREA BOOTROM
+# define DATA_AREA RAM
 
 SECTIONS {
     . = ORIGIN(TEXT_AREA);

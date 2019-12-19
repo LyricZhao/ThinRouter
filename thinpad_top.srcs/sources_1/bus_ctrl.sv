@@ -5,6 +5,7 @@
 module bus_ctrl(
     input  logic                    clk,
     input  logic                    clk_50M,
+    input  logic                    clk_125M,
     input  logic                    rst_n,
 
     // CPU控制
@@ -86,6 +87,17 @@ display display_inst(
     .* // VGA
 );
 
+// BootROM
+logic[`BOOTROM_ADDR_WITDH-1:0] bootrom_addr;
+word_t bootrom_data;
+
+bootrom bootrom_inst(
+    .clk(clk_125M),
+
+    .addr(bootrom_addr),
+    .data(bootrom_data)
+);
+
 // CPU中断控制
 assign cpu_int = {3'b0, uart_dataready, 2'b0}; // UART是IP4
 
@@ -134,6 +146,9 @@ assign ext_ram_data = ext_ram_we ? ext_ram_wdata : 32'bz;
                                                         base_ram_wdata[7:0] <= wd; \
                                                         cpu_ram_data_r <= rdr
 
+`define ENABLE_BOOTROM(addr, rdr)                       bootrom_addr <= addr; \
+                                                        cpu_ram_data_r <= rdr
+
 always_comb begin
     if (~rst_n) begin
         cpu_ram_data_r <= 0;
@@ -146,7 +161,9 @@ always_comb begin
         `DISABLE_EXT;
         `DISABLE_UART;
         if (cpu_ram_ce) begin
-            if (`IN_RANGE(cpu_ram_addr, `BASE_START, `BASE_END)) begin
+            if (`IN_RANGE(cpu_ram_addr, `BOOTROM_START, `BOOTROM_END)) begin // 只读
+                `ENABLE_BOOTROM(cpu_ram_addr[10:2], bootrom_data);
+            end else if (`IN_RANGE(cpu_ram_addr, `BASE_START, `BASE_END)) begin
                 if (cpu_ram_we) begin
                     `ENABLE_BASE(0, 1, 1, cpu_ram_addr[21:2], ~cpu_ram_sel, cpu_ram_data_w, 0);
                 end else begin

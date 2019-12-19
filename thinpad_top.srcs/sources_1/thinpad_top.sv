@@ -101,22 +101,6 @@ pll clock_gen(
 
 
 `ifdef COMPILE_ROUTER
-// 计时器
-// 毫秒（0-999）
-logic [9:0] millisecond;
-// 秒（0-65535）
-logic [15:0] second;
-timer #(
-    // 接入 11M0592 时钟
-    .FREQ(11_059_200),
-    // 计时器最大输出为 65535 秒
-    .OUTPUT_WIDTH(16)
-) timer_inst (
-    .clk(clk_11M0592),
-    .rst_n(locked),
-    .millisecond,
-    .second
-);
 
 // 这里应该是KSZ8795芯片的一些设置，初始化用
 eth_conf conf(
@@ -185,6 +169,7 @@ cpu_top cpu_top_inst(
 bus_ctrl bus_ctrl_inst(
     .clk(clk_40M),
     .clk_50M(clk_50M),
+    .clk_125M(clk_125M),
     .rst_n(locked),
     
     .*

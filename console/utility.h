@@ -16,6 +16,8 @@ typedef unsigned int uint_32;
 
 # define MAX_LENGTH 1024
 
+# include "address.h"
+
 uint_32 compare_str(char *a, char *b) {
     for (; (*a) && (*b); ++ a, ++ b) {
         if ((*a) != (*b)) {
