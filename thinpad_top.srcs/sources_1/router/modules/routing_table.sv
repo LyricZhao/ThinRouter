@@ -17,6 +17,7 @@ module routing_table #(
     output logic [7:0] digit0_out,
     output logic [7:0] digit1_out,
     output logic [15:0] debug,
+    output logic [15:0] debug2,
 
     // 需要查询的 IP 地址
     input  ip_t  ip_query,
@@ -118,7 +119,8 @@ pointer_t nexthop_write_addr;
 
 routing_entry_t entry_to_insert;
 
-assign debug = nexthop_write_addr;
+assign debug = branch_write_addr;
+assign debug2 = nexthop_write_addr;
 
 // 存储空间
 xpm_memory_spram #(
@@ -199,6 +201,7 @@ enum logic [2:0] {
 } enum_state;
 
 logic [1:0] work_cooldown;
+logic [12:0] enum_cooldown;
 
 // 具体逻辑可能会用到
 pointer_t insert_pointer_buffer;
@@ -308,7 +311,9 @@ always_ff @ (posedge clk_125M) begin
         end
         case (work_mode)
             ModeIdle: begin
-                if (query_valid) begin
+                if (work_cooldown > 0) begin
+                    work_cooldown <= work_cooldown - 1;
+                end else if (query_valid) begin
                     // 开始查询
                     // $display("--------------------------------------------------------------------------------");
                     $write("Query: ");
@@ -316,8 +321,6 @@ always_ff @ (posedge clk_125M) begin
                     work_mode <= ModeQuery;
                     ip_target <= ip_query;
                     query_ready <= 0;
-                end else if (work_cooldown > 0) begin
-                    work_cooldown <= work_cooldown - 1;
                 end else if (!insert_fifo_empty) begin
                     // 没有查询任务时，从 fifo 中取出需要插入的条目
                     // $display("--------------------------------------------------------------------------------");
@@ -334,13 +337,14 @@ always_ff @ (posedge clk_125M) begin
                         query_ready <= 0;
                         work_cooldown <= 2;
                     end
-                end else if (!enum_task_empty && packer_ready) begin
+                end else if (!enum_task_empty && packer_ready && enum_cooldown == '0) begin
                     // 执行遍历任务
                     // $display("--------------------------------------------------------------------------------");
                     $display("Enum for port %d", enum_task_in.port);
                     work_mode <= ModeEnumerate;
                     query_ready <= 0;
                     work_cooldown <= 2;
+                    enum_cooldown <= '1;
                     enum_dst_mac <= enum_task_in.dst_router_mac;
                     enum_dst_ip <= enum_task_in.dst_router_ip;
                     enum_port <= enum_task_in.port;
@@ -349,6 +353,9 @@ always_ff @ (posedge clk_125M) begin
                     work_mode <= ModeIdle;
                     ip_target <= '0;
                     query_ready <= 1;
+                end
+                if (enum_cooldown != '0) begin
+                    enum_cooldown <= enum_cooldown - 1;
                 end
             end
         endcase

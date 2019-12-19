@@ -68,7 +68,7 @@ xpm_fifo_sync #(
 
 time_t second;
 timer #(
-    .FREQ(1000)
+    .FREQ(125_000_000)
 ) timer_inst (
     .clk,
     .rst_n,
@@ -132,6 +132,7 @@ routing_table routing_table_inst (
     .second,
 
     .debug,
+    .debug2,
     
     .ip_query(ip_input),
     .query_valid(ip_lookup),
@@ -378,10 +379,5 @@ always_ff @ (negedge clk) begin
         endcase
     end
 end
-
-led_loop led_inst (
-    .clk(timed_rip),
-    .led(debug2)
-);
 
 endmodule

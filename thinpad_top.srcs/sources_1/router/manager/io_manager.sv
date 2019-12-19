@@ -591,12 +591,12 @@ always_ff @(posedge clk_125M) begin
 end
 
 digit_hex low_led (
-    .value(debug[3:0]),
+    .value(debug[11:8]),
     .digit(digit0_out)
 );
 
 digit_hex high_led (
-    .value(debug[7:4]),
+    .value({1'b0, debug[14:12]}),
     .digit(digit1_out)
 );
 
