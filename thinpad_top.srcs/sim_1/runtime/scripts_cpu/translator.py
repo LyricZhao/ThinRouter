@@ -26,6 +26,9 @@ except:
 try: type(raw_input)
 except NameError: raw_input = input
 
+inp = None
+outp = None
+
 CCPREFIX = "mips-mti-elf-"
 if 'GCCPREFIX' in os.environ:
     CCPREFIX=os.environ['GCCPREFIX']

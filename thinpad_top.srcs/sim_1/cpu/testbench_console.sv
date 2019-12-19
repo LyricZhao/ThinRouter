@@ -2,7 +2,7 @@
 
 `include "cpu_defs.vh"
 
-module testbench_thinpad_cpu();
+module testbench_console();
 
 wire clk_50M, clk_11M0592, clk_125M, clk_125M_90deg;
 
@@ -88,11 +88,11 @@ thinpad_top dut(
 );
 
 // 需要把这个放到Simulation Source里面
-parameter base_ram_init_file = "kernel.bin";
-parameter term_file = "cpu_sv_test.mem";
+parameter base_ram_init_file = "console.bin";
+parameter term_file = "console_test.mem";
 
 // CPLD 串口仿真模型
-cpld_model_term cpld(
+cpld_model cpld(
     .clk_uart(clk_11M0592),
     .uart_rdn(uart_rdn),
     .uart_wrn(uart_wrn),
@@ -188,10 +188,13 @@ initial begin
         $fclose(file_id);
     end
     $display("term size(bytes): %d", file_size);
-    wait(cpld.inited == 1);
+    #10000;
+    cpld.pc_send_byte(0); // 第一个字节可能会因为CPU写串口被吃掉
     for (integer i = 0; i < file_size; i ++) begin
-        #10000;
+        wait(uart_dataready == 0); // 等待 CPU 收了
+        $display("Mock send: 0x%02x", term_array[i]);
         cpld.pc_send_byte(term_array[i]);
+        
     end
 end
 
