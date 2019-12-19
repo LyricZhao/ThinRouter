@@ -42,8 +42,6 @@ void _main() {
 
     while (true) {
         char val = read(); // 可见字符 / 回车 / backspace
-        putc('R');
-        putc(val);
         buffer[pos ++] = val;
         if (val == DISP_ENTER) {
             puts("");
