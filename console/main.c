@@ -57,7 +57,7 @@ void process_command() {
 }
 
 // 策略：轮询串口不断append输入
-void console_main() {
+void _main() {
     pos = 0;
     for (uint_32 i = 0; i < MAX_LENGTH; ++ i) {
         buffer[i] = 0;

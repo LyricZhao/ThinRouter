@@ -1,0 +1,6 @@
+mipsel-linux-musl-gcc -E -P -msingle-float -nostdinc -nostdlib -ffunction-sections -fdata-sections -ffreestanding -Wall -mxgot -fno-builtin -fno-PIC -fno-PIE -mno-abicalls -g -EL -mhard-float -mips32r2 -Os -Wno-implicit-function-declaration linker.ld.S -o linker.bootrom.ld
+mipsel-linux-musl-gcc -msingle-float -nostdinc -nostdlib -ffunction-sections -fdata-sections -ffreestanding -Wall -mxgot -fno-builtin -fno-PIC -fno-PIE -mno-abicalls -g -EL -mhard-float -mips32r2 -Os -Wno-implicit-function-declaration -c -o startup.bootrom.o startup.S
+mipsel-linux-musl-gcc -msingle-float -nostdinc -nostdlib -ffunction-sections -fdata-sections -ffreestanding -Wall -mxgot -fno-builtin -fno-PIC -fno-PIE -mno-abicalls -g -EL -mhard-float -mips32r2 -Os -Wno-implicit-function-declaration -c -o main.o main.c
+mipsel-linux-musl-ld -static -EL -nostdlib --nmagic --gc-sections -T linker.bootrom.ld -o main.bootrom.elf startup.bootrom.o main.o
+mipsel-linux-musl-objdump -alDS main.bootrom.elf > compiled.s
+mipsel-linux-musl-objcopy -O binary -j .text main.bootrom.elf main.bootrom.bin
