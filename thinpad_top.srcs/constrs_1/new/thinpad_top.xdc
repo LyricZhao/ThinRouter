@@ -322,3 +322,5 @@ set_false_path -through [get_nets -filter { NAME =~  "*" } -of_objects [get_cell
 set_false_path -from [get_pins rgmii_manager_inst/io_manager_inst/packet_processor_inst/ip_lookup_reg/C] -to [get_pins -filter { NAME =~  "*" } -of_objects [get_cells -hierarchical -filter { NAME =~  "*routing_table_inst*" && NAME !~  "*memory*" }]]
 
 set_false_path -from [list [get_cells -hierarchical *line_length*] [get_pins -hierarchical *line_roll*]] -through [get_nets -hierarchical *char_read*]
+
+set_clock_groups -asynchronous -group [get_clocks [get_clocks -of_objects [get_pins clock_gen/inst/mmcm_adv_inst/CLKOUT3]]] -group [get_clocks clk_50M] -group [get_clocks [get_clocks -of_objects [get_pins clock_gen/inst/mmcm_adv_inst/CLKOUT1]]] -group [get_clocks [get_clocks -of_objects [get_pins clock_gen/inst/mmcm_adv_inst/CLKOUT2]]]

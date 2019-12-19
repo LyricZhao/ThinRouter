@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 `define COMPILE_CPU
-// `define COMPILE_ROUTER
+`define COMPILE_ROUTER
 
 module thinpad_top(
     input logic                     clk_50M,             // 50MHz 时钟输入

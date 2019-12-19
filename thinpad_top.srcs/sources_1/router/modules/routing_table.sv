@@ -138,7 +138,6 @@ xpm_memory_tdpram #(
     .READ_DATA_WIDTH_B(72),
     .READ_LATENCY_A(1),
     .READ_LATENCY_B(1),
-    .USE_EMBEDDED_CONSTRAINT(1),
     .WRITE_DATA_WIDTH_A(72),
     .WRITE_DATA_WIDTH_B(72),
     .WRITE_MODE_A("write_first"),
@@ -159,7 +158,7 @@ xpm_memory_tdpram #(
     .rsta(1'b0),
     .rstb(1'b0),
     .wea(memory_write_en),
-    .wea(1'b0),
+    .web(1'b0),
 
     .dbiterra(),
     .dbiterrb(),
