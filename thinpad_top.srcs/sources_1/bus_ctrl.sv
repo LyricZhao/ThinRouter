@@ -111,6 +111,8 @@ word_t base_ram_wdata, ext_ram_wdata;
 assign base_ram_data = base_ram_we ? base_ram_wdata : 32'bz;
 assign ext_ram_data = ext_ram_we ? ext_ram_wdata : 32'bz;
 
+`define DISABLE_BOOTROM bootrom_addr <= 0
+
 `define DISABLE_BASE    base_ram_we <= 0; \
                         base_ram_we_n <= 1; \
                         base_ram_oe_n <= 1; \
@@ -155,11 +157,13 @@ always_comb begin
         `DISABLE_BASE;
         `DISABLE_EXT;
         `DISABLE_UART;
+        `DISABLE_BOOTROM;
     end else begin
         cpu_ram_data_r <= 0;
         `DISABLE_BASE;
         `DISABLE_EXT;
         `DISABLE_UART;
+        `DISABLE_BOOTROM;
         if (cpu_ram_ce) begin
             if (`IN_RANGE(cpu_ram_addr, `BOOTROM_START, `BOOTROM_END)) begin // 只读
                 `ENABLE_BOOTROM(cpu_ram_addr[10:2], bootrom_data);

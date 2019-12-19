@@ -3,7 +3,7 @@ ENTRY(_start);
 MEMORY
 {
     BOOTROM  (rx)   : ORIGIN = 0x80000000, LENGTH = 2K
-    RAM      (rwx)  : ORIGIN = 0x81000000, LENGTH = 7M
+    RAM      (rwx)  : ORIGIN = 0x80400000, LENGTH = 4M
 }
 
 # define TEXT_AREA BOOTROM

@@ -16,9 +16,9 @@
 `define SEL_WIDTH           4
 
 `define BOOTROM_START       32'h80000000
-`define BOOTROM_END         32'h80ffffff
+`define BOOTROM_END         32'h800fffff
 
-`define BASE_START          32'h81000000
+`define BASE_START          32'h80100000
 `define BASE_END            32'h803fffff
 `define EXT_START           32'h80400000
 `define EXT_END             32'h807fffff

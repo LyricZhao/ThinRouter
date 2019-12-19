@@ -33,5 +33,5 @@ clean:
 
 cp_to_runtime: main.bootrom.bin
 	cp main.bootrom.bin ../thinpad_top.srcs/sim_1/runtime/console.bin
-	cp main.bootrom.bin ../thinpad_top.srcs/sources_1/bootrom/bootrom.mem
+	python3 bin2mem.py main.bootrom.bin ../thinpad_top.srcs/sources_1/bootrom/bootrom.mem
 	cp console_test.mem ../thinpad_top.srcs/sim_1/runtime/console_test.mem
