@@ -33,3 +33,4 @@ clean:
 
 cp_to_runtime: main.bootrom.bin
 	cp main.bootrom.bin ../thinpad_top.srcs/sim_1/runtime/console.bin
+	cp console_test.mem ../thinpad_top.srcs/sim_1/runtime/console_test.mem

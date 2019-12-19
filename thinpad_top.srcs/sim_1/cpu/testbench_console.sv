@@ -190,8 +190,9 @@ initial begin
     end
     $display("term size(bytes): %d", file_size);
     for (integer i = 0; i < file_size; i ++) begin
-        #10000;
-        cpld.pc_send_byte(term_array[i]);
+        $display("read: %x", term_array[i]);
+        // #10000;
+        // cpld.pc_send_byte(term_array[i]);
     end
 end
 
