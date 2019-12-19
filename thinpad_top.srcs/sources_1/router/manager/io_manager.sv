@@ -24,6 +24,10 @@ module io_manager (
 
     output  logic   [15:0] debug,
 
+    input  logic mem_read_clk,
+    input  logic [14:0] mem_read_addr,
+    output logic [71:0] mem_read_data,
+
     // 目前先接上 eth_mac_fifo_block
     input   logic   [7:0] rx_data,      // 数据入口
     input   logic   rx_valid,           // 数据入口正在传输
@@ -109,7 +113,6 @@ enum logic {
     // 处理完或不是 IP 包
     IPPacketDone
 } ip_packet_process_status;
-assign led_out[15] = rx_ready;
 
 ////// RIP 处理
 // 20 字节循环
@@ -180,7 +183,7 @@ packet_processor packet_processor_inst (
     .clk(clk_125M),
     .rst_n,
     .debug,
-    .debug2(led_out[14:0]),
+    .debug2({1'bz, led_out[14:0]}),
     .reset(process_reset),
     .add_arp,
     .add_routing,
@@ -204,7 +207,11 @@ packet_processor packet_processor_inst (
 
     .rip_tx_read_valid,
     .rip_tx_empty,
-    .rip_tx_data
+    .rip_tx_data,
+
+    .mem_read_clk,
+    .mem_read_addr,
+    .mem_read_data
 );
 
 tx_dual tx_dual_inst (

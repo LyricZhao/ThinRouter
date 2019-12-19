@@ -99,6 +99,11 @@ pll clock_gen(
     .clk_in1(clk_50M)                 // 外部时钟输入
 );
 
+// CPU 访问路由表使用
+logic router_mem_clk;
+logic [14:0] router_mem_addr;
+logic [71:0] router_mem_data;
+assign router_mem_clk = clk_200M;
 
 `ifdef COMPILE_ROUTER
 // 计时器
@@ -145,6 +150,10 @@ rgmii_manager rgmii_manager_inst (
     .digit0_out(dpy0),
     .digit1_out(dpy1),
 
+    .mem_read_clk(router_mem_clk),
+    .mem_read_addr(router_mem_addr),
+    .mem_read_data(router_mem_data),
+
     .eth_rgmii_rd(eth_rgmii_rd),
     .eth_rgmii_rx_ctl(eth_rgmii_rx_ctl),
     .eth_rgmii_rxc(eth_rgmii_rxc),
@@ -186,6 +195,9 @@ bus_ctrl bus_ctrl_inst(
     .clk(clk_40M),
     .clk_50M(clk_50M),
     .rst_n(locked),
+
+    .router_mem_data,
+    .router_mem_addr,
     
     .*
 );

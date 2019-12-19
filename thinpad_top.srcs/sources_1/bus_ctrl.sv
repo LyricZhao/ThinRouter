@@ -62,7 +62,9 @@ module bus_ctrl(
     input  logic                    ch376t_int_n,
     input  logic                    ch376t_sdo,
 
-    // TODO: Router连接
+    // Router连接
+    input  logic[71:0]              router_mem_data,
+    output logic[14:0]              router_mem_addr,
 
     // 图像输出信号
     output logic[2:0]               video_red,          // 红色像素，3位
@@ -146,7 +148,22 @@ always_comb begin
         `DISABLE_EXT;
         `DISABLE_UART;
         if (cpu_ram_ce) begin
-            if (`IN_RANGE(cpu_ram_addr, `BASE_START, `BASE_END)) begin
+            if (`IN_RANGE(cpu_ram_addr, 32'h4000_0000, 32'h4007_ffff)) begin
+            // 路由表空间：32768 * 128 bit
+                if (cpu_ram_we) begin
+                    $fatal(0, "WRITED ON R/O MEM: routing RAM is read only!");
+                    cpu_ram_data_r <= '1;
+                end else begin
+                    router_mem_addr <= cpu_ram_addr[18:4];
+                    // 请 @LyricZ 来搞
+                    case (cpu_ram_addr[3:2])
+                        0: cpu_ram_data_r <= router_mem_data[31:0];
+                        1: cpu_ram_data_r <= router_mem_data[63:32];
+                        2: cpu_ram_data_r <= {24'h0, router_mem_data[71:64]};
+                        3: cpu_ram_data_r <= '0;
+                    endcase
+                end
+            end else if (`IN_RANGE(cpu_ram_addr, `BASE_START, `BASE_END)) begin
                 if (cpu_ram_we) begin
                     `ENABLE_BASE(0, 1, 1, cpu_ram_addr[21:2], ~cpu_ram_sel, cpu_ram_data_w, 0);
                 end else begin
