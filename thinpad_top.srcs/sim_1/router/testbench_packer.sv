@@ -11,7 +11,7 @@ logic    [5:0]  mask;
 logic    [31:0] src_ip;
 logic    [31:0] dst_ip;
 logic    [31:0] nexthop;
-logic    [3:0]  metric;
+logic    [4:0]  metric;
 
 logic    outer_fifo_read_valid = 0;
 
@@ -64,7 +64,7 @@ initial begin
     prefix = 32'hc0a80500;
     mask = 6'b011000;
     nexthop = 0;
-    metric = 4'b0001;
+    metric = 5'b00001;
     valid = 1;
     last = 1;
     # 8
@@ -81,19 +81,19 @@ initial begin
     prefix = 32'hc0a80500;
     mask = 6'b011000;
     nexthop = 0;
-    metric = 4'b0001;
+    metric = 5'b00001;
     valid = 1;
     # 8
     prefix = 32'hc0a80600;
     mask = 6'b011000;
     nexthop = 0;
-    metric = 4'b0001;
+    metric = 5'b00001;
     valid = 1;
     # 8
     prefix = 32'hc0a80700;
     mask = 6'b011000;
     nexthop = 0;
-    metric = 4'b0001;
+    metric = 5'b00001;
     last = 1;
     valid = 1;
     # 8

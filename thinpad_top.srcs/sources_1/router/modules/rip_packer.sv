@@ -18,7 +18,7 @@ module rip_packer (
     input   logic    [31:0] dst_ip,
     input   logic    [47:0] dst_mac,
     input   logic    [31:0] nexthop,
-    input   logic    [3:0]  metric,
+    input   logic    [4:0]  metric,
 
     input   logic    outer_fifo_read_valid,
 
@@ -231,12 +231,12 @@ always_ff @ (posedge clk) begin
                     inner_fifo_in[32*2-1:32*1] <= prefix;
                     inner_fifo_in[32*3-1:32*2] <= mask32;
                     inner_fifo_in[32*4-1:32*3] <= nexthop;
-                    inner_fifo_in[32*5-1:32*4] <= {12'b0, metric[3:0]};
+                    inner_fifo_in[32*5-1:32*4] <= {11'b0, metric[4:0]};
                     // !maybe time-consuming
                     udp_checksum <= udp_checksum + {16'b0, prefix[15:0]} + {16'b0, prefix[31:16]}
                                     + {16'b0, mask32[15:0]} + {16'b0, mask32[31:16]}
                                     + {16'b0, nexthop[15:0]} + {16'b0, nexthop[31:16]}
-                                    + {28'b0, metric[3:0]} + 32'h00000002;
+                                    + {27'b0, metric[4:0]} + 32'h00000002;
                     rip_items_len <= rip_items_len + 20; // 一次加20，避免后面的乘法
                 end
                 if (last == 1'b1) begin
