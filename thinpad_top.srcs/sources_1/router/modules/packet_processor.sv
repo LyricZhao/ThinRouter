@@ -185,7 +185,7 @@ rip_packer rip_packer_inst (
 // ARP 表，目前用简陋版
 reg  arp_add_entry;
 reg  arp_query;
-ip_t arp_ip_query;
+ip_t arp_ip_input;
 wire arp_done;
 wire arp_found;
 simple_arp_table arp_table_inst (
@@ -193,8 +193,7 @@ simple_arp_table arp_table_inst (
     .rst_n,
     .write(arp_add_entry),
     .query(arp_query),
-    .ip_insert(ip_input),
-    .ip_query(arp_ip_query),
+    .ip_input(arp_ip_input),
     .mac_input,
     .vlan_input,
     .mac_output(mac_output),
@@ -252,6 +251,7 @@ always_ff @ (negedge clk) begin
                         arp_add_entry <= 1;
                         arp_query <= 0;
                         ip_lookup <= 0;
+                        arp_ip_input <= ip_input;
                         fifo_write_valid <= 0;
                         done <= 0;
                         bad <= 0;
@@ -272,7 +272,7 @@ always_ff @ (negedge clk) begin
                         arp_add_entry <= 0;
                         arp_query <= 1;
                         ip_lookup <= 0;
-                        arp_ip_query <= ip_input;
+                        arp_ip_input <= ip_input;
                         fifo_write_valid <= 0;
                         done <= 0;
                         bad <= 0;
@@ -294,7 +294,7 @@ always_ff @ (negedge clk) begin
                             arp_add_entry <= 0;
                             arp_query <= 1;
                             ip_lookup <= 0;
-                            arp_ip_query <= ip_input;
+                            arp_ip_input <= ip_input;
                             fifo_write_valid <= 0;
                             state <= ProcessArp;
                         end
@@ -360,7 +360,7 @@ always_ff @ (negedge clk) begin
                         arp_query <= 1;
                         $write("Nexthop found:");
                         `DISPLAY_IP(ip_nexthop);
-                        arp_ip_query <= ip_nexthop;
+                        arp_ip_input <= ip_nexthop;
                         state <= ProcessArp;
                     end else begin
                         // 没有找到

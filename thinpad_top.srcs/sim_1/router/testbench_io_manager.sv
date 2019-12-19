@@ -80,12 +80,18 @@ always_ff @ (negedge clk_125M) begin
                 packet_info = "";
                 // $display("");
             end else begin
-                rx_valid = 1;
-                rx_data = data[7:0];
-                $sformat(rx_packet, "%s %02x", rx_packet, data[7:0]);
-                $fscanf(fd, "%x", data);
-                rx_last = data == 12'hfff;
-                // $write("%02x ", data[7:0]);
+                if (rx_ready) begin
+                    rx_valid = 1;
+                    rx_data = data[7:0];
+                    $sformat(rx_packet, "%s %02x", rx_packet, data[7:0]);
+                    $fscanf(fd, "%x", data);
+                    rx_last = data == 12'hfff;
+                    // $write("%02x ", data[7:0]);
+                end else begin
+                    rx_valid = 0;
+                    rx_data = 'x;
+                    rx_last = 0;
+                end
             end
         end
         default:

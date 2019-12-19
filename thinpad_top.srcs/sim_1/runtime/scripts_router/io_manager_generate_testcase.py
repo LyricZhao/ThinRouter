@@ -647,14 +647,14 @@ if __name__ == '__main__':
     for i in range(Config.count):
         frame = None
         while frame is None:
-            if chance(1):
+            if chance(0.1):
                 frame = EthFrame.get_rip_response()
-            else:
-                frame = EthFrame.get_rip_request()
+            # else:
+            #     frame = EthFrame.get_rip_request()
             # elif chance(0.3):
             #     frame = EthFrame.get_arp()
-            # else:
-            #     frame = EthFrame.get_ip()
+            else:
+                frame = EthFrame.get_ip()
         output += 'info:      %s\neth_frame: %sFFF\n' % (frame, frame.hex)
 
     print('已生成 %d 条测试样例' %

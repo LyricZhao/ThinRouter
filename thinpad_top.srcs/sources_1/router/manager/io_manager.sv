@@ -10,13 +10,13 @@
 
 module io_manager (
     // 由父模块提供各种时钟
-    input   wire    clk_125M,
-    input   wire    clk_200M,
-    input   wire    rst_n,
+    input   logic   clk_125M,
+    input   logic   clk_200M,
+    input   logic   rst_n,
 
     // top 硬件
-    input   wire    clk_btn,            // 硬件 clk 按键
-    input   wire    [3:0] btn,          // 硬件按钮
+    input   logic   clk_btn,            // 硬件 clk 按键
+    input   logic   [3:0] btn,          // 硬件按钮
 
     output  logic   [15:0] led_out,     // 硬件 led 指示灯
     output  logic   [7:0]  digit0_out,  // 硬件低位数码管
@@ -25,14 +25,14 @@ module io_manager (
     output  logic   [15:0] debug,
 
     // 目前先接上 eth_mac_fifo_block
-    input   wire    [7:0] rx_data,      // 数据入口
-    input   wire    rx_valid,           // 数据入口正在传输
-    output  wire    rx_ready,           // 是否允许数据进入
-    input   wire    rx_last,            // 数据传入结束
-    output  bit     [7:0] tx_data,      // 数据出口
-    output  bit     tx_valid,           // 数据出口正在传输
-    input   wire    tx_ready,           // 外面是否准备接收：当前不处理外部不 ready 的逻辑 （TODO）
-    output  bit     tx_last             // 数据传出结束
+    input   logic   [7:0] rx_data,      // 数据入口
+    input   logic   rx_valid,           // 数据入口正在传输
+    output  logic   rx_ready,           // 是否允许数据进入
+    input   logic   rx_last,            // 数据传入结束
+    output  logic   [7:0] tx_data,      // 数据出口
+    output  logic   tx_valid,           // 数据出口正在传输
+    input   logic   tx_ready,           // 外面是否准备接收：当前不处理外部不 ready 的逻辑 （TODO）
+    output  logic   tx_last             // 数据传出结束
 
     // ,
     // output  logic   [8:0] fifo_din,
@@ -101,18 +101,15 @@ enum logic [2:0] {
 // 让 tx_manager 开始发送当前包的信号
 logic tx_start;
 
-////// 如果包的处理流程太慢，或者执行 RIP 流程，会暂停 rx_ready
+////// 如果包的处理流程太慢，会暂停 rx_ready
 // 正在处理 IP 包
-enum logic [1:0] {
+enum logic {
     // 开始处理时
     IPPacketProcessing,
-    // read_cnt=58 而还没有处理完
-    IPPacketStillProcessing,
     // 处理完或不是 IP 包
     IPPacketDone
 } ip_packet_process_status;
-
-assign rx_ready = (ip_packet_process_status != IPPacketStillProcessing);
+assign led_out[15] = rx_ready;
 
 ////// RIP 处理
 // 20 字节循环
@@ -183,7 +180,7 @@ packet_processor packet_processor_inst (
     .clk(clk_125M),
     .rst_n,
     .debug,
-    .debug2(led_out),
+    .debug2(led_out[14:0]),
     .reset(process_reset),
     .add_arp,
     .add_routing,
@@ -268,6 +265,16 @@ begin
     endcase
 end endfunction
 
+always_latch begin
+    if (!rst_n) begin
+        rx_ready = 1;
+    end else if (read_cnt >= 58 && !process_done && ip_packet_process_status == IPPacketProcessing) begin
+        rx_ready = 0;
+    end else if (process_done || ip_packet_process_status == IPPacketDone) begin
+        rx_ready = 1;
+    end
+end
+
 always_ff @(posedge clk_125M) begin
     // 默认值
     process_reset <= 0;
@@ -284,16 +291,16 @@ always_ff @(posedge clk_125M) begin
     fifo_din <= 'x;
     fifo_wr_en <= 0;
 
-    ip_packet_process_status <= IPPacketDone;
-
     if (!rst_n) begin
         // 复位
         read_cnt <= 0;
+        ip_packet_process_status <= IPPacketDone;
     end else begin
         // 处理 rx 输入
-        if (rx_valid) begin
+        if (rx_valid && rx_ready) begin
             // 前 18 个字节进行存储，并用来确定包的类型
             if (read_cnt < 18) begin
+                ip_packet_process_status <= IPPacketDone;
                 case (read_cnt)
                     0 : dst_mac[40 +: 8] <= rx_data;
                     1 : dst_mac[32 +: 8] <= rx_data;
@@ -456,6 +463,7 @@ always_ff @(posedge clk_125M) begin
                         endcase
                         // 发送取决于 packet_processor 返回结果
                         if (read_cnt > 38 && process_done) begin
+                            $display("DONE %d", process_bad);
                             ip_packet_process_status <= IPPacketDone;
                             if (process_bad) begin
                                 // flush tx
@@ -463,7 +471,7 @@ always_ff @(posedge clk_125M) begin
                                 packet_type <= PacketBad;
                                 process_reset <= 0;
                             end else begin
-                                // tx_start 置一拍后，packet_processor 重置，process_done = 0
+                                // process_reset 置一拍后，packet_processor 重置，process_done = 0
                                 tx_start <= 1;
                                 process_reset <= 1;
                             end
@@ -476,10 +484,6 @@ always_ff @(posedge clk_125M) begin
                         // 38 时置 PROCESSING
                         if (read_cnt == 38) begin
                             ip_packet_process_status <= IPPacketProcessing;
-                        end
-                        // 58 还未处理完则置 STILL_PROCESSING，暂停 rx
-                        if (read_cnt == 58 && !process_done && ip_packet_process_status == IPPacketProcessing) begin
-                            ip_packet_process_status <= IPPacketStillProcessing;
                         end
                     end
                     // 在第 47 字节确定是 RIP Request 还是 Response
@@ -494,7 +498,11 @@ always_ff @(posedge clk_125M) begin
                             32: begin nexthop_input[ 8 +: 8] <= rx_data; ip_input[ 8 +: 8] <= rx_data; end
                             33: begin nexthop_input[ 0 +: 8] <= rx_data; ip_input[ 0 +: 8] <= rx_data; end
                             // 检查目标 IP
-                            34: begin assert_rx(Address::McastIP[24 +: 8]); add_arp <= 1; end
+                            34: begin 
+                                $display("Add arp");
+                                assert_rx(Address::McastIP[24 +: 8]); 
+                                add_arp <= 1; 
+                            end
                             35: assert_rx(Address::McastIP[16 +: 8]);
                             36: assert_rx(Address::McastIP[ 8 +: 8]);
                             37: assert_rx(Address::McastIP[ 0 +: 8]);
@@ -550,15 +558,20 @@ always_ff @(posedge clk_125M) begin
                                     19: metric_input <= {(metric_input[4] || rx_data[7:4] != 0), rx_data[3:0]};
                                 endcase
                                 if (rip_read_cycle == 19) begin
+                                    // metric 0 或 15 都直接丢弃
+                                    if (metric_input[4] == 0 && (rx_data == 0 || rx_data == 15)) begin
+                                        // discard
+                                    end else begin
+                                        add_routing <= rip_entry_valid;
+                                    end
                                     rip_read_cycle <= 0;
-                                    add_routing <= rip_entry_valid;
                                 end else begin
                                     rip_read_cycle <= rip_read_cycle + 1;
                                 end
                             end
                         endcase
                     end
-                    // todo 回复 RIP 请求
+                    // 回复 RIP 请求
                     PacketRIPRequest: begin
                         rip_dst_mac <= src_mac;
                         rip_dst_ip <= nexthop_input;

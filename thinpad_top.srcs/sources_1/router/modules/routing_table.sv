@@ -469,7 +469,7 @@ always_ff @ (posedge clk_125M) begin
                                     if (memory_out.branch.next0[15] == 0) begin
                                     // 当前节点并没有 next0，则可以直接修改 mask 并添加 next0
                                         memory_in <= memory_out;
-                                        memory_in.branch.mask = entry_to_insert.mask;
+                                        memory_in.branch.mask <= entry_to_insert.mask;
                                         memory_in.branch.next0 <= nexthop_write_addr;
                                         memory_write_en <= 1;
                                         insert_pointer_buffer <= memory_addr;
