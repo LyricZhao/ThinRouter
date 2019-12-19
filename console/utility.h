@@ -8,7 +8,6 @@ typedef unsigned int uint_32;
 
 # define DISP_CLEAR_SCREEN      0x00
 # define DISP_NEW_LINE          0x0a // '\n'
-# define DISP_RETURN            0x0d // '\r'
 # define DISP_BACKSPACE         0x7f // backspace
 # define DISP_ENTER             0x01 // enter
 
@@ -49,7 +48,6 @@ void puts(char *str) {
     for (;(*str) != 0; ++ str) {
         putc(*str);
     }
-    putc('\r');
     putc('\n');
 }
 

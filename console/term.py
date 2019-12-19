@@ -133,7 +133,7 @@ class MainWindow(QMainWindow):
         elif byte == 'Backspace':
             outp.write(b'\x7f')
         else:
-            outp.write(byte)
+            outp.write(bytearray(byte, 'utf-8'))
 
     def keyReleaseEvent(self, event):
         converted = self.keyFilter(event)

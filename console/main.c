@@ -6,13 +6,14 @@ char buffer[MAX_LENGTH];
 
 void new_command() {
     pos = 0;
-    print("root@ThinRouter.4 > ");
+    print("root@ThinRouter.4:~$ ");
 }
 
 void command_help() {
     puts("ThinRouter Group 4 Help:");
-    puts(" - Command: help, show this help message");
-    puts(" - Command: route, show routing table");
+    puts("    help:    show this help message");
+    puts("    route:   show routing table");
+    puts("    clear:   clear the screen");
 }
 
 void command_clear() {
