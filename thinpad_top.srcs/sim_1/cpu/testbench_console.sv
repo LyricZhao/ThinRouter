@@ -2,7 +2,7 @@
 
 `include "cpu_defs.vh"
 
-module testbench_thinpad_cpu();
+module testbench_console();
 
 wire clk_50M, clk_11M0592, clk_125M, clk_125M_90deg;
 
@@ -89,7 +89,7 @@ thinpad_top dut(
 
 // 需要把这个放到Simulation Source里面
 parameter base_ram_init_file = "console.bin";
-// parameter term_file = "cpu_sv_test.mem";
+parameter term_file = "console_test.mem";
 
 // CPLD 串口仿真模型
 cpld_model cpld(
@@ -189,7 +189,6 @@ initial begin
         $fclose(file_id);
     end
     $display("term size(bytes): %d", file_size);
-    wait(cpld.inited == 1);
     for (integer i = 0; i < file_size; i ++) begin
         #10000;
         cpld.pc_send_byte(term_array[i]);
