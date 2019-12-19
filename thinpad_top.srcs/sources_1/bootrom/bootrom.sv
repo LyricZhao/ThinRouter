@@ -15,6 +15,7 @@ module bootrom(
 // 只读 BootROM
 xpm_memory_sprom #(
     .ADDR_WIDTH_A(`BOOTROM_ADDR_WITDH),
+    .MEMORY_OPTIMIZATION("false"),
     .MEMORY_INIT_FILE("bootrom.mem"),
     .MEMORY_PRIMITIVE("block"),
     .MEMORY_SIZE(`BOOTROM_SIZE * `WORD_SIZE),
