@@ -125,6 +125,7 @@ class MainWindow(QMainWindow):
         return None
 
     # TODO: 实现inp和Qt的同步
+    # 一个思路是这个删去TCP, 串口用readable来判断
 
     def send(self, byte):
         if byte == 'Enter':
