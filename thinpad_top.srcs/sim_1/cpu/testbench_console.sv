@@ -189,7 +189,7 @@ initial begin
     end
     $display("term size(bytes): %d", file_size);
     #10000;
-    cpld.pc_send_byte(0);
+    cpld.pc_send_byte(0); // 第一个字节可能会因为CPU写串口被吃掉
     for (integer i = 0; i < file_size; i ++) begin
         wait(uart_dataready == 0); // 等待 CPU 收了
         $display("Mock send: 0x%02x", term_array[i]);
