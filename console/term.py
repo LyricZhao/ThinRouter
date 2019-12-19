@@ -94,7 +94,7 @@ def InitializeTCP(host_port):
 def InitializeDebug():
     global outp, inp
     outp = sys.stdout
-    inp = None
+    inp = sys.stdin
     
 class MainWindow(QMainWindow):
     def __init__(self, writer, receiver):
@@ -124,8 +124,15 @@ class MainWindow(QMainWindow):
             return event.text()
         return None
 
+    # TODO: 实现inp和Qt的同步
+
     def send(self, byte):
-        outp.write(byte)
+        if byte == 'Enter':
+            outp.write(b'\x01')
+        elif byte == 'Backspace':
+            outp.write(b'\x7f')
+        else:
+            outp.write(byte)
 
     def keyReleaseEvent(self, event):
         converted = self.keyFilter(event)
