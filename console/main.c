@@ -1,0 +1,3 @@
+void console_main() {
+    
+}
