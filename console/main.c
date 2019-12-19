@@ -7,8 +7,9 @@ char buffer[MAX_LENGTH];
 // TODO: 有时间改成中断
 // TODO: \r和\n的处理
 void putc(uint_32 data) {
+    volatile uint_32 stat;
     while (true) {
-        uint_32 stat = CATCH(uint_32, ADDR_UART_STATUS);
+        stat = CATCH(uint_32, ADDR_UART_STATUS);
         if (stat & 1) { // 可写
             WRITE(int, ADDR_UART_DATA, data);
             break;
@@ -24,8 +25,9 @@ void print(char *str) {
 }
 
 char read() {
+    volatile uint_32 stat;
     while (true) {
-        uint_32 stat = CATCH(uint_32, ADDR_UART_STATUS);
+        stat = CATCH(uint_32, ADDR_UART_STATUS);
         if (stat & 2) { // 有数据
             return CATCH(uint_32, ADDR_UART_DATA) & 0xff;
         }
@@ -58,8 +60,6 @@ void process_command() {
 
 // 策略：轮询串口不断append输入
 void _main() {
-    putc(0x23);
-    putc(0x22);
     print("Console@ThinRouter.4 initialized\n");
     new_command();
 
