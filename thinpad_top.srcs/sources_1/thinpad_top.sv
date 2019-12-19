@@ -170,6 +170,7 @@ bus_ctrl bus_ctrl_inst(
     .clk(clk_40M),
     .clk_50M(clk_50M),
     .clk_125M(clk_125M),
+    .clk_200M(clk_200M),
     .rst_n(locked),
     
     .*

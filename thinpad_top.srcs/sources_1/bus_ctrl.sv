@@ -6,6 +6,7 @@ module bus_ctrl(
     input  logic                    clk,
     input  logic                    clk_50M,
     input  logic                    clk_125M,
+    input  logic                    clk_200M,
     input  logic                    rst_n,
 
     // CPU控制
@@ -92,7 +93,7 @@ logic[`BOOTROM_ADDR_WITDH-1:0] bootrom_addr;
 word_t bootrom_data;
 
 bootrom bootrom_inst(
-    .clk(clk_125M),
+    .clk(clk_200M),
 
     .addr(bootrom_addr),
     .data(bootrom_data)
