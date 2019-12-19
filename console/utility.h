@@ -4,7 +4,6 @@
 # define CATCH(type, addr)  (*((type *) (addr)))
 # define WRITE(type, addr, data)  (*((type *)addr)) = (data)
 
-// 所有的类型暂时用uint_32, 字符类型高位补0
 typedef unsigned int uint_32;
 
 # define DISP_CLEAR_SCREEN      0x00
@@ -17,5 +16,14 @@ typedef unsigned int uint_32;
 # define false 0
 
 # define MAX_LENGTH 1024
+
+uint_32 compare_str(char *a, char *b) {
+    for (;(*a) && (*b); ++ a, ++ b) {
+        if ((*a) != (*b)) {
+            return 0;
+        }
+    }
+    return (*a) == (*b);
+}
 
 # endif
