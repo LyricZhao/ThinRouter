@@ -179,7 +179,6 @@ end
 initial begin
     byte term_array[0:1048575];
     integer file_id, file_size;
-    // 开始加载监控程序命令
     file_id = $fopen(term_file, "rb");
     if (!file_id) begin
         file_size = 0;

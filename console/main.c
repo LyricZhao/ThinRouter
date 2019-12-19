@@ -58,10 +58,8 @@ void process_command() {
 
 // 策略：轮询串口不断append输入
 void _main() {
-    pos = 0;
-    for (uint_32 i = 0; i < MAX_LENGTH; ++ i) {
-        buffer[i] = 0;
-    }
+    putc(0x23);
+    putc(0x22);
     print("Console@ThinRouter.4 initialized\n");
     new_command();
 
