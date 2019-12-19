@@ -188,10 +188,13 @@ initial begin
         $fclose(file_id);
     end
     $display("term size(bytes): %d", file_size);
+    #10000;
+    cpld.pc_send_byte(0);
     for (integer i = 0; i < file_size; i ++) begin
-        #10000;
+        wait(uart_dataready == 0); // 等待 CPU 收了
         $display("Mock send: 0x%02x", term_array[i]);
         cpld.pc_send_byte(term_array[i]);
+        
     end
 end
 

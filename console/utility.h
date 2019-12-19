@@ -18,7 +18,7 @@ typedef unsigned int uint_32;
 # define MAX_LENGTH 1024
 
 uint_32 compare_str(char *a, char *b) {
-    for (;(*a) && (*b); ++ a, ++ b) {
+    for (; (*a) && (*b); ++ a, ++ b) {
         if ((*a) != (*b)) {
             return 0;
         }

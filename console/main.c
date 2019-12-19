@@ -42,10 +42,9 @@ void _main() {
 
     while (true) {
         char val = read(); // 可见字符 / 回车 / backspace
-        buffer[pos ++] = val;
         if (val == DISP_ENTER) {
             puts("");
-            if (!pos) {
+            if (pos) {
                 buffer[pos ++] = '\0';
                 process_command();
             }
@@ -56,6 +55,7 @@ void _main() {
                 putc(val);
             }
         } else {
+            buffer[pos ++] = val;
             putc(val);
         }
     }
