@@ -7,12 +7,10 @@ AR=${CROSS_COMPILE}ar
 OBJCOPY=${CROSS_COMPILE}objcopy
 OBJDUMP=${CROSS_COMPILE}objdump
 
-TARGET=main.bootrom
-
 CFLGAS=-msingle-float -nostdinc -nostdlib -ffunction-sections -fdata-sections -ffreestanding -Wall -mxgot -fno-builtin -fno-PIC -fno-PIE -mno-abicalls -g -EL -mhard-float -mips32r2 -Os
 LDFLAGS=-static -EL -nostdlib --nmagic --gc-sections
 
-all: $(TARGET).bin
+all: main.bootrom.bin
 
 main.bootrom.bin: main.bootrom.elf
 	$(OBJCOPY) -O binary -j .text -j .data $< $@
@@ -32,3 +30,6 @@ linker.bootrom.ld: linker.ld.S
 
 clean:
 	rm -rf *.ld *.elf *.o *.s
+
+cp_to_runtime: main.bootrom.bin
+	cp main.bootrom.bin ../thinpad_top.srcs/sim_1/runtime/console.bin

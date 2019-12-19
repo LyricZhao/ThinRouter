@@ -88,11 +88,11 @@ thinpad_top dut(
 );
 
 // 需要把这个放到Simulation Source里面
-parameter base_ram_init_file = "kernel.bin";
-parameter term_file = "console_test.mem";
+parameter base_ram_init_file = "console.bin";
+// parameter term_file = "cpu_sv_test.mem";
 
 // CPLD 串口仿真模型
-cpld_model_term cpld(
+cpld_model cpld(
     .clk_uart(clk_11M0592),
     .uart_rdn(uart_rdn),
     .uart_wrn(uart_wrn),
@@ -179,6 +179,7 @@ end
 initial begin
     byte term_array[0:1048575];
     integer file_id, file_size;
+    // 开始加载监控程序命令
     file_id = $fopen(term_file, "rb");
     if (!file_id) begin
         file_size = 0;
@@ -188,6 +189,7 @@ initial begin
         $fclose(file_id);
     end
     $display("term size(bytes): %d", file_size);
+    wait(cpld.inited == 1);
     for (integer i = 0; i < file_size; i ++) begin
         #10000;
         cpld.pc_send_byte(term_array[i]);
