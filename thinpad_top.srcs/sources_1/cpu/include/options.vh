@@ -8,8 +8,8 @@
 // `define MUL_ON
 // `define TRAP_ON
 
-`define BOOTROM_ADDR_WITDH  9
-`define BOOTROM_SIZE        512 // 2 KB
+`define BOOTROM_ADDR_WITDH  14
+`define BOOTROM_SIZE        16384 // 64 KB
 `define WORD_SIZE           32
 
 `endif

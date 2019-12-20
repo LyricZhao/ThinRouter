@@ -112,7 +112,7 @@ bootrom bootrom_inst(
 // CPU中断控制
 assign cpu_int = {3'b0, uart_dataready, 2'b0}; // UART是IP4
 
-assign bootrom_addr = cpu_ram_addr[10:2];
+assign bootrom_addr = cpu_ram_addr[`BOOTROM_ADDR_WITDH+1:2];
 
 assign base_ram_ce_n = 0;
 assign base_ram_be_n = ~cpu_ram_sel;
@@ -126,7 +126,7 @@ assign ext_ram_be_n = ~cpu_ram_sel;
 assign ext_ram_addr = cpu_ram_addr[21:2];
 assign ext_ram_data = ext_ram_we_n ? 'z : cpu_ram_data_w;
 
-assign router_mem_addr = cpu_ram_addr[18:4];
+assign router_mem_addr = cpu_ram_addr[19:4];
 
 `define DISALLOW_WRITE(label) \
     if (cpu_ram_we) begin \
@@ -192,7 +192,7 @@ always_comb begin
                 cpu_ram_data_r[0] <= uart_tsre & uart_tbre;
             end
             // 路由器内存 (R/O)
-            [32'hc000_0000 : 32'hc007_ffff]: begin
+            [32'hc000_0000 : 32'hc00f_ffff]: begin
                 `DISALLOW_WRITE("Router Memory");
                 case (cpu_ram_addr[3:2])
                     0: cpu_ram_data_r <= router_mem_data[31:0];
@@ -202,20 +202,20 @@ always_comb begin
                 endcase
             end
             // 路由表指针 (R/O)
-            32'hc008_0000: begin
+            32'hc011_4514: begin
                 `DISALLOW_WRITE("Routing Entry Pointer");
                 cpu_ram_data_r[15:0] <= routing_entry_pointer;
             end
             // 路由器读取数据 (R/O)
             // fifo rd_en 拉高一拍: 读取当前数据，fifo 出口更新下一条数据
-            32'hc008_0001: begin
+            32'hc011_4518: begin
                 `DISALLOW_WRITE("Router Data");
                 router_data_read_valid <= 1;
                 cpu_ram_data_r[15:0] <= router_data_out;
             end
             // 路由器读取数据状态 (R/O)
             // 最低位为 1 表示有数据可读
-            32'hc008_0002: begin
+            32'hc011_451c: begin
                 `DISALLOW_WRITE("Router Data Status");
                 cpu_ram_data_r[0] <= !router_data_empty;
             end
