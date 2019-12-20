@@ -160,6 +160,14 @@ always_comb begin
                     default: wdata_o <= 0; 
                 endcase
             end
+            EXE_LHU_OP: begin
+                `SET_SAWC(0);
+                case (mem_addr_i[1:0])
+                    2'b00:   wdata_o <= {16'h0, mem_data_i[15:0]};
+                    2'b10:   wdata_o <= {16'h0, mem_data_i[31:16]};
+                    default: wdata_o <= 0; 
+                endcase
+            end
             EXE_LB_OP: begin
                 `SET_SAWC(0);
                 case (mem_addr_i[1:0])
@@ -167,6 +175,15 @@ always_comb begin
                     2'b10: wdata_o <= {{24{mem_data_i[23]}}, mem_data_i[23:16]};
                     2'b01: wdata_o <= {{24{mem_data_i[15]}}, mem_data_i[15:8]};
                     2'b00: wdata_o <= {{24{mem_data_i[7]}},  mem_data_i[7:0]};
+                endcase
+            end
+            EXE_LBU_OP: begin
+                `SET_SAWC(0);
+                case (mem_addr_i[1:0])
+                    2'b11: wdata_o <= {24'h0, mem_data_i[31:24]};
+                    2'b10: wdata_o <= {24'h0, mem_data_i[23:16]};
+                    2'b01: wdata_o <= {24'h0, mem_data_i[15:8]};
+                    2'b00: wdata_o <= {24'h0, mem_data_i[7:0]};
                 endcase
             end
             EXE_SW_OP: begin
