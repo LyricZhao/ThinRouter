@@ -109,10 +109,11 @@ class ReceiverThread(QThread):
             val = inp.read(1)
             if val == b'\x7f':
                 self.signal.emit([0, 2])
-            try:
-                self.signal.emit([val.decode('utf-8'), 1])
-            except: # 有时编码会有问题
-                self.signal.emit([0, 0])
+            else:
+                try:
+                    self.signal.emit([val.decode('utf-8'), 1])
+                except: # 有时编码会有问题
+                    self.signal.emit([0, 0])
 
 class MainWindow(QMainWindow):
     def __init__(self, writer, receiver):
@@ -140,7 +141,7 @@ class MainWindow(QMainWindow):
     def receive(self, data):
         if data[1] == 2:
             self.textEdit.textCursor().deletePreviousChar()
-            self.textEdit.textCursor().movePosition(QTextCursor.PreviousCharacter, QTextCursor.KeepAnchor)
+            # self.textEdit.textCursor().movePosition(QTextCursor.PreviousCharacter)
         elif data[1] == 0:
             self.statusBar.showMessage('Decode error')
         else:
