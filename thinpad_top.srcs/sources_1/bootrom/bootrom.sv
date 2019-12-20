@@ -20,7 +20,7 @@ xpm_memory_sprom #(
     .MEMORY_PRIMITIVE("block"),
     .MEMORY_SIZE(`BOOTROM_SIZE * `WORD_SIZE),
     .READ_DATA_WIDTH_A(`WORD_SIZE),
-    .READ_LATENCY_A(2)
+    .READ_LATENCY_A(1)
 ) xpm_bootrom (
     .addra(addr),
     .clka(clk),
