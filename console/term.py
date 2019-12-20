@@ -9,7 +9,8 @@ import socket
 import sys
 
 from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QVBoxLayout, QPushButton, QStatusBar, QMainWindow
-from PyQt5.QtCore import QCoreApplication, Qt
+from PyQt5.QtCore import QCoreApplication, Qt, QThread, pyqtSignal
+from PyQt5.QtGui import QTextCursor
 
 inp = None
 outp = None
@@ -96,6 +97,23 @@ def InitializeDebug():
     outp = sys.stdout
     inp = sys.stdin
     
+class ReceiverThread(QThread):
+    signal = pyqtSignal(list)
+
+    def __init__(self, inp, parent=None):
+        super(ReceiverThread, self).__init__(parent)
+        self.inp = inp
+
+    def run(self):
+        while True:
+            val = inp.read(1)
+            if val == b'\x7f':
+                self.signal.emit([0, 2])
+            try:
+                self.signal.emit([val.decode('utf-8'), 1])
+            except: # 有时编码会有问题
+                self.signal.emit([0, 0])
+
 class MainWindow(QMainWindow):
     def __init__(self, writer, receiver):
         super(MainWindow, self).__init__()
@@ -112,7 +130,25 @@ class MainWindow(QMainWindow):
         self.statusBar = QStatusBar()
         self.setStatusBar(self.statusBar)
 
+        global inp
+        self.receiver = ReceiverThread(inp)
+        self.receiver.signal.connect(self.receive)
+        self.receiver.start()
+
         self.show()
+
+    def receive(self, data):
+        if data[1] == 2:
+            self.textEdit.textCursor().deletePreviousChar()
+            self.textEdit.textCursor().movePosition(QTextCursor.PreviousCharacter, QTextCursor.KeepAnchor)
+        elif data[1] == 0:
+            self.statusBar.showMessage('Decode error')
+        else:
+            if data[0] == '\0':
+                self.textEdit.clear()
+            else:
+                self.textEdit.insertPlainText(data[0])
+        self.textEdit.moveCursor(QTextCursor.End)
 
     def keyFilter(self, event):
         key = event.key()
@@ -123,9 +159,6 @@ class MainWindow(QMainWindow):
         if 32 <= key and key <= 126: # ASCII 可见字符
             return event.text()
         return None
-
-    # TODO: 实现inp和Qt的同步
-    # 一个思路是这个删去TCP, 串口用readable来判断
 
     def send(self, byte):
         if byte == 'Enter':
