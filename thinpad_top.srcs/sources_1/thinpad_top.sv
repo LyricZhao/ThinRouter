@@ -130,9 +130,9 @@ rgmii_manager rgmii_manager_inst (
 
     .clk_btn(clock_btn),
     .btn(touch_btn),
-    .led_out(leds),
-    .digit0_out(dpy0),
-    .digit1_out(dpy1),
+    // .led_out(leds),
+    // .digit0_out(dpy0),
+    // .digit1_out(dpy1),
 
     .mem_read_clk(router_mem_clk),
     .mem_read_addr(router_mem_addr),
@@ -184,6 +184,9 @@ bus_ctrl bus_ctrl_inst(
 
     .router_mem_data,
     .router_mem_addr,
+
+    .read_error(leds[15]),
+    .write_error(leds[14]),
     
     .*
 );
