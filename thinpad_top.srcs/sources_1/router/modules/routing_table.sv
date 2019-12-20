@@ -54,8 +54,9 @@ module routing_table #(
     input  logic packer_ready,
 
     input  logic mem_read_clk,
-    input  logic [14:0] mem_read_addr,
+    input  logic [15:0] mem_read_addr,
     output logic [71:0] mem_read_data,
+    output logic [15:0] routing_entry_pointer,
 
     // todo 路由表满，此后只可以查询和修改
     output logic overflow
@@ -120,6 +121,7 @@ logic memory_write_en;
 // 下一个插入的节点应该放在什么地址
 pointer_t branch_write_addr;
 pointer_t nexthop_write_addr;
+assign routing_entry_pointer = nexthop_write_addr;
 
 routing_entry_t entry_to_insert;
 
@@ -144,7 +146,7 @@ xpm_memory_tdpram #(
     .WRITE_MODE_B("no_change")
 ) memory_pool (
     .addra({memory_addr[15], memory_addr[$clog2(NODE_POOL_SIZE)-2:0]}),
-    .addrb(mem_read_addr),
+    .addrb({mem_read_addr[15], mem_read_addr[$clog2(NODE_POOL_SIZE)-2:0]}),
     .clka(clk_125M),
     .clkb(mem_read_clk),
     .dina(memory_in),

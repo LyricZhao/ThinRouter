@@ -70,7 +70,11 @@ module bus_ctrl(
 
     // Router连接
     input  logic[71:0]              router_mem_data,
-    output logic[14:0]              router_mem_addr,
+    output logic[15:0]              router_mem_addr,
+    input  logic[15:0]              router_data_out,
+    input  logic                    router_data_empty,
+    output logic                    router_data_read_valid,
+    input  logic[15:0]              routing_entry_pointer,
 
     // 图像输出信号
     output logic[2:0]               video_red,          // 红色像素，3位
@@ -124,6 +128,12 @@ assign ext_ram_data = ext_ram_we_n ? 'z : cpu_ram_data_w;
 
 assign router_mem_addr = cpu_ram_addr[18:4];
 
+`define DISALLOW_WRITE(label) \
+    if (cpu_ram_we) begin \
+        $fatal(0, {"ILLEGAL WRITE: Write on \"", label, "\"at %x"}, cpu_ram_addr); \
+        write_error <= 1; \
+    end
+
 always_comb begin
     base_ram_we_n <= 1;
     base_ram_oe_n <= 1;
@@ -135,6 +145,8 @@ always_comb begin
     uart_wrn <= 1;
 
     cpu_ram_data_r <= '0;
+
+    router_data_read_valid <= 0;
     
     if (!rst_n) begin
         read_error <= 0;
@@ -143,10 +155,7 @@ always_comb begin
         unique case (cpu_ram_addr) inside
             // BootROM (R/O)
             [32'h8000_0000 : 32'h800f_ffff]: begin
-                if (cpu_ram_we) begin
-                    $fatal(0, "ILLEGAL WRITE: Write on BootROM at %x", cpu_ram_addr);
-                    write_error <= 1;
-                end
+                `DISALLOW_WRITE("BootROM");
                 cpu_ram_data_r <= bootrom_data;
             end
             // BaseRAM
@@ -178,25 +187,37 @@ always_comb begin
             end
             // 串口状态 (R/O)
             32'hbfd003fc: begin
-                if (cpu_ram_we) begin
-                    $fatal(0, "ILLEGAL WRITE: Write on UART_Stat");
-                    write_error <= 1;
-                end
+                `DISALLOW_WRITE("URAT Status");
                 cpu_ram_data_r[1] <= uart_dataready;
                 cpu_ram_data_r[0] <= uart_tsre & uart_tbre;
             end
             // 路由器内存 (R/O)
             [32'hc000_0000 : 32'hc007_ffff]: begin
-                if (cpu_ram_we) begin
-                    $fatal(0, "ILLEGAL WRITE: Write on Router ROM at %x", cpu_ram_addr);
-                    write_error <= 1;
-                end
+                `DISALLOW_WRITE("Router Memory");
                 case (cpu_ram_addr[3:2])
                     0: cpu_ram_data_r <= router_mem_data[31:0];
                     1: cpu_ram_data_r <= router_mem_data[63:32];
                     2: cpu_ram_data_r <= {24'h0, router_mem_data[71:64]};
                     3: read_error <= 1;
                 endcase
+            end
+            // 路由表指针 (R/O)
+            32'hc008_0000: begin
+                `DISALLOW_WRITE("Routing Entry Pointer");
+                cpu_ram_data_r[15:0] <= routing_entry_pointer;
+            end
+            // 路由器读取数据 (R/O)
+            // fifo rd_en 拉高一拍: 读取当前数据，fifo 出口更新下一条数据
+            32'hc008_0001: begin
+                `DISALLOW_WRITE("Router Data");
+                router_data_read_valid <= 1;
+                cpu_ram_data_r[15:0] <= router_data_out;
+            end
+            // 路由器读取数据状态 (R/O)
+            // 最低位为 1 表示有数据可读
+            32'hc008_0002: begin
+                `DISALLOW_WRITE("Router Data Status");
+                cpu_ram_data_r[0] <= !router_data_empty;
             end
             default: begin
                 if (cpu_ram_we) begin

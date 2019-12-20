@@ -10,33 +10,41 @@
 
 module io_manager (
     // 由父模块提供各种时钟
-    input   logic   clk_125M,
-    input   logic   clk_200M,
-    input   logic   rst_n,
+    input  logic clk_125M,
+    input  logic clk_200M,
+    input  logic rst_n,
 
     // top 硬件
-    input   logic   clk_btn,            // 硬件 clk 按键
-    input   logic   [3:0] btn,          // 硬件按钮
+    input  logic clk_btn,            // 硬件 clk 按键
+    input  logic [3:0] btn,          // 硬件按钮
 
-    output  logic   [15:0] led_out,     // 硬件 led 指示灯
-    output  logic   [7:0]  digit0_out,  // 硬件低位数码管
-    output  logic   [7:0]  digit1_out,  // 硬件高位数码管
+    output logic [15:0] led_out,     // 硬件 led 指示灯
+    output logic [7:0]  digit0_out,  // 硬件低位数码管
+    output logic [7:0]  digit1_out,  // 硬件高位数码管
 
-    output  logic   [15:0] debug,
+    output logic [15:0] debug,
 
+    // 用于读取路由内存
     input  logic mem_read_clk,
-    input  logic [14:0] mem_read_addr,
+    input  logic [15:0] mem_read_addr,
     output logic [71:0] mem_read_data,
+    output logic [15:0] routing_entry_pointer,
+
+    // 用于路由器向 CPU 传输数据
+    input  logic cpu_data_clk,
+    output logic [15:0] cpu_data_out,
+    input  logic cpu_data_read_valid,
+    output logic cpu_data_empty,
 
     // 目前先接上 eth_mac_fifo_block
-    input   logic   [7:0] rx_data,      // 数据入口
-    input   logic   rx_valid,           // 数据入口正在传输
-    output  logic   rx_ready,           // 是否允许数据进入
-    input   logic   rx_last,            // 数据传入结束
-    output  logic   [7:0] tx_data,      // 数据出口
-    output  logic   tx_valid,           // 数据出口正在传输
-    input   logic   tx_ready,           // 外面是否准备接收：当前不处理外部不 ready 的逻辑 （TODO）
-    output  logic   tx_last             // 数据传出结束
+    input  logic [7:0] rx_data,      // 数据入口
+    input  logic rx_valid,           // 数据入口正在传输
+    output logic rx_ready,           // 是否允许数据进入
+    input  logic rx_last,            // 数据传入结束
+    output logic [7:0] tx_data,      // 数据出口
+    output logic tx_valid,           // 数据出口正在传输
+    input  logic tx_ready,           // 外面是否准备接收：当前不处理外部不 ready 的逻辑 （TODO）
+    output logic tx_last             // 数据传出结束
 
     // ,
     // output  logic   [8:0] fifo_din,
@@ -45,13 +53,13 @@ module io_manager (
 
 );
 
+////// 给 tx 传输数据的 fifo
 reg  [8:0] fifo_din;
 wire [8:0] fifo_dout;
 wire fifo_empty;
 wire fifo_full;
 reg  fifo_rd_en;
 wire fifo_rd_busy;
-reg  fifo_rst;
 reg  fifo_wr_en;
 wire fifo_wr_busy;
 xpm_fifo_sync #(
@@ -66,15 +74,40 @@ xpm_fifo_sync #(
     .dout(fifo_dout),
     .empty(fifo_empty),
     .full(fifo_full),
-    .injectdbiterr(0),
-    .injectsbiterr(0),
+    .injectdbiterr(1'b0),
+    .injectsbiterr(1'b0),
     .rd_en(fifo_rd_en),
     .rd_rst_busy(fifo_rd_busy),
-    .rst(fifo_rst),
-    .sleep(0),
+    .rst(1'b0),
+    .sleep(1'b0),
     .wr_clk(clk_125M),
     .wr_en(fifo_wr_en),
     .wr_rst_busy(fifo_wr_busy)
+);
+
+////// 给 CPU 传递数据的串口，接收到特定的包后会写
+logic [15:0] cpu_data_in;
+logic cpu_data_write_valid;
+xpm_fifo_async #(
+    .FIFO_MEMORY_TYPE("distributed"),
+    .FIFO_READ_LATENCY(0),
+    .READ_DATA_WIDTH(16),
+    .READ_MODE("fwft"),
+    .RELATED_CLOCKS(1),
+    .USE_ADV_FEATURES("0000"),
+    .WRITE_DATA_WIDTH(16)
+) fifo_to_cpu (
+    .din(cpu_data_in),
+    .dout(cpu_data_out),
+    .empty(cpu_data_empty),
+    .injectdbiterr(1'b0),
+    .injectsbiterr(1'b0),
+    .rd_clk(cpu_data_clk),
+    .rd_en(cpu_data_read_valid),
+    .rst(1'b0),
+    .sleep(1'b0),
+    .wr_clk(clk_125M),
+    .wr_en(cpu_data_write_valid)
 );
 
 // 已经读了多少字节
@@ -211,7 +244,8 @@ packet_processor packet_processor_inst (
 
     .mem_read_clk,
     .mem_read_addr,
-    .mem_read_data
+    .mem_read_data,
+    .routing_entry_pointer
 );
 
 tx_dual tx_dual_inst (

@@ -101,9 +101,16 @@ pll clock_gen(
 
 // CPU 访问路由表使用
 logic router_mem_clk;
-logic [14:0] router_mem_addr;
-logic [71:0] router_mem_data;
 assign router_mem_clk = clk_200M;
+logic [15:0] router_mem_addr;
+logic [71:0] router_mem_data;
+logic [15:0] routing_entry_pointer;
+// CPU 从路由器读数据使用
+logic router_data_clk;
+assign router_data_clk = clk_40M;
+logic [15:0] router_data_out;
+logic router_data_read_valid;
+logic router_data_empty;
 
 `ifdef COMPILE_ROUTER
 
@@ -137,6 +144,12 @@ rgmii_manager rgmii_manager_inst (
     .mem_read_clk(router_mem_clk),
     .mem_read_addr(router_mem_addr),
     .mem_read_data(router_mem_data),
+    .routing_entry_pointer,
+
+    .cpu_data_clk(router_data_clk),
+    .cpu_data_out(router_data_out),
+    .cpu_data_read_valid(router_data_read_valid),
+    .cpu_data_empty(router_data_empty),
 
     .eth_rgmii_rd(eth_rgmii_rd),
     .eth_rgmii_rx_ctl(eth_rgmii_rx_ctl),
@@ -184,6 +197,11 @@ bus_ctrl bus_ctrl_inst(
 
     .router_mem_data,
     .router_mem_addr,
+
+    .router_data_out,
+    .router_data_read_valid,
+    .router_data_empty,
+    .routing_entry_pointer,
 
     .read_error(leds[15]),
     .write_error(leds[14]),
