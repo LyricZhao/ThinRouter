@@ -53,6 +53,10 @@ module routing_table #(
 
     input  logic packer_ready,
 
+    input  logic mem_read_clk,
+    input  logic [14:0] mem_read_addr,
+    output logic [71:0] mem_read_data,
+
     // todo 路由表满，此后只可以查询和修改
     output logic overflow
 );
@@ -123,30 +127,47 @@ assign debug = branch_write_addr;
 assign debug2 = nexthop_write_addr;
 
 // 存储空间
-xpm_memory_spram #(
+xpm_memory_tdpram #(
     .ADDR_WIDTH_A($clog2(NODE_POOL_SIZE)),
+    .ADDR_WIDTH_B($clog2(NODE_POOL_SIZE)),
+    .CLOCKING_MODE("independent_clock"),
     .MEMORY_INIT_FILE("routing_memory.mem"),
-    .MEMORY_OPTIMIZATION("false"),
     .MEMORY_PRIMITIVE("block"),
     .MEMORY_SIZE(72 * NODE_POOL_SIZE),
     .READ_DATA_WIDTH_A(72),
+    .READ_DATA_WIDTH_B(72),
     .READ_LATENCY_A(1),
+    .READ_LATENCY_B(1),
     .WRITE_DATA_WIDTH_A(72),
-    .WRITE_MODE_A("write_first")
+    .WRITE_DATA_WIDTH_B(72),
+    .WRITE_MODE_A("write_first"),
+    .WRITE_MODE_B("no_change")
 ) memory_pool (
     .addra({memory_addr[15], memory_addr[$clog2(NODE_POOL_SIZE)-2:0]}),
+    .addrb(mem_read_addr),
     .clka(clk_125M),
+    .clkb(mem_read_clk),
     .dina(memory_in),
+    .dinb(72'h0),
     .douta(memory_out),
+    .doutb(mem_read_data),
     .ena(1'b1),
-    .rsta(1'b0),
+    .enb(1'b1),
     .regcea(1'b1),
+    .regceb(1'b1),
+    .rsta(1'b0),
+    .rstb(1'b0),
     .wea(memory_write_en),
+    .web(1'b0),
 
     .dbiterra(),
+    .dbiterrb(),
     .injectdbiterra(1'b0),
+    .injectdbiterrb(1'b0),
     .injectsbiterra(1'b0),
+    .injectsbiterrb(1'b0),
     .sbiterra(),
+    .sbiterrb(),
     .sleep(1'b0)
 );
 

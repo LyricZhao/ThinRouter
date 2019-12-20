@@ -23,7 +23,11 @@ module rgmii_manager(
     input   wire    eth_rgmii_rxc,
     output  wire    [3:0] eth_rgmii_td,
     output  wire    eth_rgmii_tx_ctl,
-    output  wire    eth_rgmii_txc
+    output  wire    eth_rgmii_txc, 
+
+    input  logic mem_read_clk,
+    input  logic [14:0] mem_read_addr,
+    output logic [71:0] mem_read_data
 );
 
 // LED
@@ -51,6 +55,10 @@ io_manager io_manager_inst (
     .led_out,
     .digit0_out,
     .digit1_out,
+
+    .mem_read_clk,
+    .mem_read_addr,
+    .mem_read_data,
 
     .rx_data(axis_rx_data),
     .rx_valid(axis_rx_valid),

@@ -64,7 +64,9 @@ module bus_ctrl(
     input  logic                    ch376t_int_n,
     input  logic                    ch376t_sdo,
 
-    // TODO: Router连接
+    // Router连接
+    input  logic[71:0]              router_mem_data,
+    output logic[14:0]              router_mem_addr,
 
     // 图像输出信号
     output logic[2:0]               video_red,          // 红色像素，3位

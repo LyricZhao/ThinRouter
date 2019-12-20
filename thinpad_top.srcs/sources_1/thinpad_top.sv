@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 `define COMPILE_CPU
-// `define COMPILE_ROUTER
+`define COMPILE_ROUTER
 
 module thinpad_top(
     input logic                     clk_50M,             // 50MHz 时钟输入
@@ -99,6 +99,11 @@ pll clock_gen(
     .clk_in1(clk_50M)                 // 外部时钟输入
 );
 
+// CPU 访问路由表使用
+logic router_mem_clk;
+logic [14:0] router_mem_addr;
+logic [71:0] router_mem_data;
+assign router_mem_clk = clk_200M;
 
 `ifdef COMPILE_ROUTER
 
@@ -128,6 +133,10 @@ rgmii_manager rgmii_manager_inst (
     .led_out(leds),
     .digit0_out(dpy0),
     .digit1_out(dpy1),
+
+    .mem_read_clk(router_mem_clk),
+    .mem_read_addr(router_mem_addr),
+    .mem_read_data(router_mem_data),
 
     .eth_rgmii_rd(eth_rgmii_rd),
     .eth_rgmii_rx_ctl(eth_rgmii_rx_ctl),
@@ -172,6 +181,9 @@ bus_ctrl bus_ctrl_inst(
     .clk_125M(clk_125M),
     .clk_200M(clk_200M),
     .rst_n(locked),
+
+    .router_mem_data,
+    .router_mem_addr,
     
     .*
 );
