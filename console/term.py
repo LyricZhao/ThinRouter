@@ -10,7 +10,7 @@ import sys
 
 from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QVBoxLayout, QPushButton, QStatusBar, QMainWindow
 from PyQt5.QtCore import QCoreApplication, Qt, QThread, pyqtSignal
-from PyQt5.QtGui import QTextCursor
+from PyQt5.QtGui import QTextCursor, QFont
 
 inp = None
 outp = None
@@ -124,9 +124,11 @@ class MainWindow(QMainWindow):
         self.resize(720, 405)
         self.setWindowTitle('root@thinrouter.4')
 
+        font = QFont("Menlo")
         self.textEdit = QTextEdit()
         self.textEdit.setReadOnly(True)
         self.setCentralWidget(self.textEdit)
+        self.textEdit.setFont(font)
 
         self.statusBar = QStatusBar()
         self.setStatusBar(self.statusBar)
