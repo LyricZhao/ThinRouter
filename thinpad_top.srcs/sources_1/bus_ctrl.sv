@@ -115,14 +115,14 @@ assign cpu_int = {3'b0, uart_dataready, 2'b0}; // UART是IP4
 assign bootrom_addr = cpu_ram_addr[10:2];
 
 assign base_ram_ce_n = 0;
-assign base_ram_be_n = cpu_ram_sel;
+assign base_ram_be_n = ~cpu_ram_sel;
 assign base_ram_addr = cpu_ram_addr[21:2];
 assign base_ram_data = base_ram_we_n ? 
                             (uart_wrn ? {32{1'bz}} : {{24{1'bz}}, cpu_ram_data_w[7:0]}) : 
                             cpu_ram_data_w;
 
 assign ext_ram_ce_n = 0;
-assign ext_ram_be_n = cpu_ram_sel;
+assign ext_ram_be_n = ~cpu_ram_sel;
 assign ext_ram_addr = cpu_ram_addr[21:2];
 assign ext_ram_data = ext_ram_we_n ? 'z : cpu_ram_data_w;
 
