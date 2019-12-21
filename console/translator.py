@@ -5,7 +5,7 @@ except:
 try: type(raw_input)
 except NameError: raw_input = input
 
-outp = open('console_test.mem', 'wb')
+outp = open('console_test.bin', 'wb')
 
 def MainLoop():
     while True:
