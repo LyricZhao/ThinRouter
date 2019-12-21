@@ -202,9 +202,6 @@ bus_ctrl bus_ctrl_inst(
     .router_data_read_valid,
     .router_data_empty,
     .routing_entry_pointer,
-
-    .read_error(leds[15]),
-    .write_error(leds[14]),
     
     .*
 );
