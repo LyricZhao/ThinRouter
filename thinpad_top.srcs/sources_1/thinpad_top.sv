@@ -107,7 +107,7 @@ logic [71:0] router_mem_data;
 logic [15:0] routing_entry_pointer;
 // CPU 从路由器读数据使用
 logic router_data_clk;
-assign router_data_clk = clk_40M;
+assign router_data_clk = clk_200M;
 logic [15:0] router_data_out;
 logic router_data_read_valid;
 logic router_data_empty;

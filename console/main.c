@@ -1,7 +1,8 @@
 # include "address.h"
 # include "utility.h"
+# include "router.h"
 
-uint_32 pos;
+u32 pos;
 char buffer[MAX_LENGTH];
 
 void new_command() {
@@ -21,7 +22,7 @@ void command_clear() {
 }
 
 void command_route() {
-    // TODO
+    printRoute();
 }
 
 void process_command() {
@@ -38,6 +39,7 @@ void process_command() {
 
 // 策略：轮询串口不断append输入
 void _main() {
+    // command_route();
     print("Console@ThinRouter.4 initialized\n");
     new_command();
 
