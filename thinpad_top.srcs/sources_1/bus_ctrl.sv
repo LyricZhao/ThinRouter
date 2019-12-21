@@ -148,10 +148,10 @@ always_comb begin
 
     router_data_read_valid <= 0;
     
-    if (!rst_n) begin
+    if (!rst_n || !cpu_ram_ce) begin
         read_error <= 0;
         write_error <= 0;
-    end else if (cpu_ram_ce) begin
+    end else begin
         unique case (cpu_ram_addr) inside
             // BootROM (R/O)
             [32'h8000_0000 : 32'h800f_ffff]: begin
@@ -222,8 +222,10 @@ always_comb begin
             default: begin
                 if (cpu_ram_we) begin
                     write_error <= 1;
+                    $fatal(0, "ILLEGAL WRITE: at %x", cpu_ram_addr);
                 end
                 read_error <= 1;
+                $fatal(0, "ILLEGAL READ: at %x", cpu_ram_addr);
             end
         endcase
     end
