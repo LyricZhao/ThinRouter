@@ -6,10 +6,10 @@
 package Address;
 
     typedef enum logic [31:0] {
-        RouterIP1 = 32'h0a_04_01_01,
-        RouterIP2 = 32'h0a_04_02_01,
-        RouterIP3 = 32'h0a_04_03_01,
-        RouterIP4 = 32'h0a_04_04_01,
+        RouterIP1 = 32'hc0_a8_00_01,
+        RouterIP2 = 32'hc0_a8_01_01,
+        RouterIP3 = 32'hc0_a8_02_01,
+        RouterIP4 = 32'hc0_a8_03_01,
         McastIP = 32'he0_00_00_09
     } _ip_constants;
 
