@@ -18,7 +18,7 @@ typedef struct {
 } entry_t;
 
 // 返回路由表数量
-static u32 getEntryCount() { return CATCH(u32, ADDR_ROUTER_CNT) - 0x80000; }
+static u32 getEntryCount() { return CATCH(u32, ADDR_ROUTER_CNT) - 0x8000; }
 
 // 返回第 index 个路由项的地址
 static u32 getEntryAddress(u32 index) {
