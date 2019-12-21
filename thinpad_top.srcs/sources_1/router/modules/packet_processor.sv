@@ -33,8 +33,9 @@ module packet_processor (
     output logic [8:0] rip_tx_data, 
 
     input  logic mem_read_clk,
-    input  logic [14:0] mem_read_addr,
-    output logic [71:0] mem_read_data
+    input  logic [15:0] mem_read_addr,
+    output logic [71:0] mem_read_data,
+    output logic [15:0] routing_entry_pointer
 );
 
 ////// 用一个 fifo 来处理添加路由：此模块放进 fifo 并立即返回 done，路由表会在没有查询任务的时候执行一个插入
@@ -166,6 +167,7 @@ routing_table routing_table_inst (
     .mem_read_clk,
     .mem_read_addr,
     .mem_read_data,
+    .routing_entry_pointer,
 
     .overflow()
 );

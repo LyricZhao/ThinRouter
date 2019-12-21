@@ -9,6 +9,10 @@ module bus_ctrl(
     input  logic                    clk_200M,
     input  logic                    rst_n,
 
+    // 错误信号
+    output logic                    read_error,         // 出现非法读内存后锁存 1
+    output logic                    write_error,        // 出现非法写内存后锁存 1
+
     // CPU控制
     input  logic                    cpu_ram_ce,         // CPU是否读写RAM
     input  logic                    cpu_ram_we,         // CPU是否写入
@@ -66,7 +70,11 @@ module bus_ctrl(
 
     // Router连接
     input  logic[71:0]              router_mem_data,
-    output logic[14:0]              router_mem_addr,
+    output logic[15:0]              router_mem_addr,
+    input  logic[15:0]              router_data_out,
+    input  logic                    router_data_empty,
+    output logic                    router_data_read_valid,
+    input  logic[15:0]              routing_entry_pointer,
 
     // 图像输出信号
     output logic[2:0]               video_red,          // 红色像素，3位
@@ -104,94 +112,120 @@ bootrom bootrom_inst(
 // CPU中断控制
 assign cpu_int = {3'b0, uart_dataready, 2'b0}; // UART是IP4
 
-// 一直开着两个RAM
+assign bootrom_addr = cpu_ram_addr[`BOOTROM_ADDR_WITDH+1:2];
+
 assign base_ram_ce_n = 0;
+assign base_ram_be_n = ~cpu_ram_sel;
+assign base_ram_addr = cpu_ram_addr[21:2];
+assign base_ram_data = base_ram_we_n ? 
+                            (uart_wrn ? {32{1'bz}} : {{24{1'bz}}, cpu_ram_data_w[7:0]}) : 
+                            cpu_ram_data_w;
+
 assign ext_ram_ce_n = 0;
+assign ext_ram_be_n = ~cpu_ram_sel;
+assign ext_ram_addr = cpu_ram_addr[21:2];
+assign ext_ram_data = ext_ram_we_n ? 'z : cpu_ram_data_w;
 
-logic base_ram_we, ext_ram_we;
-word_t base_ram_wdata, ext_ram_wdata;
+assign router_mem_addr = cpu_ram_addr[19:4];
 
-assign base_ram_data = base_ram_we ? base_ram_wdata : 32'bz;
-assign ext_ram_data = ext_ram_we ? ext_ram_wdata : 32'bz;
-
-`define DISABLE_BOOTROM bootrom_addr <= 0
-
-`define DISABLE_BASE    base_ram_we <= 0; \
-                        base_ram_we_n <= 1; \
-                        base_ram_oe_n <= 1; \
-                        base_ram_addr <= 0
-
-`define DISABLE_EXT     ext_ram_we <= 0; \
-                        ext_ram_we_n <= 1; \
-                        ext_ram_oe_n <= 1; \
-                        ext_ram_addr <= 0
-
-`define DISABLE_UART    uart_rdn <= 1; \
-                        uart_wrn <= 1
-
-`define ENABLE_BASE(wen, on, we, addr, ben, wd, rdr)    base_ram_we_n <= wen; \
-                                                        base_ram_oe_n <= on; \
-                                                        base_ram_we <= we; \
-                                                        base_ram_addr <= addr; \
-                                                        base_ram_be_n <= ben; \
-                                                        base_ram_wdata <= wd; \
-                                                        cpu_ram_data_r <= rdr
-
-`define ENABLE_EXT(wen, on, we, addr, ben, wd, rdr)     ext_ram_we_n <= wen; \
-                                                        ext_ram_oe_n <= on; \
-                                                        ext_ram_we <= we; \
-                                                        ext_ram_addr <= addr; \
-                                                        ext_ram_be_n <= ben; \
-                                                        ext_ram_wdata <= wd; \
-                                                        cpu_ram_data_r <= rdr
-
-`define ENABLE_UART(rdn, wrn, we, wd, rdr)              uart_rdn <= rdn; \
-                                                        uart_wrn <= wrn; \
-                                                        base_ram_we <= we; \
-                                                        base_ram_wdata[7:0] <= wd; \
-                                                        cpu_ram_data_r <= rdr
-
-`define ENABLE_BOOTROM(addr, rdr)                       bootrom_addr <= addr; \
-                                                        cpu_ram_data_r <= rdr
+`define DISALLOW_WRITE(label) \
+    if (cpu_ram_we) begin \
+        $fatal(0, {"ILLEGAL WRITE: Write on \"", label, "\"at %x"}, cpu_ram_addr); \
+        write_error <= 1; \
+    end
 
 always_comb begin
-    if (~rst_n) begin
-        cpu_ram_data_r <= 0;
-        `DISABLE_BASE;
-        `DISABLE_EXT;
-        `DISABLE_UART;
-        `DISABLE_BOOTROM;
-    end else begin
-        cpu_ram_data_r <= 0;
-        `DISABLE_BASE;
-        `DISABLE_EXT;
-        `DISABLE_UART;
-        `DISABLE_BOOTROM;
-        if (cpu_ram_ce) begin
-            if (`IN_RANGE(cpu_ram_addr, `BOOTROM_START, `BOOTROM_END)) begin // 只读
-                `ENABLE_BOOTROM(cpu_ram_addr[10:2], bootrom_data);
-            end else if (`IN_RANGE(cpu_ram_addr, `BASE_START, `BASE_END)) begin
-                if (cpu_ram_we) begin
-                    `ENABLE_BASE(0, 1, 1, cpu_ram_addr[21:2], ~cpu_ram_sel, cpu_ram_data_w, 0);
-                end else begin
-                    `ENABLE_BASE(1, 0, 0, cpu_ram_addr[21:2], ~cpu_ram_sel, 0, base_ram_data);
-                end
-            end else if (`IN_RANGE(cpu_ram_addr, `EXT_START, `EXT_END)) begin
-                if (cpu_ram_we) begin
-                    `ENABLE_EXT(0, 1, 1, cpu_ram_addr[21:2], ~cpu_ram_sel, cpu_ram_data_w, 0);
-                end else begin
-                    `ENABLE_EXT(1, 0, 0, cpu_ram_addr[21:2], ~cpu_ram_sel, 0, ext_ram_data);
-                end
-            end else if (`EQ(cpu_ram_addr, `UART_RW)) begin
-                if (cpu_ram_we) begin
-                    `ENABLE_UART(1, 0, 1, cpu_ram_data_w[7:0], 0);
-                end else begin
-                    `ENABLE_UART(0, 1, 0, 0, {24'b0, base_ram_data[7:0]});
-                end
-            end else if (`EQ(cpu_ram_addr, `UART_STAT)) begin // 只读
-                cpu_ram_data_r <= {30'b0, uart_dataready, uart_tsre & uart_tbre};
+    base_ram_we_n <= 1;
+    base_ram_oe_n <= 1;
+
+    ext_ram_we_n <= 1;
+    ext_ram_oe_n <= 1;
+
+    uart_rdn <= 1;
+    uart_wrn <= 1;
+
+    cpu_ram_data_r <= '0;
+
+    router_data_read_valid <= 0;
+    
+    if (!rst_n) begin
+        read_error <= 0;
+        write_error <= 0;
+    end else if (cpu_ram_ce) begin
+        unique case (cpu_ram_addr) inside
+            // BootROM (R/O)
+            [32'h8000_0000 : 32'h800f_ffff]: begin
+                `DISALLOW_WRITE("BootROM");
+                cpu_ram_data_r <= bootrom_data;
             end
-        end
+            // BaseRAM
+            [32'h8010_0000 : 32'h803f_ffff]: begin
+                if (cpu_ram_we) begin
+                    base_ram_we_n <= 0;
+                end else begin
+                    base_ram_oe_n <= 0;
+                    cpu_ram_data_r <= base_ram_data;
+                end
+            end
+            // ExtRAM
+            [32'h8040_0000 : 32'h807f_ffff]: begin
+                if (cpu_ram_we) begin
+                    ext_ram_we_n <= 0;
+                end else begin
+                    ext_ram_oe_n <= 0;
+                    cpu_ram_data_r <= ext_ram_data;
+                end
+            end
+            // 串口数据
+            32'hbfd003f8: begin
+                if (cpu_ram_we) begin
+                    uart_wrn <= 0;
+                end else begin
+                    uart_rdn <= 0;
+                    cpu_ram_data_r[7:0] <= base_ram_data[7:0];
+                end
+            end
+            // 串口状态 (R/O)
+            32'hbfd003fc: begin
+                `DISALLOW_WRITE("URAT Status");
+                cpu_ram_data_r[1] <= uart_dataready;
+                cpu_ram_data_r[0] <= uart_tsre & uart_tbre;
+            end
+            // 路由器内存 (R/O)
+            [32'hc000_0000 : 32'hc00f_ffff]: begin
+                `DISALLOW_WRITE("Router Memory");
+                case (cpu_ram_addr[3:2])
+                    0: cpu_ram_data_r <= router_mem_data[31:0];
+                    1: cpu_ram_data_r <= router_mem_data[63:32];
+                    2: cpu_ram_data_r <= {24'h0, router_mem_data[71:64]};
+                    3: read_error <= 1;
+                endcase
+            end
+            // 路由表指针 (R/O)
+            32'hc011_4514: begin
+                `DISALLOW_WRITE("Routing Entry Pointer");
+                cpu_ram_data_r[15:0] <= routing_entry_pointer;
+            end
+            // 路由器读取数据 (R/O)
+            // fifo rd_en 拉高一拍: 读取当前数据，fifo 出口更新下一条数据
+            32'hc011_4518: begin
+                `DISALLOW_WRITE("Router Data");
+                router_data_read_valid <= 1;
+                cpu_ram_data_r[15:0] <= router_data_out;
+            end
+            // 路由器读取数据状态 (R/O)
+            // 最低位为 1 表示有数据可读
+            32'hc011_451c: begin
+                `DISALLOW_WRITE("Router Data Status");
+                cpu_ram_data_r[0] <= !router_data_empty;
+            end
+            default: begin
+                if (cpu_ram_we) begin
+                    write_error <= 1;
+                end
+                read_error <= 1;
+            end
+        endcase
     end
 end
 

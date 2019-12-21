@@ -2,7 +2,7 @@ ENTRY(_start);
 
 MEMORY
 {
-    BOOTROM  (rx)   : ORIGIN = 0x80000000, LENGTH = 2K
+    BOOTROM  (rx)   : ORIGIN = 0x80000000, LENGTH = 4K
     RAM      (rwx)  : ORIGIN = 0x80400000, LENGTH = 4M
 }
 

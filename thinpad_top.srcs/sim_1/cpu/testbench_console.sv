@@ -89,7 +89,7 @@ thinpad_top dut(
 
 // 需要把这个放到Simulation Source里面
 parameter base_ram_init_file = "console.bin";
-parameter term_file = "console_test.mem";
+parameter term_file = "console_test.bin";
 
 // CPLD 串口仿真模型
 cpld_model cpld(

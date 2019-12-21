@@ -25,9 +25,17 @@ module rgmii_manager(
     output  wire    eth_rgmii_tx_ctl,
     output  wire    eth_rgmii_txc, 
 
+    // 用于读取路由内存
     input  logic mem_read_clk,
-    input  logic [14:0] mem_read_addr,
-    output logic [71:0] mem_read_data
+    input  logic [15:0] mem_read_addr,
+    output logic [71:0] mem_read_data,
+    output logic [15:0] routing_entry_pointer,
+
+    // 用于路由器向 CPU 传输数据
+    input  logic cpu_data_clk,
+    output logic [15:0] cpu_data_out,
+    input  logic cpu_data_read_valid,
+    output logic cpu_data_empty
 );
 
 // LED
@@ -59,6 +67,12 @@ io_manager io_manager_inst (
     .mem_read_clk,
     .mem_read_addr,
     .mem_read_data,
+    .routing_entry_pointer,
+    
+    .cpu_data_clk,
+    .cpu_data_out,
+    .cpu_data_read_valid,
+    .cpu_data_empty,
 
     .rx_data(axis_rx_data),
     .rx_valid(axis_rx_valid),
