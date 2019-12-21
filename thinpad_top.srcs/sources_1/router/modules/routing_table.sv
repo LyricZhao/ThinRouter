@@ -642,12 +642,15 @@ always_ff @ (posedge clk_125M) begin
                             memory_write_en <= 1;
 
                             memory_in <= memory_out;
+                            memory_in.branch.is_prefix <= 1;
                             memory_in.branch.mask <= insert_shared_mask;
                             memory_in.branch.next0 <= nexthop_write_addr;
                             memory_in.branch.next1 <= branch_write_addr;
 
                             branch_write_addr <= branch_write_addr + 1;
                             insert_state <= InsertNewNexthop;
+                        end else begin
+                            memory_addr <= insert_pointer_buffer;
                         end
                     end
                     InsertSituation2: begin

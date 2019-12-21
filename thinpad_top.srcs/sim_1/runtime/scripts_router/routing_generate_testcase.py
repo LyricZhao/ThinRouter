@@ -54,7 +54,7 @@ class IPAddress:
                 value = random.randint(0, 0xffffffff)
             mask = random.randint(0, 31)
             value &= 0xffffffff << (32 - mask)
-            metric = random.randint(1, 15)
+            metric = random.randint(1, 14)
             from_vlan = random.randint(1, 4)
         return IPAddress(value, mask, metric, from_vlan)
 
