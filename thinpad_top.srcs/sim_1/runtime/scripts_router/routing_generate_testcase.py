@@ -52,7 +52,7 @@ class IPAddress:
                     IPAddress.center, 0x800000)) & 0xffffffff
             else:
                 value = random.randint(0, 0xffffffff)
-            mask = random.randint(12, 28)
+            mask = random.randint(0, 31)
             value &= 0xffffffff << (32 - mask)
             metric = random.randint(1, 15)
             from_vlan = random.randint(1, 4)
@@ -106,10 +106,7 @@ class IPAddress:
 
     def __str__(self):
         raw = self.raw
-        if self.mask == 32:
-            return '%d.%d.%d.%d' % (raw[0], raw[1], raw[2], raw[3])
-        else:
-            return '%d.%d.%d.%d/%d' % (raw[0], raw[1], raw[2], raw[3], self.mask)
+        return '%d.%d.%d.%d/%d' % (raw[0], raw[1], raw[2], raw[3], self.mask)
 
 
 class Entry:
@@ -203,7 +200,7 @@ class Entry:
         if match is not None:
             return 'query   %s -> %s\n' % (addr, match.nexthop)
         else:
-            return 'query   %s -> 0.0.0.0\n' % addr
+            return 'query   %s -> 0.0.0.0/32\n' % addr
 
 
 def wrong_usage_exit():

@@ -186,6 +186,15 @@ cpu_top cpu_top_inst(
     .int_i(cpu_int)
 );
 
+assign leds = cpu_ram_addr[31:16];
+digit_hex dh_inst (
+    .value(cpu_ram_addr[3:0]),
+    .digit(dpy0)
+);
+digit_hex dh_inst2 (
+    .value(cpu_ram_addr[7:4]),
+    .digit(dpy1)
+);
 
 // 总线控制器
 bus_ctrl bus_ctrl_inst(

@@ -117,7 +117,7 @@ begin
             "insert": begin
                 // insert
                 count += 1;
-                $fscanf(file_descriptor, "%d.%d.%d.%d/%d -> %d.%d.%d.%d (%d, %d)",
+                $fscanf(file_descriptor, "%d.%d.%d.%d/%d -> %d.%d.%d.%d/32 (%d, %d)",
                     buffer[31:24], buffer[23:16], buffer[15:8], buffer[7:0], // ip
                     buffer[37:32], // mask
                     buffer[71:64], buffer[63:56], buffer[55:48], buffer[47:40], // nexthop
@@ -128,7 +128,7 @@ begin
             {8'h??, "query"}: begin
                 // query
                 count += 1;
-                $fscanf(file_descriptor, "%d.%d.%d.%d -> %d.%d.%d.%d",
+                $fscanf(file_descriptor, "%d.%d.%d.%d/32 -> %d.%d.%d.%d/32",
                     buffer[31:24], buffer[23:16], buffer[15:8], buffer[7:0], // ip
                     buffer[71:64], buffer[63:56], buffer[55:48], buffer[47:40]); // nexthop
                 query(buffer[31:0], buffer[71:40]);
