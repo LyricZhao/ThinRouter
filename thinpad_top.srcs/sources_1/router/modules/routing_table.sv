@@ -3,6 +3,8 @@
 `include "debug.vh"
 `include "types.vh"
 
+`define POISON_REVERSE
+
 module routing_table #(
     // 节点数量。每个节点 72 bits，每条路由项占用两个节点
     parameter NODE_POOL_SIZE = 32768
@@ -844,16 +846,28 @@ always_ff @ (posedge clk_125M) begin
                                 enum_completed <= enum_completed + 1;
                                 memory_addr <= memory_out.nexthop.parent;
                                 enum_nexthop <= memory_out.nexthop.nexthop;
-                                enum_metric <= memory_out.nexthop.metric;
-                                if (memory_out.nexthop.port == enum_port) begin
-                                // 当前处理的端口与写入的是一个端口，跳过
-                                    // $display("skip!");
-                                    enum_state <= EnumSkipParent;
-                                end else begin
-                                    // $display("%d %d", memory_out.nexthop.port, enum_port);
-                                    enum_state <= EnumParent;
-                                    enum_got <= enum_got + 1;
-                                end
+                                // 对于 Poison Reverse 状态，同端口会返回 metric=16
+                                `ifdef POISON_REVERSE
+                                    if (memory_out.nexthop.port == enum_port) begin
+                                    // 当前处理的端口与写入的是一个端口
+                                        enum_metric <= 16;
+                                        enum_state <= EnumParent;
+                                        enum_got <= enum_got + 1;
+                                    end else begin
+                                        enum_metric <= memory_out.nexthop.metric;
+                                        enum_state <= EnumParent;
+                                        enum_got <= enum_got + 1;
+                                    end
+                                `else
+                                    enum_metric <= memory_out.nexthop.metric;
+                                    if (memory_out.nexthop.port == enum_port) begin
+                                    // 当前处理的端口与写入的是一个端口，跳过
+                                        enum_state <= EnumSkipParent;
+                                    end else begin
+                                        enum_state <= EnumParent;
+                                        enum_got <= enum_got + 1;
+                                    end
+                                `endif
                             end
                         end
                     end

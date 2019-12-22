@@ -137,9 +137,9 @@ rgmii_manager rgmii_manager_inst (
 
     .clk_btn(clock_btn),
     .btn(touch_btn),
-    // .led_out(leds),
-    // .digit0_out(dpy0),
-    // .digit1_out(dpy1),
+    .led_out(leds),
+    .digit0_out(dpy0),
+    .digit1_out(dpy1),
 
     .mem_read_clk(router_mem_clk),
     .mem_read_addr(router_mem_addr),
@@ -186,15 +186,15 @@ cpu_top cpu_top_inst(
     .int_i(cpu_int)
 );
 
-assign leds = cpu_ram_addr[31:16];
-digit_hex dh_inst (
-    .value(cpu_ram_addr[3:0]),
-    .digit(dpy0)
-);
-digit_hex dh_inst_2 (
-    .value(cpu_ram_addr[7:4]),
-    .digit(dpy1)
-);
+// assign leds = cpu_ram_addr[31:16];
+// digit_hex dh_inst (
+//     .value(cpu_ram_addr[3:0]),
+//     .digit(dpy0)
+// );
+// digit_hex dh_inst2 (
+//     .value(cpu_ram_addr[7:4]),
+//     .digit(dpy1)
+// );
 
 // 总线控制器
 bus_ctrl bus_ctrl_inst(
