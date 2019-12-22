@@ -88,9 +88,9 @@ module thinpad_top(
 
 
 // PLL分频
-logic locked, clk_40M, clk_100M, clk_125M, clk_200M;
+logic locked, clk_20M, clk_100M, clk_125M, clk_200M;
 pll clock_gen(
-    .clk_40M,
+    .clk_20M,
     .clk_100M,
     .clk_125M,
     .clk_200M,
@@ -173,7 +173,7 @@ sel_t cpu_ram_sel;
 int_t cpu_int;
 
 cpu_top cpu_top_inst(
-    .clk(clk_40M),
+    .clk(clk_20M),
     .rst(~locked),
 
     .ram_addr(cpu_ram_addr),
@@ -191,14 +191,14 @@ digit_hex dh_inst (
     .value(cpu_ram_addr[3:0]),
     .digit(dpy0)
 );
-digit_hex dh_inst2 (
+digit_hex dh_inst_2 (
     .value(cpu_ram_addr[7:4]),
     .digit(dpy1)
 );
 
 // 总线控制器
 bus_ctrl bus_ctrl_inst(
-    .clk(clk_40M),
+    .clk(clk_20M),
     .clk_50M(clk_50M),
     .clk_125M(clk_125M),
     .clk_200M(clk_200M),

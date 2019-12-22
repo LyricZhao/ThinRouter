@@ -59,7 +59,7 @@
 // clk_100M___100.000______0.000______50.0______162.035____164.985
 // clk_125M___125.000______0.000______50.0______154.207____164.985
 // clk_200M___200.000______0.000______50.0______142.107____164.985
-// _clk_40M____40.000______0.000______50.0______204.383____164.985
+// _clk_20M____20.000______0.000______50.0______249.363____164.985
 //
 //----------------------------------------------------------------------------
 // Input Clock   Freq (MHz)    Input Jitter (UI)
@@ -76,7 +76,7 @@ module pll
   output        clk_100M,
   output        clk_125M,
   output        clk_200M,
-  output        clk_40M,
+  output        clk_20M,
   // Status and control signals
   input         reset,
   output        locked,
@@ -90,7 +90,7 @@ module pll
   .clk_100M(clk_100M),
   .clk_125M(clk_125M),
   .clk_200M(clk_200M),
-  .clk_40M(clk_40M),
+  .clk_20M(clk_20M),
   // Status and control signals               
   .reset(reset), 
   .locked(locked),

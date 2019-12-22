@@ -1,10 +1,10 @@
 -- Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
 -- --------------------------------------------------------------------------------
 -- Tool Version: Vivado v.2018.3 (lin64) Build 2405991 Thu Dec  6 23:36:41 MST 2018
--- Date        : Wed Dec 18 02:27:01 2019
--- Host        : parallels-Parallels-Virtual-Platform running 64-bit Ubuntu 18.04.1 LTS
+-- Date        : Sun Dec 22 09:58:08 2019
+-- Host        : parallels-Parallels-Virtual-Platform running 64-bit Ubuntu 18.04.3 LTS
 -- Command     : write_vhdl -force -mode funcsim
---               /media/psf/Home/Work/Programs/semester5/CPU/cod19grp4/thinpad_top.srcs/sources_1/ip/pll/pll_sim_netlist.vhdl
+--               /media/psf/Home/Desktop/cod19grp4/thinpad_top.srcs/sources_1/ip/pll/pll_sim_netlist.vhdl
 -- Design      : pll
 -- Purpose     : This VHDL netlist is a functional simulation representation of the design and should not be modified or
 --               synthesized. This netlist cannot be used for SDF annotated simulation.
@@ -19,7 +19,7 @@ entity pll_pll_clk_wiz is
     clk_100M : out STD_LOGIC;
     clk_125M : out STD_LOGIC;
     clk_200M : out STD_LOGIC;
-    clk_40M : out STD_LOGIC;
+    clk_20M : out STD_LOGIC;
     reset : in STD_LOGIC;
     locked : out STD_LOGIC;
     clk_in1 : in STD_LOGIC
@@ -32,7 +32,7 @@ architecture STRUCTURE of pll_pll_clk_wiz is
   signal clk_100M_pll : STD_LOGIC;
   signal clk_125M_pll : STD_LOGIC;
   signal clk_200M_pll : STD_LOGIC;
-  signal clk_40M_pll : STD_LOGIC;
+  signal clk_20M_pll : STD_LOGIC;
   signal clk_in1_pll : STD_LOGIC;
   signal clkfbout_buf_pll : STD_LOGIC;
   signal clkfbout_pll : STD_LOGIC;
@@ -94,8 +94,8 @@ clkout3_buf: unisim.vcomponents.BUFG
     );
 clkout4_buf: unisim.vcomponents.BUFG
      port map (
-      I => clk_40M_pll,
-      O => clk_40M
+      I => clk_20M_pll,
+      O => clk_20M
     );
 mmcm_adv_inst: unisim.vcomponents.MMCME2_ADV
     generic map(
@@ -117,7 +117,7 @@ mmcm_adv_inst: unisim.vcomponents.MMCME2_ADV
       CLKOUT2_DUTY_CYCLE => 0.500000,
       CLKOUT2_PHASE => 0.000000,
       CLKOUT2_USE_FINE_PS => false,
-      CLKOUT3_DIVIDE => 25,
+      CLKOUT3_DIVIDE => 50,
       CLKOUT3_DUTY_CYCLE => 0.500000,
       CLKOUT3_PHASE => 0.000000,
       CLKOUT3_USE_FINE_PS => false,
@@ -163,7 +163,7 @@ mmcm_adv_inst: unisim.vcomponents.MMCME2_ADV
       CLKOUT1B => NLW_mmcm_adv_inst_CLKOUT1B_UNCONNECTED,
       CLKOUT2 => clk_200M_pll,
       CLKOUT2B => NLW_mmcm_adv_inst_CLKOUT2B_UNCONNECTED,
-      CLKOUT3 => clk_40M_pll,
+      CLKOUT3 => clk_20M_pll,
       CLKOUT3B => NLW_mmcm_adv_inst_CLKOUT3B_UNCONNECTED,
       CLKOUT4 => NLW_mmcm_adv_inst_CLKOUT4_UNCONNECTED,
       CLKOUT5 => NLW_mmcm_adv_inst_CLKOUT5_UNCONNECTED,
@@ -193,7 +193,7 @@ entity pll is
     clk_100M : out STD_LOGIC;
     clk_125M : out STD_LOGIC;
     clk_200M : out STD_LOGIC;
-    clk_40M : out STD_LOGIC;
+    clk_20M : out STD_LOGIC;
     reset : in STD_LOGIC;
     locked : out STD_LOGIC;
     clk_in1 : in STD_LOGIC
@@ -209,7 +209,7 @@ inst: entity work.pll_pll_clk_wiz
       clk_100M => clk_100M,
       clk_125M => clk_125M,
       clk_200M => clk_200M,
-      clk_40M => clk_40M,
+      clk_20M => clk_20M,
       clk_in1 => clk_in1,
       locked => locked,
       reset => reset
