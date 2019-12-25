@@ -1,4 +1,4 @@
 ThinRouter Group 4
 ---------------
 
-Still working on it.
+ See reports/final-router-report.pdf and reports/final-cpu-report.pdf
